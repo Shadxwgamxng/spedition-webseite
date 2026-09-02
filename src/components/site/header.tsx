@@ -24,11 +24,16 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-sm font-medium transition-colors hover:text-amber-600 ${
+                className={`group relative py-1 text-sm font-medium transition-colors hover:text-amber-600 ${
                   active ? "text-amber-600" : "text-navy-800"
                 }`}
               >
                 {link.label}
+                <span
+                  className={`absolute inset-x-0 -bottom-0.5 h-0.5 origin-left scale-x-0 bg-amber-500 transition-transform duration-300 group-hover:scale-x-100 ${
+                    active ? "scale-x-100" : ""
+                  }`}
+                />
               </Link>
             );
           })}

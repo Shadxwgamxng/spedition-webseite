@@ -2,19 +2,27 @@
 
 :root {
   --background: #f6f7f9;
-  --foreground: #0a1c33;
+  --foreground: #0a2033;
 
-  --color-navy-950: #030a16;
-  --color-navy-900: #081a30;
-  --color-navy-800: #0d2745;
-  --color-navy-700: #133358;
-  --color-navy-600: #1c4470;
-  --color-navy-500: #2a5a90;
+  /* "Harbor" petrol-navy — cooler and more distinctive than plain navy. */
+  --color-navy-950: #04121f;
+  --color-navy-900: #0a2338;
+  --color-navy-800: #0f3350;
+  --color-navy-700: #154569;
+  --color-navy-600: #1d5b86;
+  --color-navy-500: #2c76a3;
 
-  --color-amber-600: #c9791a;
-  --color-amber-500: #e08e22;
-  --color-amber-400: #f2a53f;
-  --color-amber-300: #f6bc6c;
+  /* Warm signal amber — the CTA / energy color. */
+  --color-amber-600: #d9720f;
+  --color-amber-500: #f2870f;
+  --color-amber-400: #ff9f3d;
+  --color-amber-300: #ffbc72;
+
+  /* Baltic Sea teal — secondary accent for illustrations, gradients, highlights. */
+  --color-teal-600: #0d7d6f;
+  --color-teal-500: #14a394;
+  --color-teal-400: #2ec8b6;
+  --color-teal-300: #82e0d1;
 
   --color-mist-50: #f6f7f9;
   --color-mist-100: #eef1f4;
@@ -37,6 +45,11 @@
   --color-amber-500: var(--color-amber-500);
   --color-amber-400: var(--color-amber-400);
   --color-amber-300: var(--color-amber-300);
+
+  --color-teal-600: var(--color-teal-600);
+  --color-teal-500: var(--color-teal-500);
+  --color-teal-400: var(--color-teal-400);
+  --color-teal-300: var(--color-teal-300);
 
   --color-mist-50: var(--color-mist-50);
   --color-mist-100: var(--color-mist-100);
@@ -76,4 +89,77 @@ body {
     linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
   background-size: 42px 42px;
+}
+
+/*
+ * Scroll-reveal utility for <Reveal>. Elements are visible by default — only
+ * once the component confirms (client-side) that an element starts off-screen
+ * does it add .reveal-hidden, so this never leaves content invisible if JS is
+ * blocked, slow, or errors.
+ */
+.reveal-anim {
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal-hidden {
+  opacity: 0;
+  transform: translateY(1.25rem);
+}
+
+@keyframes route-dash {
+  to {
+    stroke-dashoffset: -200;
+  }
+}
+
+.route-line {
+  stroke-dasharray: 8 10;
+  animation: route-dash 12s linear infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.pulse-ring {
+  animation: pulse-ring 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  transform-origin: center;
+}
+
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.float-y {
+  animation: float-y 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-hidden {
+    opacity: 1;
+    transform: none;
+  }
+  .reveal-anim {
+    transition: none;
+  }
+  .route-line,
+  .pulse-ring,
+  .float-y {
+    animation: none;
+  }
 }

@@ -3,46 +3,31 @@
 import { useMemo, useState } from "react";
 import { EmployeePageHeader, StatCard } from "@/components/employee/page-header";
 import { Badge } from "@/components/ui/primitives";
+import { usePolling } from "@/lib/use-polling";
+import type { MaintenanceStatus, VehicleRecord } from "@/lib/fleet-data";
 
-type VehicleStatus = "Einsatzbereit" | "Unterwegs" | "In Werkstatt" | "TÜV fällig";
+type VehiclesResponse = { vehicles: VehicleRecord[] };
 
-type Vehicle = {
-  plate: string;
-  type: string;
-  year: number;
-  mileage: number;
-  nextService: string;
-  nextTuv: string;
-  status: VehicleStatus;
-};
-
-const statusTone: Record<VehicleStatus, "green" | "amber" | "navy"> = {
+const statusTone: Record<MaintenanceStatus, "green" | "amber" | "navy"> = {
   Einsatzbereit: "green",
-  Unterwegs: "navy",
   "In Werkstatt": "amber",
   "TÜV fällig": "amber",
 };
 
-const initialVehicles: Vehicle[] = [
-  { plate: "SN-BF 101", type: "Sattelzugmaschine Euro 6", year: 2024, mileage: 128450, nextService: "2026-10-02", nextTuv: "2027-03-15", status: "Unterwegs" },
-  { plate: "SN-BF 102", type: "Sattelzugmaschine Euro 6", year: 2023, mileage: 189320, nextService: "2026-09-18", nextTuv: "2026-11-30", status: "Einsatzbereit" },
-  { plate: "SN-BF 104", type: "Sattelzugmaschine Euro 6E", year: 2025, mileage: 42110, nextService: "2027-01-20", nextTuv: "2027-06-10", status: "Unterwegs" },
-  { plate: "SN-BF 112", type: "Kühlauflieger Multi-Temp", year: 2022, mileage: 210870, nextService: "2026-09-10", nextTuv: "2026-09-25", status: "TÜV fällig" },
-  { plate: "SN-BF 118", type: "Standard-Sattelauflieger", year: 2021, mileage: 265400, nextService: "2026-09-05", nextTuv: "2027-02-18", status: "In Werkstatt" },
-  { plate: "SN-BF 122", type: "Wechselbrücke 7,5t", year: 2023, mileage: 98230, nextService: "2026-11-12", nextTuv: "2027-04-02", status: "Einsatzbereit" },
-];
-
 export default function FahrzeugePage() {
-  const [vehicles] = useState<Vehicle[]>(initialVehicles);
-  const [filter, setFilter] = useState<VehicleStatus | "Alle">("Alle");
+  const { data } = usePolling<VehiclesResponse>("/api/vehicles", 5000);
+  const [filter, setFilter] = useState<MaintenanceStatus | "Alle">("Alle");
+
+  const vehicles = useMemo(() => data?.vehicles ?? [], [data]);
 
   const filtered = useMemo(
-    () => (filter === "Alle" ? vehicles : vehicles.filter((v) => v.status === filter)),
+    () => (filter === "Alle" ? vehicles : vehicles.filter((v) => v.maintenanceStatus === filter)),
     [vehicles, filter],
   );
 
-  const readyCount = vehicles.filter((v) => v.status === "Einsatzbereit" || v.status === "Unterwegs").length;
-  const attentionCount = vehicles.filter((v) => v.status === "In Werkstatt" || v.status === "TÜV fällig").length;
+  const readyCount = vehicles.filter((v) => v.maintenanceStatus === "Einsatzbereit").length;
+  const attentionCount = vehicles.filter((v) => v.maintenanceStatus !== "Einsatzbereit").length;
+  const activeCount = vehicles.filter((v) => v.activeDriver).length;
 
   return (
     <div>
@@ -52,14 +37,14 @@ export default function FahrzeugePage() {
       />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard label="Fahrzeuge gesamt" value={String(vehicles.length)} hint="Demo-Auswahl aus 119 Fahrzeugen" />
-        <StatCard label="Einsatzbereit / unterwegs" value={String(readyCount)} tone="good" />
+        <StatCard label="Fahrzeuge gesamt" value={String(vehicles.length)} />
+        <StatCard label="Einsatzbereit" value={String(readyCount)} tone="good" />
         <StatCard label="Werkstatt / TÜV fällig" value={String(attentionCount)} tone={attentionCount ? "warn" : "good"} />
-        <StatCard label="Ø Laufleistung" value={`${Math.round(vehicles.reduce((s, v) => s + v.mileage, 0) / vehicles.length).toLocaleString("de-DE")} km`} />
+        <StatCard label="Gerade im Einsatz" value={String(activeCount)} hint="Fahrer angemeldet" />
       </div>
 
       <div className="mt-8 flex flex-wrap items-center gap-2">
-        {(["Alle", "Einsatzbereit", "Unterwegs", "In Werkstatt", "TÜV fällig"] as const).map((s) => (
+        {(["Alle", "Einsatzbereit", "In Werkstatt", "TÜV fällig"] as const).map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}
@@ -73,7 +58,7 @@ export default function FahrzeugePage() {
       </div>
 
       <div className="mt-4 overflow-x-auto rounded-2xl border border-navy-900/8 bg-white shadow-sm shadow-navy-950/5">
-        <table className="w-full min-w-[820px] text-left text-sm">
+        <table className="w-full min-w-[860px] text-left text-sm">
           <thead className="border-b border-navy-900/8 bg-mist-100 text-xs uppercase tracking-wide text-navy-700/60">
             <tr>
               <th className="px-4 py-3 font-medium">Kennzeichen</th>
@@ -82,6 +67,7 @@ export default function FahrzeugePage() {
               <th className="px-4 py-3 font-medium">Kilometerstand</th>
               <th className="px-4 py-3 font-medium">Nächste Wartung</th>
               <th className="px-4 py-3 font-medium">Nächster TÜV</th>
+              <th className="px-4 py-3 font-medium">Aktuell gefahren von</th>
               <th className="px-4 py-3 font-medium">Status</th>
             </tr>
           </thead>
@@ -99,10 +85,24 @@ export default function FahrzeugePage() {
                   {new Date(v.nextTuv).toLocaleDateString("de-DE")}
                 </td>
                 <td className="px-4 py-3">
-                  <Badge tone={statusTone[v.status]}>{v.status}</Badge>
+                  {v.activeDriver ? (
+                    <Badge tone="green">{v.activeDriver}</Badge>
+                  ) : (
+                    <span className="text-navy-700/40">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <Badge tone={statusTone[v.maintenanceStatus]}>{v.maintenanceStatus}</Badge>
                 </td>
               </tr>
             ))}
+            {filtered.length === 0 && data ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-navy-700/50">
+                  Keine Fahrzeuge in dieser Ansicht.
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>

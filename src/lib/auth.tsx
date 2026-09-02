@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { driverRoster } from "@/lib/fleet-data";
 
 export type EmployeeUser = {
   username: string;
@@ -31,6 +32,15 @@ const DEMO_ACCOUNTS: Record<string, { password: string; user: EmployeeUser }> = 
     user: { username: "admin", name: "Torsten Wegner", role: "Geschäftsführer", department: "Geschäftsleitung" },
   },
 };
+
+// One demo login per roster driver: fahrer1 … fahrerN, e.g. "fahrer1" = Lukas Schmidt.
+driverRoster.forEach((name, index) => {
+  const username = `fahrer${index + 1}`;
+  DEMO_ACCOUNTS[username] = {
+    password: "baltic2026",
+    user: { username, name, role: "Fahrer", department: "Fahrbetrieb" },
+  };
+});
 
 const STORAGE_KEY = "bf-employee-session";
 
@@ -108,6 +118,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    if (user?.role === "Fahrer") {
+      fetch("/api/vehicles/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ driverName: user.name }),
+      }).catch(() => {
+        // best-effort: local session is cleared either way
+      });
+    }
     persistUser(null);
   }
 
@@ -127,7 +146,11 @@ export function useAuth() {
   return ctx;
 }
 
-export const demoAccountHints = Object.values(DEMO_ACCOUNTS).map((a) => ({
-  username: a.user.username,
-  department: a.user.department,
-}));
+const nonDriverHints = Object.values(DEMO_ACCOUNTS)
+  .filter((a) => a.user.role !== "Fahrer")
+  .map((a) => ({ username: a.user.username, department: a.user.department }));
+
+export const demoAccountHints = [
+  ...nonDriverHints,
+  { username: `fahrer1 … fahrer${driverRoster.length}`, department: `Fahrer (z. B. ${driverRoster[0]})` },
+];

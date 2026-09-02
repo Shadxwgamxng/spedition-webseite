@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { Logo } from "@/components/site/logo";
 import { employeeModules } from "@/lib/employee-nav";
 import { CloseIcon, LockIcon, MenuIcon } from "@/components/ui/icons";
+import { VehicleGate } from "@/components/employee/vehicle-gate";
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const { user, status, logout } = useAuth();
@@ -128,7 +129,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
-        <main className="px-4 py-8 sm:px-6 lg:py-10">{children}</main>
+        <main className="px-4 py-8 sm:px-6 lg:py-10">
+          {user.role === "Fahrer" ? <VehicleGate driverName={user.name}>{children}</VehicleGate> : children}
+        </main>
       </div>
     </div>
   );

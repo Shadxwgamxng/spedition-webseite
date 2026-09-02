@@ -111,13 +111,13 @@ export function Button({
     ghost: "text-navy-900 hover:bg-navy-900/5 focus-visible:outline-navy-500",
   };
 
-  const cls = `inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${mergeClasses(styles[variant], className)}`;
+  const cls = `group inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${mergeClasses(styles[variant], className)}`;
 
   if (href) {
     return (
       <Link href={href} className={cls}>
         {children}
-        {icon ? <ArrowRightIcon className="h-4 w-4" /> : null}
+        {icon ? <ArrowRightIcon className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" /> : null}
       </Link>
     );
   }
@@ -131,7 +131,8 @@ export function Button({
 }
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  const base = "rounded-2xl border border-navy-900/8 bg-white p-6 shadow-sm shadow-navy-950/5";
+  const base =
+    "rounded-2xl border border-navy-900/8 bg-white p-6 shadow-sm shadow-navy-950/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-navy-950/10";
   return <div className={mergeClasses(base, className)}>{children}</div>;
 }
 
