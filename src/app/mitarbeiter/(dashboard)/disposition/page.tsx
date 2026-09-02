@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { Fragment, useMemo, useState, type FormEvent } from "react";
 import { EmployeePageHeader, StatCard } from "@/components/employee/page-header";
 import { Badge, Button } from "@/components/ui/primitives";
 import { usePolling } from "@/lib/use-polling";
+import { useAuth } from "@/lib/auth";
+import { OrderChat } from "@/components/employee/order-chat";
 import type { OrderRecord, OrderStatus, VehicleRecord } from "@/lib/fleet-data";
-import { CheckIcon, TruckIcon } from "@/components/ui/icons";
+import { CheckIcon, MessageIcon, TruckIcon } from "@/components/ui/icons";
 
 type OrdersResponse = { orders: OrderRecord[] };
 type VehiclesResponse = { vehicles: VehicleRecord[] };
@@ -21,12 +23,14 @@ const statusOptions: OrderStatus[] = ["Neu", "Disponiert", "Unterwegs", "Zugeste
 const UNASSIGNED = "— nicht zugewiesen —";
 
 export default function DispositionPage() {
+  const { user } = useAuth();
   const orders = usePolling<OrdersResponse>("/api/orders", 4000);
   const vehicles = usePolling<VehiclesResponse>("/api/vehicles", 4000);
   const [filter, setFilter] = useState<OrderStatus | "Alle">("Alle");
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const allOrders = useMemo(() => orders.data?.orders ?? [], [orders.data]);
   const activeFleet = useMemo(
@@ -171,56 +175,82 @@ export default function DispositionPage() {
                   <th className="px-4 py-3 font-medium">Route</th>
                   <th className="px-4 py-3 font-medium">Fahrzeug (aktiv)</th>
                   <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Nachrichten</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-900/6">
-                {filtered.map((order) => (
-                  <tr key={order.id} className="align-middle">
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold text-navy-900">{order.id}</td>
-                    <td className="px-4 py-3 text-navy-800">{order.customer}</td>
-                    <td className="px-4 py-3 text-navy-700/80">
-                      {order.pickup} → {order.delivery}
-                    </td>
-                    <td className="px-4 py-3">
-                      <select
-                        value={order.vehiclePlate ?? UNASSIGNED}
-                        onChange={(e) => assignVehicle(order, e.target.value)}
-                        className="rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs"
-                      >
-                        <option value={UNASSIGNED}>{UNASSIGNED}</option>
-                        {activeFleet.map((v) => (
-                          <option key={v.plate} value={v.plate}>
-                            {v.plate} · {v.activeDriver}
-                          </option>
-                        ))}
-                        {order.vehiclePlate && !activeFleet.some((v) => v.plate === order.vehiclePlate) ? (
-                          <option value={order.vehiclePlate}>
-                            {order.vehiclePlate} · {order.driverName} (abgemeldet)
-                          </option>
-                        ) : null}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3">
-                      <select
-                        value={order.status}
-                        onChange={(e) => patchOrder(order.id, { status: e.target.value })}
-                        className="rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs font-medium"
-                      >
-                        {statusOptions.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="mt-1.5">
-                        <Badge tone={statusStyles[order.status]}>{order.status}</Badge>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((order) => {
+                  const unreadCount = order.messages.length;
+                  const expanded = expandedId === order.id;
+                  return (
+                    <Fragment key={order.id}>
+                      <tr className="align-middle">
+                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold text-navy-900">{order.id}</td>
+                        <td className="px-4 py-3 text-navy-800">{order.customer}</td>
+                        <td className="px-4 py-3 text-navy-700/80">
+                          {order.pickup} → {order.delivery}
+                        </td>
+                        <td className="px-4 py-3">
+                          <select
+                            value={order.vehiclePlate ?? UNASSIGNED}
+                            onChange={(e) => assignVehicle(order, e.target.value)}
+                            className="rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs"
+                          >
+                            <option value={UNASSIGNED}>{UNASSIGNED}</option>
+                            {activeFleet.map((v) => (
+                              <option key={v.plate} value={v.plate}>
+                                {v.plate} · {v.activeDriver}
+                              </option>
+                            ))}
+                            {order.vehiclePlate && !activeFleet.some((v) => v.plate === order.vehiclePlate) ? (
+                              <option value={order.vehiclePlate}>
+                                {order.vehiclePlate} · {order.driverName} (abgemeldet)
+                              </option>
+                            ) : null}
+                          </select>
+                        </td>
+                        <td className="px-4 py-3">
+                          <select
+                            value={order.status}
+                            onChange={(e) => patchOrder(order.id, { status: e.target.value })}
+                            className="rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs font-medium"
+                          >
+                            {statusOptions.map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="mt-1.5">
+                            <Badge tone={statusStyles[order.status]}>{order.status}</Badge>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedId(expanded ? null : order.id)}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-navy-900/15 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-mist-100"
+                          >
+                            <MessageIcon className="h-3.5 w-3.5" />
+                            {unreadCount || 0}
+                          </button>
+                        </td>
+                      </tr>
+                      {expanded ? (
+                        <tr>
+                          <td colSpan={6} className="bg-mist-100/60 px-4 py-4">
+                            {user ? (
+                              <OrderChat order={order} from="dispo" authorName={user.name} onSent={orders.refetch} />
+                            ) : null}
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-navy-700/50">
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-navy-700/50">
                       {orders.data ? "Keine Aufträge in dieser Ansicht." : "Aufträge werden geladen…"}
                     </td>
                   </tr>

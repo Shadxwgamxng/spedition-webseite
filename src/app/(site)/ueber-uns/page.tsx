@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { PageHero } from "@/components/site/page-hero";
 import { Button, Card, Container, Section, SectionHeading } from "@/components/ui/primitives";
 import { CheckIcon, ClockIcon, GlobeIcon, ShieldIcon, TruckIcon, UsersIcon } from "@/components/ui/icons";
-import { company } from "@/lib/data";
+import { getCompany } from "@/lib/server/store";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Über uns",
@@ -25,7 +27,8 @@ const values = [
   { icon: UsersIcon, title: "Starkes Team", text: "Über 120 Mitarbeitende, die täglich für unsere Kunden im Einsatz sind." },
 ];
 
-export default function UeberUnsPage() {
+export default async function UeberUnsPage() {
+  const company = await getCompany();
   return (
     <>
       <PageHero

@@ -3,14 +3,17 @@ import { PageHero } from "@/components/site/page-hero";
 import { Container, Section } from "@/components/ui/primitives";
 import { OrderForm } from "@/components/site/order-form";
 import { ClockIcon, MailIcon, PhoneIcon } from "@/components/ui/icons";
-import { company } from "@/lib/data";
+import { getCompany } from "@/lib/server/store";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Auftrag einreichen",
   description: "Reichen Sie Ihren Transportauftrag direkt online bei der Disposition der Baltic Freight GmbH ein.",
 };
 
-export default function AuftragPage() {
+export default async function AuftragPage() {
+  const company = await getCompany();
   return (
     <>
       <PageHero

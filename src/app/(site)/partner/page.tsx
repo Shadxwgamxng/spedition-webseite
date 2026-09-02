@@ -1,15 +1,18 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/site/page-hero";
 import { Button, Card, Container, Section, SectionHeading } from "@/components/ui/primitives";
-import { partners } from "@/lib/data";
+import { getPartners } from "@/lib/server/store";
 import { GlobeIcon } from "@/components/ui/icons";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Partner",
   description: "Unsere Netzwerk- und Kooperationspartner im Ostseeraum.",
 };
 
-export default function PartnerPage() {
+export default async function PartnerPage() {
+  const partners = await getPartners();
   return (
     <>
       <PageHero
@@ -23,7 +26,7 @@ export default function PartnerPage() {
           <SectionHeading eyebrow="Unsere Partner" title="Netzwerk- und Kooperationspartner" />
           <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {partners.map((partner) => (
-              <Card key={partner.name} className="flex items-start gap-4">
+              <Card key={partner.id} className="flex items-start gap-4">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-navy-900 text-amber-400">
                   <GlobeIcon className="h-5 w-5" />
                 </div>

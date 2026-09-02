@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "@/components/site/logo";
 import { employeeModules } from "@/lib/employee-nav";
+import { canAccessModule, roleModuleAccess } from "@/lib/roles";
 import { CloseIcon, LockIcon, MenuIcon } from "@/components/ui/icons";
 import { VehicleGate } from "@/components/employee/vehicle-gate";
 
@@ -15,11 +16,27 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const currentModuleKey = pathname.split("/")[2] ?? null;
+  const allowed = user ? roleModuleAccess[user.roleKey] : [];
+  const visibleModules = useMemo(
+    () => (user ? employeeModules.filter((mod) => canAccessModule(user.roleKey, mod.key)) : []),
+    [user],
+  );
+
   useEffect(() => {
     if (status === "ready" && !user) {
       router.replace("/mitarbeiter/login");
     }
   }, [status, user, router]);
+
+  // Route guard: block direct navigation to a module the current role can't see,
+  // not just hide it from the sidebar — otherwise this is only a UI convenience.
+  useEffect(() => {
+    if (!user || !currentModuleKey) return;
+    if (!canAccessModule(user.roleKey, currentModuleKey)) {
+      router.replace("/mitarbeiter");
+    }
+  }, [user, currentModuleKey, router]);
 
   if (status === "loading" || !user) {
     return (
@@ -30,6 +47,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  if (currentModuleKey && !allowed.includes(currentModuleKey)) {
+    // About to be redirected by the effect above — render nothing in the meantime.
+    return null;
   }
 
   const sidebar = (
@@ -48,7 +70,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           Übersicht
         </Link>
         <div className="mt-3 border-t border-white/10 pt-3">
-          {employeeModules.map((mod) => {
+          {visibleModules.map((mod) => {
             const active = pathname === mod.href;
             return (
               <Link
@@ -130,7 +152,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main className="px-4 py-8 sm:px-6 lg:py-10">
-          {user.role === "Fahrer" ? <VehicleGate driverName={user.name}>{children}</VehicleGate> : children}
+          {user.roleKey === "fahrer" ? <VehicleGate driverName={user.name}>{children}</VehicleGate> : children}
         </main>
       </div>
     </div>

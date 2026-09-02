@@ -3,14 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, Button, Container, Section } from "@/components/ui/primitives";
 import { CheckIcon, MapPinIcon } from "@/components/ui/icons";
-import { jobs } from "@/lib/data";
+import { getJobs } from "@/lib/server/store";
 
-export function generateStaticParams() {
-  return jobs.map((job) => ({ slug: job.slug }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata(props: PageProps<"/karriere/[slug]">): Promise<Metadata> {
   const { slug } = await props.params;
+  const jobs = await getJobs();
   const job = jobs.find((j) => j.slug === slug);
   if (!job) return {};
   return { title: job.title, description: job.description };
@@ -18,6 +17,7 @@ export async function generateMetadata(props: PageProps<"/karriere/[slug]">): Pr
 
 export default async function JobDetailPage(props: PageProps<"/karriere/[slug]">) {
   const { slug } = await props.params;
+  const jobs = await getJobs();
   const job = jobs.find((j) => j.slug === slug);
   if (!job) notFound();
 

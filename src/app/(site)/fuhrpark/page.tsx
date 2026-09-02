@@ -2,14 +2,17 @@ import type { Metadata } from "next";
 import { PageHero } from "@/components/site/page-hero";
 import { Button, Card, Container, Section, SectionHeading } from "@/components/ui/primitives";
 import { CheckIcon, GaugeIcon, TruckIcon } from "@/components/ui/icons";
-import { fleet } from "@/lib/data";
+import { getFleetCategories } from "@/lib/server/store";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Fuhrpark",
   description: "Unser moderner Fuhrpark: Sattelzugmaschinen, Kühlauflieger und flexible Solofahrzeuge.",
 };
 
-export default function FuhrparkPage() {
+export default async function FuhrparkPage() {
+  const fleet = await getFleetCategories();
   const totalVehicles = fleet.reduce((sum, item) => sum + item.count, 0);
 
   return (
@@ -24,7 +27,7 @@ export default function FuhrparkPage() {
         <Container>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {fleet.map((item) => (
-              <Card key={item.category} className="flex flex-col">
+              <Card key={item.id} className="flex flex-col">
                 <div className="flex items-center justify-between">
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-navy-900 text-amber-400">
                     <TruckIcon className="h-5 w-5" />

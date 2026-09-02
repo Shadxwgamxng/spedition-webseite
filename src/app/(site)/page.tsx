@@ -15,7 +15,9 @@ import {
   TruckIcon,
   WarehouseIcon,
 } from "@/components/ui/icons";
-import { fleet, jobs, news, partners, reviews, services } from "@/lib/data";
+import { getFleetCategories, getJobs, getNews, getPartners, getReviews, getServices } from "@/lib/server/store";
+
+export const dynamic = "force-dynamic";
 
 const serviceIcons = {
   truck: TruckIcon,
@@ -33,9 +35,17 @@ const stats = [
   { value: "120+", label: "Mitarbeitende" },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [fleet, jobs, news, partners, reviews, services] = await Promise.all([
+    getFleetCategories(),
+    getJobs(),
+    getNews(),
+    getPartners(),
+    getReviews(),
+    getServices(),
+  ]);
   const totalVehicles = fleet.reduce((sum, item) => sum + item.count, 0);
-  const avgRating = (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1);
+  const avgRating = reviews.length ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : "0.0";
 
   return (
     <>

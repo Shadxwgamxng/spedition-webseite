@@ -2,15 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, Button, Container, Section } from "@/components/ui/primitives";
-import { news } from "@/lib/data";
+import { getNews } from "@/lib/server/store";
 import { ArrowRightIcon } from "@/components/ui/icons";
 
-export function generateStaticParams() {
-  return news.map((post) => ({ slug: post.slug }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata(props: PageProps<"/news/[slug]">): Promise<Metadata> {
   const { slug } = await props.params;
+  const news = await getNews();
   const post = news.find((p) => p.slug === slug);
   if (!post) return {};
   return { title: post.title, description: post.excerpt };
@@ -18,6 +17,7 @@ export async function generateMetadata(props: PageProps<"/news/[slug]">): Promis
 
 export default async function NewsDetailPage(props: PageProps<"/news/[slug]">) {
   const { slug } = await props.params;
+  const news = await getNews();
   const post = news.find((p) => p.slug === slug);
   if (!post) notFound();
 

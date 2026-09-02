@@ -10,7 +10,9 @@ import {
   TruckIcon,
   WarehouseIcon,
 } from "@/components/ui/icons";
-import { services } from "@/lib/data";
+import { getServices } from "@/lib/server/store";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Unsere Leistungen",
@@ -26,7 +28,8 @@ const serviceIcons = {
   clock: ClockIcon,
 };
 
-export default function LeistungenPage() {
+export default async function LeistungenPage() {
+  const services = await getServices();
   return (
     <>
       <PageHero

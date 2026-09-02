@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/site/logo";
-import { company, navLinks } from "@/lib/data";
+import { navLinks } from "@/lib/data";
+import { getCompany } from "@/lib/server/store";
 import { MailIcon, MapPinIcon, PhoneIcon } from "@/components/ui/icons";
 
 const employeeLinks = [
@@ -21,7 +22,8 @@ const serviceLinks = [
   { href: "/partner", label: "Partner" },
 ];
 
-export function Footer() {
+export async function Footer() {
+  const company = await getCompany();
   return (
     <footer className="bg-navy-950 text-white">
       <div className="container-page grid grid-cols-1 gap-10 py-16 sm:grid-cols-2 lg:grid-cols-5">

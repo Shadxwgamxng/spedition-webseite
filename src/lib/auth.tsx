@@ -2,34 +2,66 @@
 
 import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { driverRoster } from "@/lib/fleet-data";
+import { roleLabels, type RoleKey } from "@/lib/roles";
 
 export type EmployeeUser = {
   username: string;
   name: string;
   role: string;
+  roleKey: RoleKey;
   department: string;
 };
 
 const DEMO_ACCOUNTS: Record<string, { password: string; user: EmployeeUser }> = {
   disposition: {
     password: "baltic2026",
-    user: { username: "disposition", name: "Marek Nowicki", role: "Leiter Disposition", department: "Disposition" },
+    user: {
+      username: "disposition",
+      name: "Marek Nowicki",
+      role: "Leiter Disposition",
+      roleKey: "disposition",
+      department: "Disposition",
+    },
   },
   lager: {
     password: "baltic2026",
-    user: { username: "lager", name: "Sandra Lehmann", role: "Leiterin Lagerlogistik", department: "Lager" },
+    user: {
+      username: "lager",
+      name: "Sandra Lehmann",
+      role: "Leiterin Lagerlogistik",
+      roleKey: "lager",
+      department: "Lager",
+    },
   },
   fuhrpark: {
     password: "baltic2026",
-    user: { username: "fuhrpark", name: "Jonas Petersen", role: "Leiter Fuhrparkmanagement", department: "Fuhrpark & Werkstatt" },
+    user: {
+      username: "fuhrpark",
+      name: "Jonas Petersen",
+      role: "Leiter Fuhrparkmanagement",
+      roleKey: "fuhrpark",
+      department: "Fuhrpark & Werkstatt",
+    },
   },
   buchhaltung: {
     password: "baltic2026",
-    user: { username: "buchhaltung", name: "Dennis Kramer", role: "Leiter Buchhaltung", department: "Finanzbuchhaltung" },
+    user: {
+      username: "buchhaltung",
+      name: "Dennis Kramer",
+      role: "Leiter Buchhaltung",
+      roleKey: "buchhaltung",
+      department: "Finanzbuchhaltung",
+    },
   },
   admin: {
     password: "baltic2026",
-    user: { username: "admin", name: "Torsten Wegner", role: "Geschäftsführer", department: "Geschäftsleitung" },
+    user: {
+      username: "admin",
+      name: "Torsten Wegner",
+      role: "Geschäftsführer",
+      roleKey: "geschaeftsfuehrung",
+      department: "Geschäftsleitung",
+    },
   },
 };
 
@@ -38,7 +70,7 @@ driverRoster.forEach((name, index) => {
   const username = `fahrer${index + 1}`;
   DEMO_ACCOUNTS[username] = {
     password: "baltic2026",
-    user: { username, name, role: "Fahrer", department: "Fahrbetrieb" },
+    user: { username, name, role: roleLabels.fahrer, roleKey: "fahrer", department: "Fahrbetrieb" },
   };
 });
 
@@ -118,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
-    if (user?.role === "Fahrer") {
+    if (user?.roleKey === "fahrer") {
       fetch("/api/vehicles/logout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -147,7 +179,7 @@ export function useAuth() {
 }
 
 const nonDriverHints = Object.values(DEMO_ACCOUNTS)
-  .filter((a) => a.user.role !== "Fahrer")
+  .filter((a) => a.user.roleKey !== "fahrer")
   .map((a) => ({ username: a.user.username, department: a.user.department }));
 
 export const demoAccountHints = [

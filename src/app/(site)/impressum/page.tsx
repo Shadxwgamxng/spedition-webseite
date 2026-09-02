@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/site/page-hero";
 import { Container, Section } from "@/components/ui/primitives";
-import { company } from "@/lib/data";
+import { getCompany } from "@/lib/server/store";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Impressum",
 };
 
-export default function ImpressumPage() {
+export default async function ImpressumPage() {
+  const company = await getCompany();
   return (
     <>
       <PageHero eyebrow="Rechtliches" title="Impressum" />

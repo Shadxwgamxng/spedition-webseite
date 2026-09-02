@@ -3,6 +3,9 @@ import { PageHero } from "@/components/site/page-hero";
 import { Container, Section } from "@/components/ui/primitives";
 import { ApplicationForm } from "@/components/site/application-form";
 import { CheckIcon } from "@/components/ui/icons";
+import { getJobs } from "@/lib/server/store";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Bewerbungsportal",
@@ -20,6 +23,7 @@ export default async function BewerbungPage(props: PageProps<"/bewerbung">) {
   const searchParams = await props.searchParams;
   const stelleParam = searchParams?.stelle;
   const initialPosition = Array.isArray(stelleParam) ? stelleParam[0] : stelleParam ?? "";
+  const jobs = await getJobs();
 
   return (
     <>
@@ -33,7 +37,7 @@ export default async function BewerbungPage(props: PageProps<"/bewerbung">) {
         <Container>
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <ApplicationForm initialPosition={initialPosition} />
+              <ApplicationForm initialPosition={initialPosition} jobs={jobs} />
             </div>
             <aside className="space-y-4">
               <div className="rounded-2xl border border-navy-900/8 bg-white p-6">

@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { EmployeePageHeader, StatCard } from "@/components/employee/page-header";
 import { Badge, Button } from "@/components/ui/primitives";
+import { downloadInvoicePdf } from "@/lib/invoice-pdf";
+import type { CompanyInfo } from "@/lib/server/db-types";
 
 type LineItem = { description: string; qty: number; price: number };
 type InvoiceStatus = "Offen" | "Bezahlt" | "Überfällig";
@@ -13,6 +15,7 @@ type Invoice = {
   date: string;
   total: number;
   status: InvoiceStatus;
+  items: LineItem[];
 };
 
 const statusTone: Record<InvoiceStatus, "amber" | "green" | "navy"> = {
@@ -22,10 +25,38 @@ const statusTone: Record<InvoiceStatus, "amber" | "green" | "navy"> = {
 };
 
 const initialInvoices: Invoice[] = [
-  { number: "RE-2026-0341", customer: "Rathke Baustoffe GmbH", date: "2026-08-28", total: 2380.5, status: "Offen" },
-  { number: "RE-2026-0340", customer: "Nordbalt Trading Sp. z o.o.", date: "2026-08-25", total: 4120.0, status: "Bezahlt" },
-  { number: "RE-2026-0339", customer: "Küstenlogistik Nord", date: "2026-08-20", total: 980.75, status: "Bezahlt" },
-  { number: "RE-2026-0338", customer: "Berndt Frischwaren", date: "2026-08-10", total: 1560.0, status: "Überfällig" },
+  {
+    number: "RE-2026-0341",
+    customer: "Rathke Baustoffe GmbH",
+    date: "2026-08-28",
+    total: 2380.5,
+    status: "Offen",
+    items: [{ description: "Transport Falkenwalde – Berlin", qty: 1, price: 2000.42 }],
+  },
+  {
+    number: "RE-2026-0340",
+    customer: "Nordbalt Trading Sp. z o.o.",
+    date: "2026-08-25",
+    total: 4120.0,
+    status: "Bezahlt",
+    items: [{ description: "Transport Falkenwalde – Danzig (PL)", qty: 1, price: 3462.18 }],
+  },
+  {
+    number: "RE-2026-0339",
+    customer: "Küstenlogistik Nord",
+    date: "2026-08-20",
+    total: 980.75,
+    status: "Bezahlt",
+    items: [{ description: "Transport Falkenwalde – Hamburg", qty: 1, price: 824.16 }],
+  },
+  {
+    number: "RE-2026-0338",
+    customer: "Berndt Frischwaren",
+    date: "2026-08-10",
+    total: 1560.0,
+    status: "Überfällig",
+    items: [{ description: "Kühltransport Falkenwalde – Rostock", qty: 1, price: 1310.92 }],
+  },
 ];
 
 const emptyItem: LineItem = { description: "", qty: 1, price: 0 };
@@ -35,6 +66,14 @@ export default function RechnungenPage() {
   const [customer, setCustomer] = useState("");
   const [items, setItems] = useState<LineItem[]>([{ ...emptyItem }]);
   const [lastCreated, setLastCreated] = useState<Invoice | null>(null);
+  const [company, setCompany] = useState<CompanyInfo | null>(null);
+
+  useEffect(() => {
+    fetch("/api/company")
+      .then((res) => res.json())
+      .then((json) => setCompany(json.company))
+      .catch(() => {});
+  }, []);
 
   const netTotal = items.reduce((sum, item) => sum + item.qty * item.price, 0);
   const vat = netTotal * 0.19;
@@ -66,11 +105,17 @@ export default function RechnungenPage() {
       date: new Date().toISOString().slice(0, 10),
       total: grossTotal,
       status: "Offen",
+      items,
     };
     setInvoices((prev) => [invoice, ...prev]);
     setLastCreated(invoice);
     setCustomer("");
     setItems([{ ...emptyItem }]);
+  }
+
+  function exportPdf(invoice: Invoice) {
+    if (!company) return;
+    downloadInvoicePdf(invoice, company);
   }
 
   return (
@@ -172,9 +217,19 @@ export default function RechnungenPage() {
           </div>
 
           {lastCreated ? (
-            <p className="mt-3 text-xs text-emerald-600">
-              Rechnung {lastCreated.number} über € {lastCreated.total.toLocaleString("de-DE", { minimumFractionDigits: 2 })} wurde erstellt.
-            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <p className="text-xs text-emerald-600">
+                Rechnung {lastCreated.number} über € {lastCreated.total.toLocaleString("de-DE", { minimumFractionDigits: 2 })} wurde erstellt.
+              </p>
+              <button
+                type="button"
+                onClick={() => exportPdf(lastCreated)}
+                disabled={!company}
+                className="text-xs font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50"
+              >
+                Als PDF herunterladen
+              </button>
+            </div>
           ) : null}
         </div>
 
@@ -186,6 +241,7 @@ export default function RechnungenPage() {
                 <th className="px-4 py-3 font-medium">Kunde</th>
                 <th className="px-4 py-3 font-medium">Betrag</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">&nbsp;</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-navy-900/6">
@@ -198,6 +254,16 @@ export default function RechnungenPage() {
                   </td>
                   <td className="px-4 py-3">
                     <Badge tone={statusTone[inv.status]}>{inv.status}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => exportPdf(inv)}
+                      disabled={!company}
+                      className="text-xs font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50"
+                    >
+                      PDF
+                    </button>
                   </td>
                 </tr>
               ))}

@@ -3,14 +3,17 @@ import Link from "next/link";
 import { PageHero } from "@/components/site/page-hero";
 import { Badge, Button, Container, Section, SectionHeading } from "@/components/ui/primitives";
 import { ArrowRightIcon, MapPinIcon } from "@/components/ui/icons";
-import { jobs } from "@/lib/data";
+import { getJobs } from "@/lib/server/store";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Stellenangebote",
   description: "Offene Stellen bei Baltic Freight GmbH in Falkenwalde – Fahrer, Disposition, Lager, Werkstatt und Ausbildung.",
 };
 
-export default function KarrierePage() {
+export default async function KarrierePage() {
+  const jobs = await getJobs();
   return (
     <>
       <PageHero

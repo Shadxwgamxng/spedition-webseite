@@ -1,15 +1,18 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/site/page-hero";
 import { Card, Container, Section, SectionHeading } from "@/components/ui/primitives";
-import { company, keyPositions, management } from "@/lib/data";
+import { getCompany, getKeyPositions, getManagementTeam } from "@/lib/server/store";
+import type { TeamMemberRecord } from "@/lib/server/db-types";
 import { MailIcon } from "@/components/ui/icons";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Geschäftsführung",
   description: "Die Geschäftsführung und wichtige Positionen der Baltic Freight GmbH.",
 };
 
-function PersonCard({ person }: { person: (typeof management)[number] }) {
+function PersonCard({ person }: { person: TeamMemberRecord }) {
   return (
     <Card className="flex flex-col items-start">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-navy-900 text-lg font-bold text-amber-400">
@@ -23,7 +26,8 @@ function PersonCard({ person }: { person: (typeof management)[number] }) {
   );
 }
 
-export default function GeschaeftsfuehrungPage() {
+export default async function GeschaeftsfuehrungPage() {
+  const [management, keyPositions, company] = await Promise.all([getManagementTeam(), getKeyPositions(), getCompany()]);
   return (
     <>
       <PageHero
@@ -37,7 +41,7 @@ export default function GeschaeftsfuehrungPage() {
           <SectionHeading eyebrow="Geschäftsleitung" title="Geschäftsführung" />
           <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2">
             {management.map((person) => (
-              <PersonCard key={person.name} person={person} />
+              <PersonCard key={person.id} person={person} />
             ))}
           </div>
         </Container>
@@ -52,7 +56,7 @@ export default function GeschaeftsfuehrungPage() {
           />
           <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {keyPositions.map((person) => (
-              <PersonCard key={person.name} person={person} />
+              <PersonCard key={person.id} person={person} />
             ))}
           </div>
         </Container>

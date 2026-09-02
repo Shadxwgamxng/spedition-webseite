@@ -16,6 +16,8 @@ export type VehicleRecord = {
 
 export type OrderStatus = "Neu" | "Disponiert" | "Unterwegs" | "Zugestellt";
 
+export type OrderMessage = { id: string; from: "driver" | "dispo"; authorName: string; text: string; at: string };
+
 export type OrderRecord = {
   id: string;
   customer: string;
@@ -27,6 +29,7 @@ export type OrderRecord = {
   driverName: string | null;
   vehiclePlate: string | null;
   createdAt: string;
+  messages: OrderMessage[];
 };
 
 export const driverRoster = [
@@ -47,9 +50,9 @@ export const initialVehicles: VehicleRecord[] = [
 ];
 
 export const initialOrders: OrderRecord[] = [
-  { id: "BF-48213", customer: "Rathke Baustoffe GmbH", pickup: "Falkenwalde", delivery: "Berlin", date: "2026-09-02", notes: "", status: "Unterwegs", driverName: "Lukas Schmidt", vehiclePlate: "SN-BF 101", createdAt: "2026-09-01T08:00:00.000Z" },
-  { id: "BF-48214", customer: "Nordbalt Trading Sp. z o.o.", pickup: "Falkenwalde", delivery: "Danzig (PL)", date: "2026-09-02", notes: "", status: "Disponiert", driverName: "Piotr Nowak", vehiclePlate: "SN-BF 104", createdAt: "2026-09-01T08:10:00.000Z" },
-  { id: "BF-48215", customer: "Küstenlogistik Nord", pickup: "Falkenwalde", delivery: "Hamburg", date: "2026-09-03", notes: "", status: "Neu", driverName: null, vehiclePlate: null, createdAt: "2026-09-01T09:00:00.000Z" },
-  { id: "BF-48216", customer: "Berndt Frischwaren", pickup: "Falkenwalde", delivery: "Rostock", date: "2026-09-02", notes: "Kühltransport, -4 °C", status: "Zugestellt", driverName: "Timo Fischer", vehiclePlate: "SN-BF 112", createdAt: "2026-08-31T07:00:00.000Z" },
-  { id: "BF-48217", customer: "AgroTrans Pommern", pickup: "Stettin (PL)", delivery: "Falkenwalde", date: "2026-09-03", notes: "", status: "Neu", driverName: null, vehiclePlate: null, createdAt: "2026-09-01T10:00:00.000Z" },
+  { id: "BF-48213", customer: "Rathke Baustoffe GmbH", pickup: "Falkenwalde", delivery: "Berlin", date: "2026-09-02", notes: "", status: "Unterwegs", driverName: "Lukas Schmidt", vehiclePlate: "SN-BF 101", createdAt: "2026-09-01T08:00:00.000Z", messages: [] },
+  { id: "BF-48214", customer: "Nordbalt Trading Sp. z o.o.", pickup: "Falkenwalde", delivery: "Danzig (PL)", date: "2026-09-02", notes: "", status: "Disponiert", driverName: "Piotr Nowak", vehiclePlate: "SN-BF 104", createdAt: "2026-09-01T08:10:00.000Z", messages: [] },
+  { id: "BF-48215", customer: "Küstenlogistik Nord", pickup: "Falkenwalde", delivery: "Hamburg", date: "2026-09-03", notes: "", status: "Neu", driverName: null, vehiclePlate: null, createdAt: "2026-09-01T09:00:00.000Z", messages: [] },
+  { id: "BF-48216", customer: "Berndt Frischwaren", pickup: "Falkenwalde", delivery: "Rostock", date: "2026-09-02", notes: "Kühltransport, -4 °C", status: "Zugestellt", driverName: "Timo Fischer", vehiclePlate: "SN-BF 112", createdAt: "2026-08-31T07:00:00.000Z", messages: [] },
+  { id: "BF-48217", customer: "AgroTrans Pommern", pickup: "Stettin (PL)", delivery: "Falkenwalde", date: "2026-09-03", notes: "", status: "Neu", driverName: null, vehiclePlate: null, createdAt: "2026-09-01T10:00:00.000Z", messages: [] },
 ];

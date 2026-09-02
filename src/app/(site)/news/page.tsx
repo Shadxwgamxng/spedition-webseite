@@ -2,14 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHero } from "@/components/site/page-hero";
 import { Badge, Container, Section } from "@/components/ui/primitives";
-import { news } from "@/lib/data";
+import { getNews } from "@/lib/server/store";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "News",
   description: "Aktuelles aus dem Unternehmen: Fuhrpark, Digitalisierung, Personal und mehr.",
 };
 
-export default function NewsPage() {
+export default async function NewsPage() {
+  const news = await getNews();
   return (
     <>
       <PageHero eyebrow="Aktuelles" title="News von Baltic Freight" description="Neuigkeiten rund um Fuhrpark, Digitalisierung, Standort und Team." />

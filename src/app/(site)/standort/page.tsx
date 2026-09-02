@@ -2,13 +2,18 @@ import type { Metadata } from "next";
 import { PageHero } from "@/components/site/page-hero";
 import { Card, Container, Section, SectionHeading } from "@/components/ui/primitives";
 import { ClockIcon, MailIcon, MapPinIcon, PhoneIcon } from "@/components/ui/icons";
-import { company } from "@/lib/data";
+import { getCompany } from "@/lib/server/store";
 import { ContactForm } from "@/components/site/contact-form";
 
-export const metadata: Metadata = {
-  title: "Standort",
-  description: `Besuchen Sie uns in ${company.street}, ${company.zip} ${company.city} oder kontaktieren Sie unsere Disposition.`,
-};
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const company = await getCompany();
+  return {
+    title: "Standort",
+    description: `Besuchen Sie uns in ${company.street}, ${company.zip} ${company.city} oder kontaktieren Sie unsere Disposition.`,
+  };
+}
 
 const hours = [
   { day: "Montag – Freitag", time: "06:00 – 20:00 Uhr" },
@@ -19,7 +24,8 @@ const hours = [
 const mapSrc =
   "https://www.openstreetmap.org/export/embed.html?bbox=14.13%2C53.35%2C14.27%2C53.42&layer=mapnik&marker=53.385%2C14.2";
 
-export default function StandortPage() {
+export default async function StandortPage() {
+  const company = await getCompany();
   return (
     <>
       <PageHero

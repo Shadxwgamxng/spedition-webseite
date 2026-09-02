@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { employeeModules } from "@/lib/employee-nav";
+import { canAccessModule } from "@/lib/roles";
 import { StatCard } from "@/components/employee/page-header";
 import { ArrowRightIcon } from "@/components/ui/icons";
 
@@ -15,26 +16,34 @@ const overviewStats = [
 
 export default function EmployeeDashboardPage() {
   const { user } = useAuth();
+  if (!user) return null;
+
+  const visibleModules = employeeModules.filter((mod) => canAccessModule(user.roleKey, mod.key));
+  const isFahrer = user.roleKey === "fahrer";
 
   return (
     <div>
       <div className="mb-8">
         <div className="text-sm font-medium text-amber-600">Willkommen zurück</div>
-        <h1 className="mt-1 text-2xl font-bold text-navy-900 sm:text-3xl">{user?.name}</h1>
+        <h1 className="mt-1 text-2xl font-bold text-navy-900 sm:text-3xl">{user.name}</h1>
         <p className="mt-1 text-sm text-navy-700/70">
-          {user?.role} · {user?.department}
+          {user.role} · {user.department}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {overviewStats.map((stat) => (
-          <StatCard key={stat.label} {...stat} />
-        ))}
-      </div>
+      {!isFahrer ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {overviewStats.map((stat) => (
+            <StatCard key={stat.label} {...stat} />
+          ))}
+        </div>
+      ) : null}
 
-      <h2 className="mb-4 mt-10 text-lg font-semibold text-navy-900">Systeme &amp; Module</h2>
+      <h2 className="mb-4 mt-10 text-lg font-semibold text-navy-900">
+        {isFahrer ? "Deine Bereiche" : "Systeme & Module"}
+      </h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {employeeModules.map((mod) => (
+        {visibleModules.map((mod) => (
           <Link
             key={mod.href}
             href={mod.href}

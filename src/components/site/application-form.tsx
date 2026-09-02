@@ -3,9 +3,15 @@
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/primitives";
 import { CheckIcon } from "@/components/ui/icons";
-import { jobs } from "@/lib/data";
+import type { JobRecord } from "@/lib/server/db-types";
 
-export function ApplicationForm({ initialPosition = "" }: { initialPosition?: string }) {
+export function ApplicationForm({
+  initialPosition = "",
+  jobs,
+}: {
+  initialPosition?: string;
+  jobs: JobRecord[];
+}) {
   const [submitted, setSubmitted] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
