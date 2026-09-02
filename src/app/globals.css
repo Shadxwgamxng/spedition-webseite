@@ -1,33 +1,36 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f7f9;
-  --foreground: #0a2033;
+  --background: #f5f7fa;
+  --foreground: #0a1c42;
 
-  /* "Harbor" petrol-navy — cooler and more distinctive than plain navy. */
-  --color-navy-950: #04121f;
-  --color-navy-900: #0a2338;
-  --color-navy-800: #0f3350;
-  --color-navy-700: #154569;
-  --color-navy-600: #1d5b86;
-  --color-navy-500: #2c76a3;
+  /* Navy, sampled straight from the Baltic Freight logo mark's arc. */
+  --color-navy-950: #050f26;
+  --color-navy-900: #0a1c42;
+  --color-navy-800: #0f2a5c;
+  --color-navy-700: #163b7a;
+  --color-navy-600: #1f4f96;
+  --color-navy-500: #2c65ab;
 
-  /* Warm signal amber — the CTA / energy color. */
-  --color-amber-600: #d9720f;
-  --color-amber-500: #f2870f;
-  --color-amber-400: #ff9f3d;
-  --color-amber-300: #ffbc72;
+  /* Signal blue, sampled from the logo's wave/accent — replaces the old amber as the CTA/energy color. */
+  --color-amber-900: #001830;
+  --color-amber-700: #003a68;
+  --color-amber-600: #004d85;
+  --color-amber-500: #0060a0;
+  --color-amber-400: #1c7bc4;
+  --color-amber-300: #5fa8dd;
+  --color-amber-50: #eaf3fa;
 
-  /* Baltic Sea teal — secondary accent for illustrations, gradients, highlights. */
-  --color-teal-600: #0d7d6f;
-  --color-teal-500: #14a394;
-  --color-teal-400: #2ec8b6;
-  --color-teal-300: #82e0d1;
+  /* Lighter tint of the same blue family — secondary accent for illustrations/highlights (kept close to the logo's two-tone blue, not a separate hue). */
+  --color-teal-600: #124a72;
+  --color-teal-500: #1c6291;
+  --color-teal-400: #4989b8;
+  --color-teal-300: #93bfdd;
 
-  --color-mist-50: #f6f7f9;
-  --color-mist-100: #eef1f4;
-  --color-mist-200: #dde3ea;
-  --color-mist-300: #c3ccd6;
+  --color-mist-50: #f5f7fa;
+  --color-mist-100: #eef2f7;
+  --color-mist-200: #dde5ee;
+  --color-mist-300: #c2d0e0;
 }
 
 @theme inline {
@@ -41,10 +44,13 @@
   --color-navy-600: var(--color-navy-600);
   --color-navy-500: var(--color-navy-500);
 
+  --color-amber-900: var(--color-amber-900);
+  --color-amber-700: var(--color-amber-700);
   --color-amber-600: var(--color-amber-600);
   --color-amber-500: var(--color-amber-500);
   --color-amber-400: var(--color-amber-400);
   --color-amber-300: var(--color-amber-300);
+  --color-amber-50: var(--color-amber-50);
 
   --color-teal-600: var(--color-teal-600);
   --color-teal-500: var(--color-teal-500);
