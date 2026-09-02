@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f7f9;
+  --foreground: #0a1c33;
+
+  --color-navy-950: #030a16;
+  --color-navy-900: #081a30;
+  --color-navy-800: #0d2745;
+  --color-navy-700: #133358;
+  --color-navy-600: #1c4470;
+  --color-navy-500: #2a5a90;
+
+  --color-amber-600: #c9791a;
+  --color-amber-500: #e08e22;
+  --color-amber-400: #f2a53f;
+  --color-amber-300: #f6bc6c;
+
+  --color-mist-50: #f6f7f9;
+  --color-mist-100: #eef1f4;
+  --color-mist-200: #dde3ea;
+  --color-mist-300: #c3ccd6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-navy-950: var(--color-navy-950);
+  --color-navy-900: var(--color-navy-900);
+  --color-navy-800: var(--color-navy-800);
+  --color-navy-700: var(--color-navy-700);
+  --color-navy-600: var(--color-navy-600);
+  --color-navy-500: var(--color-navy-500);
+
+  --color-amber-600: var(--color-amber-600);
+  --color-amber-500: var(--color-amber-500);
+  --color-amber-400: var(--color-amber-400);
+  --color-amber-300: var(--color-amber-300);
+
+  --color-mist-50: var(--color-mist-50);
+  --color-mist-100: var(--color-mist-100);
+  --color-mist-200: var(--color-mist-200);
+  --color-mist-300: var(--color-mist-300);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+::selection {
+  background: var(--color-amber-400);
+  color: var(--color-navy-950);
+}
+
+.container-page {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .container-page {
+    padding-inline: 2rem;
+  }
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
