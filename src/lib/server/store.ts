@@ -31,14 +31,41 @@ import type { OrderMessage, OrderRecord, VehicleRecord } from "@/lib/fleet-data"
 const DB_PATH = path.join(process.cwd(), ".data", "db.json");
 
 async function readDb(): Promise<Db> {
+  let db: Partial<Db> | null = null;
   try {
     const raw = await fs.readFile(DB_PATH, "utf-8");
-    return JSON.parse(raw) as Db;
+    db = JSON.parse(raw) as Partial<Db>;
   } catch {
+    db = null;
+  }
+
+  if (!db) {
     const seeded = seedDb();
     await writeDb(seeded);
     return seeded;
   }
+
+  // Backfill anything missing from an on-disk db.json written by an earlier
+  // version of this schema (e.g. a file saved before "company"/"news"/driver
+  // cards existed) — otherwise reads of those collections would return
+  // undefined and crash callers like `company.street`.
+  const seed = seedDb();
+  let changed = false;
+  for (const key of Object.keys(seed) as (keyof Db)[]) {
+    if (db[key] === undefined) {
+      (db as Db)[key] = seed[key] as never;
+      changed = true;
+    }
+  }
+  for (const order of db.orders ?? []) {
+    if (!Array.isArray(order.messages)) {
+      order.messages = [];
+      changed = true;
+    }
+  }
+
+  if (changed) await writeDb(db as Db);
+  return db as Db;
 }
 
 async function writeDb(db: Db): Promise<void> {
