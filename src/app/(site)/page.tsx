@@ -6,7 +6,6 @@ import { RouteIllustration } from "@/components/site/route-illustration";
 import { WaveDivider } from "@/components/site/wave-divider";
 import {
   ArrowRightIcon,
-  CheckIcon,
   ClockIcon,
   GlobeIcon,
   RouteIcon,
@@ -124,62 +123,6 @@ export default async function HomePage() {
                   </Card>
                 );
               })}
-            </div>
-          </Reveal>
-        </Container>
-      </Section>
-
-      {/* Digitalisierung / Disposition */}
-      <Section className="bg-navy-900 text-white">
-        <Container>
-          <Reveal>
-            <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
-              <div>
-                <Eyebrow>Digitale Disposition</Eyebrow>
-                <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-                  Volle Transparenz, in Echtzeit.
-                </h2>
-                <p className="mt-4 text-base leading-relaxed text-white/70">
-                  Unsere hauseigenen Systeme für Disposition, digitales Fahrtenbuch, Fahrzeugverwaltung und
-                  Rechnungsstellung sorgen dafür, dass jede Tour effizient geplant und lückenlos dokumentiert wird.
-                  Fahrer melden sich beim Schichtstart auf ihr Fahrzeug an – die Disposition sieht das sofort.
-                </p>
-                <ul className="mt-6 space-y-3 text-sm text-white/80">
-                  {[
-                    "Echtzeit-Tourenplanung im Dispositionssystem",
-                    "Fahrer-Login direkt auf das Fahrzeug",
-                    "Digitales Fahrtenbuch & digitale Fahrerkarte",
-                    "Rechnungserstellung direkt im System",
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-2.5">
-                      <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-8">
-                  <Button href="/mitarbeiter/login" variant="primary">
-                    Zum Mitarbeiterbereich
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label: "Disposition", icon: RouteIcon },
-                  { label: "Lagerverwaltung", icon: WarehouseIcon },
-                  { label: "Fahrzeugverwaltung", icon: TruckIcon },
-                  { label: "Rechnungserstellung", icon: ShieldIcon },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex flex-col items-start gap-3 rounded-2xl border border-white/10 bg-white/5 p-5 transition-all duration-300 hover:-translate-y-1 hover:border-amber-400/30 hover:bg-white/10"
-                  >
-                    <item.icon className="h-6 w-6 text-amber-400" />
-                    <span className="text-sm font-semibold">{item.label}</span>
-                  </div>
-                ))}
-              </div>
             </div>
           </Reveal>
         </Container>

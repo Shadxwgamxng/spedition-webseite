@@ -4,15 +4,6 @@ import { navLinks } from "@/lib/data";
 import { getCompany } from "@/lib/server/store";
 import { MailIcon, MapPinIcon, PhoneIcon } from "@/components/ui/icons";
 
-const employeeLinks = [
-  { href: "/mitarbeiter/login", label: "Mitarbeiter Login" },
-  { href: "/mitarbeiter/disposition", label: "Disposition" },
-  { href: "/mitarbeiter/lager", label: "Lagerverwaltung" },
-  { href: "/mitarbeiter/fahrzeuge", label: "Fahrzeugverwaltung" },
-  { href: "/mitarbeiter/fahrtenbuch", label: "Digitales Fahrtenbuch" },
-  { href: "/mitarbeiter/rechnungen", label: "Rechnungserstellung" },
-];
-
 const serviceLinks = [
   { href: "/leistungen", label: "Unsere Leistungen" },
   { href: "/auftrag", label: "Auftrag einreichen" },
@@ -26,7 +17,7 @@ export async function Footer() {
   const company = await getCompany();
   return (
     <footer className="bg-navy-950 text-white">
-      <div className="container-page grid grid-cols-1 gap-10 py-16 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="container-page grid grid-cols-1 gap-10 py-16 sm:grid-cols-2 lg:grid-cols-4">
         <div className="lg:col-span-2">
           <Logo light />
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/60">
@@ -70,19 +61,6 @@ export async function Footer() {
           <h3 className="text-sm font-semibold uppercase tracking-wider text-white/50">Service</h3>
           <ul className="mt-4 space-y-2.5 text-sm text-white/70">
             {serviceLinks.map((link) => (
-              <li key={link.href}>
-                <Link href={link.href} className="hover:text-white">
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-white/50">Mitarbeiterbereich</h3>
-          <ul className="mt-4 space-y-2.5 text-sm text-white/70">
-            {employeeLinks.map((link) => (
               <li key={link.href}>
                 <Link href={link.href} className="hover:text-white">
                   {link.label}

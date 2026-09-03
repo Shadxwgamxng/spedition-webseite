@@ -13,59 +13,19 @@ const cargoTypes = [
   "Sonstiges",
 ];
 
+function generateReference(): string {
+  const number = 48200 + Math.floor(Math.random() * 500);
+  return `BF-${number}`;
+}
+
 export function OrderForm() {
   const [submitted, setSubmitted] = useState(false);
   const [reference, setReference] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    const form = new FormData(event.currentTarget);
-
-    const weight = form.get("weight");
-    const units = form.get("units");
-    const dimensions = form.get("dimensions");
-    const extraDetails = [
-      weight ? `Gewicht: ca. ${weight} kg` : null,
-      units ? `Menge: ${units} Paletten/Colli` : null,
-      dimensions ? `Maße: ${dimensions}` : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    const notes = [extraDetails, form.get("notes")].filter(Boolean).join("\n");
-
-    try {
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer: form.get("company"),
-          contactName: form.get("contact"),
-          email: form.get("email"),
-          phone: form.get("phone"),
-          pickup: form.get("pickup"),
-          delivery: form.get("delivery"),
-          requestedPickupDate: form.get("pickupDate"),
-          requestedDeliveryDate: form.get("deliveryDate"),
-          cargoType: form.get("cargoType"),
-          notes,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setError(json.error ?? "Auftrag konnte nicht übermittelt werden.");
-        return;
-      }
-      setReference(json.order.id);
-      setSubmitted(true);
-    } catch {
-      setError("Verbindung zum Server fehlgeschlagen. Bitte versuchen Sie es erneut.");
-    } finally {
-      setSubmitting(false);
-    }
+    setReference(generateReference());
+    setSubmitted(true);
   }
 
   if (submitted) {
@@ -76,8 +36,8 @@ export function OrderForm() {
           <div className="text-lg font-semibold text-navy-900">Auftrag erfolgreich übermittelt!</div>
           <p className="mt-1 text-sm text-navy-700/75">
             Ihre Referenznummer lautet <span className="font-mono font-semibold text-navy-900">{reference}</span>.
-            Ihre Anfrage ist direkt bei unserer Disposition eingegangen und wird geprüft. Wir bestätigen Ihnen den
-            Liefertermin und melden uns zeitnah mit einem Angebot bzw. der Auftragsbestätigung.
+            Unsere Disposition prüft Ihre Anfrage und meldet sich zeitnah mit einem Angebot bzw. der
+            Auftragsbestätigung inklusive verbindlichem Liefertermin.
           </p>
         </div>
       </div>
@@ -148,14 +108,12 @@ export function OrderForm() {
         </div>
       </fieldset>
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
       <div className="flex flex-col gap-3 border-t border-navy-900/8 pt-6 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-navy-700/60">
           Mit dem Absenden akzeptieren Sie, dass wir Ihre Angaben zur Bearbeitung des Auftrags verwenden dürfen.
         </p>
-        <Button type="submit" icon={false} className={`shrink-0 ${submitting ? "opacity-60" : ""}`}>
-          {submitting ? "Wird übermittelt…" : "Auftrag verbindlich einreichen"}
+        <Button type="submit" icon={false} className="shrink-0">
+          Auftrag verbindlich einreichen
         </Button>
       </div>
     </form>

@@ -48,16 +48,7 @@ export default async function DatenschutzPage() {
             </div>
 
             <div>
-              <h2 className="text-base font-semibold text-navy-900">4. Mitarbeiterbereich</h2>
-              <p className="mt-2">
-                Der passwortgeschützte Mitarbeiterbereich dient internen Zwecken (u. a. Disposition,
-                Fahrzeugverwaltung, Rechnungsstellung). Zugangsdaten werden ausschließlich an autorisierte
-                Mitarbeitende ausgegeben.
-              </p>
-            </div>
-
-            <div>
-              <h2 className="text-base font-semibold text-navy-900">5. Speicherdauer</h2>
+              <h2 className="text-base font-semibold text-navy-900">4. Speicherdauer</h2>
               <p className="mt-2">
                 Personenbezogene Daten werden nur so lange gespeichert, wie es für die Erfüllung des jeweiligen
                 Zwecks erforderlich ist bzw. gesetzliche Aufbewahrungsfristen dies vorsehen.
@@ -65,7 +56,7 @@ export default async function DatenschutzPage() {
             </div>
 
             <div>
-              <h2 className="text-base font-semibold text-navy-900">6. Ihre Rechte</h2>
+              <h2 className="text-base font-semibold text-navy-900">5. Ihre Rechte</h2>
               <p className="mt-2">
                 Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung,
                 Datenübertragbarkeit sowie Widerspruch gegen die Verarbeitung Ihrer personenbezogenen Daten. Wenden
@@ -74,7 +65,7 @@ export default async function DatenschutzPage() {
             </div>
 
             <div>
-              <h2 className="text-base font-semibold text-navy-900">7. Beschwerderecht</h2>
+              <h2 className="text-base font-semibold text-navy-900">6. Beschwerderecht</h2>
               <p className="mt-2">
                 Ihnen steht zudem ein Beschwerderecht bei der zuständigen Datenschutzaufsichtsbehörde zu.
               </p>

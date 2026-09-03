@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/site/logo";
 import { navLinks } from "@/lib/data";
-import { MenuIcon, CloseIcon, LockIcon } from "@/components/ui/icons";
+import { MenuIcon, CloseIcon } from "@/components/ui/icons";
 import { Button } from "@/components/ui/primitives";
 
 export function Header() {
@@ -40,13 +40,6 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
-          <Link
-            href="/mitarbeiter/login"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-navy-700 hover:text-navy-900"
-          >
-            <LockIcon className="h-4 w-4" />
-            Mitarbeiter Login
-          </Link>
           <Button href="/auftrag" icon={false}>
             Auftrag einreichen
           </Button>
@@ -76,14 +69,6 @@ export function Header() {
               </Link>
             ))}
             <div className="mt-2 flex flex-col gap-2 border-t border-navy-900/8 pt-4">
-              <Link
-                href="/mitarbeiter/login"
-                onClick={() => setOpen(false)}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-medium text-navy-700 hover:bg-navy-900/5"
-              >
-                <LockIcon className="h-4 w-4" />
-                Mitarbeiter Login
-              </Link>
               <Button href="/auftrag" icon={false} className="justify-center">
                 Auftrag einreichen
               </Button>

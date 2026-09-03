@@ -53,13 +53,6 @@ export default async function AuftragPage() {
                   </li>
                 </ul>
               </div>
-              <div className="rounded-2xl bg-navy-900 p-6 text-white">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-400">Für Bestandskunden</h2>
-                <p className="mt-3 text-sm leading-relaxed text-white/70">
-                  Als Mitarbeiter oder angebundener Partner können Sie Aufträge auch direkt im internen
-                  Dispositionssystem anlegen.
-                </p>
-              </div>
             </aside>
           </div>
         </Container>
