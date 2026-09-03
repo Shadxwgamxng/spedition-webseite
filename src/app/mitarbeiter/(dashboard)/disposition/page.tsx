@@ -7,20 +7,28 @@ import { usePolling } from "@/lib/use-polling";
 import { useAuth } from "@/lib/auth";
 import { OrderChat } from "@/components/employee/order-chat";
 import type { OrderRecord, OrderStatus, VehicleRecord } from "@/lib/fleet-data";
-import { CheckIcon, MessageIcon, TruckIcon } from "@/components/ui/icons";
+import { CheckIcon, MapPinIcon, MessageIcon, TruckIcon } from "@/components/ui/icons";
 
 type OrdersResponse = { orders: OrderRecord[] };
 type VehiclesResponse = { vehicles: VehicleRecord[] };
 
-const statusStyles: Record<OrderStatus, "navy" | "amber" | "green"> = {
+const statusStyles: Record<OrderStatus, "navy" | "amber" | "green" | "red"> = {
+  Angefragt: "amber",
   Neu: "navy",
   Disponiert: "amber",
   Unterwegs: "amber",
   Zugestellt: "green",
+  Abgelehnt: "red",
 };
 
 const statusOptions: OrderStatus[] = ["Neu", "Disponiert", "Unterwegs", "Zugestellt"];
+const allFilterOptions: (OrderStatus | "Alle")[] = ["Alle", "Angefragt", ...statusOptions, "Abgelehnt"];
 const UNASSIGNED = "— nicht zugewiesen —";
+
+function formatDate(value: string) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
 
 export default function DispositionPage() {
   const { user } = useAuth();
@@ -38,13 +46,15 @@ export default function DispositionPage() {
     [vehicles.data],
   );
 
-  const filtered = useMemo(
-    () => (filter === "Alle" ? allOrders : allOrders.filter((o) => o.status === filter)),
-    [allOrders, filter],
-  );
+  const requests = useMemo(() => allOrders.filter((o) => o.status === "Angefragt"), [allOrders]);
+
+  const filtered = useMemo(() => {
+    if (filter === "Alle") return allOrders.filter((o) => o.status !== "Angefragt");
+    return allOrders.filter((o) => o.status === filter);
+  }, [allOrders, filter]);
 
   const counts = useMemo(() => {
-    const c: Record<OrderStatus, number> = { Neu: 0, Disponiert: 0, Unterwegs: 0, Zugestellt: 0 };
+    const c: Record<OrderStatus, number> = { Angefragt: 0, Neu: 0, Disponiert: 0, Unterwegs: 0, Zugestellt: 0, Abgelehnt: 0 };
     allOrders.forEach((o) => c[o.status]++);
     return c;
   }, [allOrders]);
@@ -86,6 +96,7 @@ export default function DispositionPage() {
           delivery: form.get("delivery"),
           date: form.get("date"),
           notes: form.get("notes"),
+          origin: "intern",
         }),
       });
       const json = await res.json();
@@ -121,6 +132,20 @@ export default function DispositionPage() {
         ))}
       </div>
 
+      {requests.length > 0 ? (
+        <div className="mt-8">
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-navy-900">
+            Neue Anfragen von der Website
+            <Badge tone="amber">{requests.length}</Badge>
+          </h2>
+          <div className="space-y-4">
+            {requests.map((order) => (
+              <RequestCard key={order.id} order={order} onDecided={orders.refetch} />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           {showForm ? (
@@ -153,7 +178,7 @@ export default function DispositionPage() {
           ) : null}
 
           <div className="flex flex-wrap items-center gap-2">
-            {(["Alle", ...statusOptions] as const).map((s) => (
+            {allFilterOptions.map((s) => (
               <button
                 key={s}
                 onClick={() => setFilter(s)}
@@ -167,12 +192,13 @@ export default function DispositionPage() {
           </div>
 
           <div className="mt-4 overflow-x-auto rounded-2xl border border-navy-900/8 bg-white shadow-sm shadow-navy-950/5">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[860px] text-left text-sm">
               <thead className="border-b border-navy-900/8 bg-mist-100 text-xs uppercase tracking-wide text-navy-700/60">
                 <tr>
                   <th className="px-4 py-3 font-medium">Auftrag</th>
                   <th className="px-4 py-3 font-medium">Kunde</th>
                   <th className="px-4 py-3 font-medium">Route</th>
+                  <th className="px-4 py-3 font-medium">Termin</th>
                   <th className="px-4 py-3 font-medium">Fahrzeug (aktiv)</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Nachrichten</th>
@@ -189,6 +215,14 @@ export default function DispositionPage() {
                         <td className="px-4 py-3 text-navy-800">{order.customer}</td>
                         <td className="px-4 py-3 text-navy-700/80">
                           {order.pickup} → {order.delivery}
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="date"
+                            value={order.date}
+                            onChange={(e) => patchOrder(order.id, { date: e.target.value })}
+                            className="rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs"
+                          />
                         </td>
                         <td className="px-4 py-3">
                           <select
@@ -238,7 +272,7 @@ export default function DispositionPage() {
                       </tr>
                       {expanded ? (
                         <tr>
-                          <td colSpan={6} className="bg-mist-100/60 px-4 py-4">
+                          <td colSpan={7} className="bg-mist-100/60 px-4 py-4">
                             {user ? (
                               <OrderChat order={order} from="dispo" authorName={user.name} onSent={orders.refetch} />
                             ) : null}
@@ -250,7 +284,7 @@ export default function DispositionPage() {
                 })}
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-navy-700/50">
+                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-navy-700/50">
                       {orders.data ? "Keine Aufträge in dieser Ansicht." : "Aufträge werden geladen…"}
                     </td>
                   </tr>
@@ -289,6 +323,111 @@ export default function DispositionPage() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function RequestCard({ order, onDecided }: { order: OrderRecord; onDecided: () => Promise<void> }) {
+  const [confirmedDate, setConfirmedDate] = useState(order.requestedDeliveryDate || order.requestedPickupDate || "");
+  const [busy, setBusy] = useState(false);
+
+  async function accept() {
+    if (!confirmedDate) return;
+    setBusy(true);
+    try {
+      await fetch(`/api/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Neu", date: confirmedDate }),
+      });
+      await onDecided();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function decline() {
+    setBusy(true);
+    try {
+      await fetch(`/api/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Abgelehnt" }),
+      });
+      await onDecided();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-amber-400/40 bg-amber-50 p-5 shadow-sm shadow-navy-950/5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="font-mono text-xs font-semibold text-navy-700/60">{order.id}</div>
+          <h3 className="mt-0.5 text-base font-semibold text-navy-900">{order.customer}</h3>
+          <div className="mt-1 text-xs text-navy-700/70">
+            {order.contactName} {order.contactName && "·"} {order.email} {order.phone && "·"} {order.phone}
+          </div>
+        </div>
+        <Badge tone="amber">Wartet auf Bestätigung</Badge>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="flex items-start gap-2 text-sm text-navy-800 lg:col-span-2">
+          <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div>
+            <div className="text-xs uppercase tracking-wide text-navy-700/50">Route</div>
+            {order.pickup} → {order.delivery}
+          </div>
+        </div>
+        <div className="text-sm text-navy-800">
+          <div className="text-xs uppercase tracking-wide text-navy-700/50">Wunsch Abholung</div>
+          {formatDate(order.requestedPickupDate)}
+        </div>
+        <div className="text-sm text-navy-800">
+          <div className="text-xs uppercase tracking-wide text-navy-700/50">Wunsch Zustellung</div>
+          {formatDate(order.requestedDeliveryDate)}
+        </div>
+        {order.cargoType ? (
+          <div className="text-sm text-navy-800 lg:col-span-2">
+            <div className="text-xs uppercase tracking-wide text-navy-700/50">Ladung</div>
+            {order.cargoType}
+          </div>
+        ) : null}
+        {order.notes ? (
+          <div className="text-sm text-navy-800 sm:col-span-2 lg:col-span-4">
+            <div className="text-xs uppercase tracking-wide text-navy-700/50">Hinweise</div>
+            <p className="whitespace-pre-line">{order.notes}</p>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-end gap-3 border-t border-amber-400/30 pt-4">
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor={`confirm-${order.id}`}>
+            Bestätigter Liefertermin
+          </label>
+          <input
+            id={`confirm-${order.id}`}
+            type="date"
+            value={confirmedDate}
+            onChange={(e) => setConfirmedDate(e.target.value)}
+            className="rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+          />
+        </div>
+        <Button icon={false} disabled={busy || !confirmedDate} onClick={accept}>
+          Annehmen &amp; Termin bestätigen
+        </Button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={decline}
+          className="rounded-full border border-navy-900/15 px-4 py-2 text-sm font-semibold text-navy-700 hover:bg-white disabled:opacity-50"
+        >
+          Ablehnen
+        </button>
       </div>
     </div>
   );

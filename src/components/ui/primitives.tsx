@@ -92,6 +92,7 @@ export function Button({
   type,
   onClick,
   icon = true,
+  disabled = false,
 }: {
   href?: string;
   children: ReactNode;
@@ -100,6 +101,7 @@ export function Button({
   type?: "button" | "submit";
   onClick?: () => void;
   icon?: boolean;
+  disabled?: boolean;
 }) {
   const styles: Record<string, string> = {
     primary:
@@ -123,7 +125,12 @@ export function Button({
   }
 
   return (
-    <button type={type ?? "button"} onClick={onClick} className={cls}>
+    <button
+      type={type ?? "button"}
+      onClick={onClick}
+      disabled={disabled}
+      className={`${cls} disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0`}
+    >
       {children}
       {icon ? <ArrowRightIcon className="h-4 w-4" /> : null}
     </button>
@@ -136,11 +143,12 @@ export function Card({ children, className = "" }: { children: ReactNode; classN
   return <div className={mergeClasses(base, className)}>{children}</div>;
 }
 
-export function Badge({ children, tone = "navy" }: { children: ReactNode; tone?: "navy" | "amber" | "green" }) {
+export function Badge({ children, tone = "navy" }: { children: ReactNode; tone?: "navy" | "amber" | "green" | "red" }) {
   const tones: Record<string, string> = {
     navy: "bg-navy-900/8 text-navy-800",
     amber: "bg-amber-400/15 text-amber-700",
     green: "bg-emerald-500/10 text-emerald-700",
+    red: "bg-red-500/10 text-red-700",
   };
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${tones[tone]}`}>

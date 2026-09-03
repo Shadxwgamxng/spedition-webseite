@@ -62,6 +62,16 @@ async function readDb(): Promise<Db> {
       order.messages = [];
       changed = true;
     }
+    if (order.origin === undefined) {
+      order.origin = "intern";
+      order.contactName ??= "";
+      order.email ??= "";
+      order.phone ??= "";
+      order.cargoType ??= "";
+      order.requestedPickupDate ??= order.date;
+      order.requestedDeliveryDate ??= order.date;
+      changed = true;
+    }
   }
 
   if (changed) await writeDb(db as Db);
@@ -255,26 +265,43 @@ export async function createOrder(input: {
   customer: string;
   pickup: string;
   delivery: string;
-  date: string;
+  date?: string;
   notes?: string;
+  origin?: "web" | "intern";
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  cargoType?: string;
+  requestedPickupDate?: string;
+  requestedDeliveryDate?: string;
 }): Promise<OrderRecord> {
   const db = await readDb();
   const maxNumber = db.orders.reduce((max, o) => {
     const n = Number(o.id.replace("BF-", ""));
     return Number.isFinite(n) ? Math.max(max, n) : max;
   }, 48200);
+  const origin = input.origin ?? "web";
   const order: OrderRecord = {
     id: `BF-${maxNumber + 1}`,
     customer: input.customer,
     pickup: input.pickup,
     delivery: input.delivery,
-    date: input.date,
+    // Internal orders (Disposition's "Neuer Auftrag") are scheduled immediately;
+    // web submissions get their confirmed date only once Disposition accepts them.
+    date: origin === "intern" ? (input.date ?? "") : "",
     notes: input.notes ?? "",
-    status: "Neu",
+    status: origin === "intern" ? "Neu" : "Angefragt",
     driverName: null,
     vehiclePlate: null,
     createdAt: new Date().toISOString(),
     messages: [],
+    origin,
+    contactName: input.contactName ?? "",
+    email: input.email ?? "",
+    phone: input.phone ?? "",
+    cargoType: input.cargoType ?? "",
+    requestedPickupDate: input.requestedPickupDate ?? input.date ?? "",
+    requestedDeliveryDate: input.requestedDeliveryDate ?? "",
   };
   db.orders.unshift(order);
   await writeDb(db);
@@ -283,7 +310,7 @@ export async function createOrder(input: {
 
 export async function updateOrder(
   id: string,
-  patch: Partial<Pick<OrderRecord, "status" | "driverName" | "vehiclePlate">>,
+  patch: Partial<Pick<OrderRecord, "status" | "driverName" | "vehiclePlate" | "date">>,
 ): Promise<OrderRecord | null> {
   const db = await readDb();
   const order = db.orders.find((o) => o.id === id);

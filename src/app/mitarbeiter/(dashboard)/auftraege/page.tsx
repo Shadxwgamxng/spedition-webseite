@@ -11,11 +11,13 @@ import { MapPinIcon } from "@/components/ui/icons";
 
 type OrdersResponse = { orders: OrderRecord[] };
 
-const statusStyles: Record<OrderStatus, "navy" | "amber" | "green"> = {
+const statusStyles: Record<OrderStatus, "navy" | "amber" | "green" | "red"> = {
+  Angefragt: "amber",
   Neu: "navy",
   Disponiert: "amber",
   Unterwegs: "amber",
   Zugestellt: "green",
+  Abgelehnt: "red",
 };
 
 export default function AuftraegePage() {

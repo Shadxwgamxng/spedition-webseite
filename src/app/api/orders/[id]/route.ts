@@ -1,13 +1,13 @@
 import { addOrderMessage, updateOrder } from "@/lib/server/store";
 import type { OrderStatus } from "@/lib/fleet-data";
 
-const VALID_STATUSES: OrderStatus[] = ["Neu", "Disponiert", "Unterwegs", "Zugestellt"];
+const VALID_STATUSES: OrderStatus[] = ["Angefragt", "Neu", "Disponiert", "Unterwegs", "Zugestellt", "Abgelehnt"];
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/orders/[id]">) {
   const { id } = await ctx.params;
   const body = await request.json().catch(() => null);
 
-  const patch: { status?: OrderStatus; driverName?: string | null; vehiclePlate?: string | null } = {};
+  const patch: { status?: OrderStatus; driverName?: string | null; vehiclePlate?: string | null; date?: string } = {};
 
   if (typeof body?.status === "string") {
     if (!VALID_STATUSES.includes(body.status as OrderStatus)) {
@@ -20,6 +20,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/orders/[id
   }
   if (body && "vehiclePlate" in body) {
     patch.vehiclePlate = typeof body.vehiclePlate === "string" ? body.vehiclePlate : null;
+  }
+  if (typeof body?.date === "string") {
+    patch.date = body.date;
   }
 
   const order = await updateOrder(id, patch);

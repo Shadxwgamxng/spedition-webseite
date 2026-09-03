@@ -14,7 +14,7 @@ export type VehicleRecord = {
   activeSince: string | null;
 };
 
-export type OrderStatus = "Neu" | "Disponiert" | "Unterwegs" | "Zugestellt";
+export type OrderStatus = "Angefragt" | "Neu" | "Disponiert" | "Unterwegs" | "Zugestellt" | "Abgelehnt";
 
 export type OrderMessage = { id: string; from: "driver" | "dispo"; authorName: string; text: string; at: string };
 
@@ -23,6 +23,7 @@ export type OrderRecord = {
   customer: string;
   pickup: string;
   delivery: string;
+  /** Confirmed/scheduled delivery date — set at creation for internal orders, or by Disposition when accepting a web request. */
   date: string;
   notes: string;
   status: OrderStatus;
@@ -30,6 +31,15 @@ export type OrderRecord = {
   vehiclePlate: string | null;
   createdAt: string;
   messages: OrderMessage[];
+  /** "web" = submitted via the public "Auftrag einreichen" form and awaiting Disposition's review; "intern" = created directly by Disposition. */
+  origin: "web" | "intern";
+  contactName: string;
+  email: string;
+  phone: string;
+  cargoType: string;
+  /** Customer's originally requested dates (web submissions only) — kept for reference even after Disposition confirms a `date`. */
+  requestedPickupDate: string;
+  requestedDeliveryDate: string;
 };
 
 export const driverRoster = [
@@ -49,10 +59,50 @@ export const initialVehicles: VehicleRecord[] = [
   { plate: "SN-BF 122", type: "Wechselbrücke 7,5t", year: 2023, mileage: 98230, nextService: "2026-11-12", nextTuv: "2027-04-02", maintenanceStatus: "Einsatzbereit", activeDriver: null, activeSince: null },
 ];
 
+const internOrderDefaults = {
+  origin: "intern" as const,
+  contactName: "",
+  email: "",
+  phone: "",
+  cargoType: "",
+};
+
 export const initialOrders: OrderRecord[] = [
-  { id: "BF-48213", customer: "Rathke Baustoffe GmbH", pickup: "Falkenwalde", delivery: "Berlin", date: "2026-09-02", notes: "", status: "Unterwegs", driverName: "Lukas Schmidt", vehiclePlate: "SN-BF 101", createdAt: "2026-09-01T08:00:00.000Z", messages: [] },
-  { id: "BF-48214", customer: "Nordbalt Trading Sp. z o.o.", pickup: "Falkenwalde", delivery: "Danzig (PL)", date: "2026-09-02", notes: "", status: "Disponiert", driverName: "Piotr Nowak", vehiclePlate: "SN-BF 104", createdAt: "2026-09-01T08:10:00.000Z", messages: [] },
-  { id: "BF-48215", customer: "Küstenlogistik Nord", pickup: "Falkenwalde", delivery: "Hamburg", date: "2026-09-03", notes: "", status: "Neu", driverName: null, vehiclePlate: null, createdAt: "2026-09-01T09:00:00.000Z", messages: [] },
-  { id: "BF-48216", customer: "Berndt Frischwaren", pickup: "Falkenwalde", delivery: "Rostock", date: "2026-09-02", notes: "Kühltransport, -4 °C", status: "Zugestellt", driverName: "Timo Fischer", vehiclePlate: "SN-BF 112", createdAt: "2026-08-31T07:00:00.000Z", messages: [] },
-  { id: "BF-48217", customer: "AgroTrans Pommern", pickup: "Stettin (PL)", delivery: "Falkenwalde", date: "2026-09-03", notes: "", status: "Neu", driverName: null, vehiclePlate: null, createdAt: "2026-09-01T10:00:00.000Z", messages: [] },
+  {
+    id: "BF-48213", customer: "Rathke Baustoffe GmbH", pickup: "Falkenwalde", delivery: "Berlin", date: "2026-09-02",
+    notes: "", status: "Unterwegs", driverName: "Lukas Schmidt", vehiclePlate: "SN-BF 101",
+    createdAt: "2026-09-01T08:00:00.000Z", messages: [],
+    ...internOrderDefaults, requestedPickupDate: "2026-09-02", requestedDeliveryDate: "2026-09-02",
+  },
+  {
+    id: "BF-48214", customer: "Nordbalt Trading Sp. z o.o.", pickup: "Falkenwalde", delivery: "Danzig (PL)", date: "2026-09-02",
+    notes: "", status: "Disponiert", driverName: "Piotr Nowak", vehiclePlate: "SN-BF 104",
+    createdAt: "2026-09-01T08:10:00.000Z", messages: [],
+    ...internOrderDefaults, requestedPickupDate: "2026-09-02", requestedDeliveryDate: "2026-09-02",
+  },
+  {
+    id: "BF-48215", customer: "Küstenlogistik Nord", pickup: "Falkenwalde", delivery: "Hamburg", date: "2026-09-03",
+    notes: "", status: "Neu", driverName: null, vehiclePlate: null,
+    createdAt: "2026-09-01T09:00:00.000Z", messages: [],
+    ...internOrderDefaults, requestedPickupDate: "2026-09-03", requestedDeliveryDate: "2026-09-03",
+  },
+  {
+    id: "BF-48216", customer: "Berndt Frischwaren", pickup: "Falkenwalde", delivery: "Rostock", date: "2026-09-02",
+    notes: "Kühltransport, -4 °C", status: "Zugestellt", driverName: "Timo Fischer", vehiclePlate: "SN-BF 112",
+    createdAt: "2026-08-31T07:00:00.000Z", messages: [],
+    ...internOrderDefaults, requestedPickupDate: "2026-09-02", requestedDeliveryDate: "2026-09-02",
+  },
+  {
+    id: "BF-48217", customer: "AgroTrans Pommern", pickup: "Stettin (PL)", delivery: "Falkenwalde", date: "2026-09-03",
+    notes: "", status: "Neu", driverName: null, vehiclePlate: null,
+    createdAt: "2026-09-01T10:00:00.000Z", messages: [],
+    ...internOrderDefaults, requestedPickupDate: "2026-09-03", requestedDeliveryDate: "2026-09-03",
+  },
+  {
+    id: "BF-48218", customer: "Greifswalder Möbelmarkt GmbH", pickup: "Falkenwalde", delivery: "Greifswald", date: "",
+    notes: "Anlieferung nur werktags vormittags möglich.", status: "Angefragt", driverName: null, vehiclePlate: null,
+    createdAt: "2026-09-01T14:20:00.000Z", messages: [],
+    origin: "web", contactName: "Sabine Holz", email: "s.holz@moebelmarkt-hgw.de", phone: "+49 3834 55 12 30",
+    cargoType: "Palettenware (Stückgut)", requestedPickupDate: "2026-09-08", requestedDeliveryDate: "2026-09-09",
+  },
 ];
