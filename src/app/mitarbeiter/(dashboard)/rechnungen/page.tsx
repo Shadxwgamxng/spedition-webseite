@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { EmployeePageHeader, StatCard } from "@/components/employee/page-header";
-import { Badge, Button } from "@/components/ui/primitives";
+import { Button } from "@/components/ui/primitives";
 import { downloadInvoicePdf } from "@/lib/invoice-pdf";
+import { usePolling } from "@/lib/use-polling";
 import type { CompanyInfo } from "@/lib/server/db-types";
 
 type LineItem = { description: string; qty: number; price: number };
@@ -24,49 +25,19 @@ const statusTone: Record<InvoiceStatus, "amber" | "green" | "navy"> = {
   Überfällig: "navy",
 };
 
-const initialInvoices: Invoice[] = [
-  {
-    number: "RE-2026-0341",
-    customer: "Rathke Baustoffe GmbH",
-    date: "2026-08-28",
-    total: 2380.5,
-    status: "Offen",
-    items: [{ description: "Transport Falkenwalde – Berlin", qty: 1, price: 2000.42 }],
-  },
-  {
-    number: "RE-2026-0340",
-    customer: "Nordbalt Trading Sp. z o.o.",
-    date: "2026-08-25",
-    total: 4120.0,
-    status: "Bezahlt",
-    items: [{ description: "Transport Falkenwalde – Danzig (PL)", qty: 1, price: 3462.18 }],
-  },
-  {
-    number: "RE-2026-0339",
-    customer: "Küstenlogistik Nord",
-    date: "2026-08-20",
-    total: 980.75,
-    status: "Bezahlt",
-    items: [{ description: "Transport Falkenwalde – Hamburg", qty: 1, price: 824.16 }],
-  },
-  {
-    number: "RE-2026-0338",
-    customer: "Berndt Frischwaren",
-    date: "2026-08-10",
-    total: 1560.0,
-    status: "Überfällig",
-    items: [{ description: "Kühltransport Falkenwalde – Rostock", qty: 1, price: 1310.92 }],
-  },
-];
+const statusOptions: InvoiceStatus[] = ["Offen", "Bezahlt", "Überfällig"];
 
 const emptyItem: LineItem = { description: "", qty: 1, price: 0 };
 
 export default function RechnungenPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
+  const { data, refetch } = usePolling<{ invoices: Invoice[] }>("/api/invoices", 5000);
+  const invoices = useMemo(() => data?.invoices ?? [], [data]);
+
   const [customer, setCustomer] = useState("");
   const [items, setItems] = useState<LineItem[]>([{ ...emptyItem }]);
   const [lastCreated, setLastCreated] = useState<Invoice | null>(null);
   const [company, setCompany] = useState<CompanyInfo | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/company")
@@ -96,21 +67,32 @@ export default function RechnungenPage() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function createInvoice() {
+  async function createInvoice() {
+    setError(null);
     if (!customer || netTotal <= 0) return;
-    const number = `RE-2026-${(342 + invoices.length).toString().padStart(4, "0")}`;
-    const invoice: Invoice = {
-      number,
-      customer,
-      date: new Date().toISOString().slice(0, 10),
-      total: grossTotal,
-      status: "Offen",
-      items,
-    };
-    setInvoices((prev) => [invoice, ...prev]);
-    setLastCreated(invoice);
+    const res = await fetch("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customer, items, total: grossTotal }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) {
+      setError(json.error ?? "Rechnung konnte nicht erstellt werden.");
+      return;
+    }
+    await refetch();
+    setLastCreated(json.invoice);
     setCustomer("");
     setItems([{ ...emptyItem }]);
+  }
+
+  async function changeStatus(number: string, status: InvoiceStatus) {
+    await fetch(`/api/invoices/${number}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    await refetch();
   }
 
   function exportPdf(invoice: Invoice) {
@@ -125,11 +107,11 @@ export default function RechnungenPage() {
         description="Rechnungen direkt im System erstellen, Positionen kalkulieren und den Zahlungsstatus verwalten."
       />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Rechnungen gesamt" value={String(invoices.length)} />
-        <StatCard label="Offene Forderungen" value={`€ ${openTotal.toLocaleString("de-DE", { minimumFractionDigits: 2 })}`} tone="warn" />
-        <StatCard label="Bezahlt (Auswahl)" value={String(invoices.filter((i) => i.status === "Bezahlt").length)} tone="good" />
-        <StatCard label="Überfällig" value={String(invoices.filter((i) => i.status === "Überfällig").length)} tone="warn" />
+        <StatCard label="Offene Forderungen" value={`€ ${openTotal.toLocaleString("de-DE", { minimumFractionDigits: 2 })}`} tone={openTotal > 0 ? "warn" : "good"} />
+        <StatCard label="Bezahlt" value={String(invoices.filter((i) => i.status === "Bezahlt").length)} tone="good" />
+        <StatCard label="Überfällig" value={String(invoices.filter((i) => i.status === "Überfällig").length)} tone={invoices.some((i) => i.status === "Überfällig") ? "warn" : "good"} />
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-5">
@@ -210,6 +192,8 @@ export default function RechnungenPage() {
             </div>
           </div>
 
+          {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+
           <div className="mt-5">
             <Button icon={false} onClick={createInvoice}>
               Rechnung erstellen
@@ -245,28 +229,52 @@ export default function RechnungenPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-navy-900/6">
-              {invoices.map((inv) => (
-                <tr key={inv.number}>
-                  <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-navy-700/70">{inv.number}</td>
-                  <td className="px-4 py-3 text-navy-800">{inv.customer}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-navy-900">
-                    € {inv.total.toLocaleString("de-DE", { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge tone={statusTone[inv.status]}>{inv.status}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => exportPdf(inv)}
-                      disabled={!company}
-                      className="text-xs font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50"
-                    >
-                      PDF
-                    </button>
+              {invoices.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-navy-700/60">
+                    Noch keine Rechnungen erstellt.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                invoices.map((inv) => (
+                  <tr key={inv.number}>
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-navy-700/70">{inv.number}</td>
+                    <td className="px-4 py-3 text-navy-800">{inv.customer}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-navy-900">
+                      € {inv.total.toLocaleString("de-DE", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={inv.status}
+                        onChange={(e) => changeStatus(inv.number, e.target.value as InvoiceStatus)}
+                        className={`rounded-full border-0 px-2.5 py-1 text-xs font-semibold outline-none ${
+                          statusTone[inv.status] === "amber"
+                            ? "bg-amber-400/15 text-amber-700"
+                            : statusTone[inv.status] === "green"
+                              ? "bg-emerald-500/10 text-emerald-700"
+                              : "bg-navy-900/8 text-navy-800"
+                        }`}
+                      >
+                        {statusOptions.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => exportPdf(inv)}
+                        disabled={!company}
+                        className="text-xs font-semibold text-amber-600 hover:text-amber-700 disabled:opacity-50"
+                      >
+                        PDF
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

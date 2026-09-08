@@ -10,6 +10,8 @@ import {
   type DriverCardRecord,
   type EmployeeRecord,
   type FleetCategoryRecord,
+  type InvoiceRecord,
+  type InvoiceStatus,
   type JobRecord,
   type NewsRecord,
   type PartnerRecord,
@@ -17,7 +19,9 @@ import {
   type ReminderEntry,
   type ReviewRecord,
   type ServiceRecord,
+  type StockItemRecord,
   type TeamMemberRecord,
+  type TripRecord,
 } from "@/lib/server/db-types";
 import type { OrderMessage, OrderRecord, VehicleRecord } from "@/lib/fleet-data";
 import { roleLabels, type RoleKey } from "@/lib/roles";
@@ -526,4 +530,145 @@ export async function verifyEmployeeLogin(username: string, password: string): P
   const employee = db.employees.find((e) => e.username.toLowerCase() === username.trim().toLowerCase());
   if (!employee || employee.password !== password) return null;
   return toPublicEmployee(employee);
+}
+
+// ---------------------------------------------------------------------------
+// Lagerverwaltung (stock items + inventories)
+// ---------------------------------------------------------------------------
+
+export async function getStockItems(): Promise<{ items: StockItemRecord[]; lastInventoryAt: string | null }> {
+  const db = await readDb();
+  return { items: db.stockItems, lastInventoryAt: db.lastInventoryAt };
+}
+
+export async function createStockItem(data: Omit<StockItemRecord, "id">): Promise<StockItemRecord> {
+  const db = await readDb();
+  if (db.stockItems.some((i) => i.sku.toLowerCase() === data.sku.toLowerCase())) {
+    throw new Error("Ein Artikel mit diesem SKU existiert bereits.");
+  }
+  const item: StockItemRecord = { ...data, id: makeId(data.sku) };
+  db.stockItems.push(item);
+  await writeDb(db);
+  return item;
+}
+
+export async function deleteStockItem(id: string): Promise<boolean> {
+  const db = await readDb();
+  const index = db.stockItems.findIndex((i) => i.id === id);
+  if (index === -1) return false;
+  db.stockItems.splice(index, 1);
+  await writeDb(db);
+  return true;
+}
+
+export async function applyInventoryCounts(counts: Record<string, number>): Promise<StockItemRecord[]> {
+  const db = await readDb();
+  for (const item of db.stockItems) {
+    if (counts[item.id] !== undefined && Number.isFinite(counts[item.id])) {
+      item.stock = Math.max(0, Math.round(counts[item.id]));
+    }
+  }
+  db.lastInventoryAt = new Date().toISOString();
+  await writeDb(db);
+  return db.stockItems;
+}
+
+// ---------------------------------------------------------------------------
+// Digitales Fahrtenbuch
+// ---------------------------------------------------------------------------
+
+export async function getTrips(): Promise<TripRecord[]> {
+  const db = await readDb();
+  return db.trips;
+}
+
+export async function createTrip(input: {
+  date: string;
+  driverName: string;
+  vehiclePlate: string;
+  start: string;
+  end: string;
+  kmStart: number;
+  kmEnd: number;
+  purpose: TripRecord["purpose"];
+}): Promise<TripRecord> {
+  const db = await readDb();
+  const maxNumber = db.trips.reduce((max, t) => {
+    const n = Number(t.id.replace("FT-", ""));
+    return Number.isFinite(n) ? Math.max(max, n) : max;
+  }, 9000);
+  const trip: TripRecord = {
+    id: `FT-${maxNumber + 1}`,
+    date: input.date,
+    driverName: input.driverName,
+    vehiclePlate: input.vehiclePlate,
+    start: input.start,
+    end: input.end,
+    kmStart: input.kmStart,
+    kmEnd: Math.max(input.kmEnd, input.kmStart),
+    purpose: input.purpose,
+  };
+  db.trips.unshift(trip);
+  await writeDb(db);
+  return trip;
+}
+
+export async function deleteTrip(id: string): Promise<boolean> {
+  const db = await readDb();
+  const index = db.trips.findIndex((t) => t.id === id);
+  if (index === -1) return false;
+  db.trips.splice(index, 1);
+  await writeDb(db);
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Rechnungserstellung
+// ---------------------------------------------------------------------------
+
+export async function getInvoices(): Promise<InvoiceRecord[]> {
+  const db = await readDb();
+  return db.invoices;
+}
+
+export async function createInvoice(input: {
+  customer: string;
+  items: InvoiceRecord["items"];
+  total: number;
+}): Promise<InvoiceRecord> {
+  const db = await readDb();
+  const year = new Date().getFullYear();
+  const maxNumber = db.invoices.reduce((max, i) => {
+    const n = Number(i.number.split("-").pop());
+    return Number.isFinite(n) ? Math.max(max, n) : max;
+  }, 340);
+  const invoice: InvoiceRecord = {
+    number: `RE-${year}-${String(maxNumber + 1).padStart(4, "0")}`,
+    customer: input.customer,
+    date: new Date().toISOString().slice(0, 10),
+    total: input.total,
+    status: "Offen",
+    items: input.items,
+  };
+  db.invoices.unshift(invoice);
+  await writeDb(db);
+  return invoice;
+}
+
+export async function updateInvoiceStatus(number: string, status: InvoiceStatus): Promise<InvoiceRecord | null> {
+  const db = await readDb();
+  const invoice = db.invoices.find((i) => i.number === number);
+  if (!invoice) return null;
+  invoice.status = status;
+  await writeDb(db);
+  return invoice;
+}
+
+export async function deleteInvoice(number: string): Promise<boolean> {
+  const db = await readDb();
+  const index = db.invoices.findIndex((i) => i.number === number);
+  if (index === -1) return false;
+  db.invoices.splice(index, 1);
+  await writeDb(db);
+  return true;
 }

@@ -65,6 +65,42 @@ export type EmployeeRecord = {
 
 export type PublicEmployee = Omit<EmployeeRecord, "password">;
 
+export type StockItemRecord = {
+  id: string;
+  sku: string;
+  name: string;
+  location: string;
+  stock: number;
+  minStock: number;
+  unit: string;
+};
+
+export type TripPurpose = "Geschäftlich" | "Privat";
+
+export type TripRecord = {
+  id: string;
+  date: string;
+  driverName: string;
+  vehiclePlate: string;
+  start: string;
+  end: string;
+  kmStart: number;
+  kmEnd: number;
+  purpose: TripPurpose;
+};
+
+export type InvoiceLineItem = { description: string; qty: number; price: number };
+export type InvoiceStatus = "Offen" | "Bezahlt" | "Überfällig";
+
+export type InvoiceRecord = {
+  number: string;
+  customer: string;
+  date: string;
+  total: number;
+  status: InvoiceStatus;
+  items: InvoiceLineItem[];
+};
+
 function slugify(input: string): string {
   return input
     .toLowerCase()
@@ -98,6 +134,10 @@ export type Db = {
   orders: OrderRecord[];
   driverCards: DriverCardRecord[];
   employees: EmployeeRecord[];
+  stockItems: StockItemRecord[];
+  lastInventoryAt: string | null;
+  trips: TripRecord[];
+  invoices: InvoiceRecord[];
   news: NewsRecord[];
   jobs: JobRecord[];
   services: ServiceRecord[];
@@ -113,6 +153,9 @@ export const COLLECTION_ID_FIELD = {
   vehicles: "plate",
   orders: "id",
   driverCards: "driverName",
+  stockItems: "id",
+  trips: "id",
+  invoices: "number",
   news: "slug",
   jobs: "slug",
   services: "slug",
@@ -183,6 +226,10 @@ export function seedDb(): Db {
       reminders: [],
     })),
     employees: seedEmployees(),
+    stockItems: [],
+    lastInventoryAt: null,
+    trips: [],
+    invoices: [],
     news: newsSeed,
     jobs: jobsSeed,
     services: servicesSeed,

@@ -97,10 +97,30 @@ die Website-Verwaltung editierbar, sondern fest in `src/lib/data.ts` (`legalCont
 real verantwortliche Person, unabhängig vom fiktiven Firmennamen „Baltic Freight GmbH", der über die
 Website-Verwaltung gepflegt wird (§5 TMG verlangt eine echte, identifizierbare verantwortliche Person/Adresse).
 
+### Lagerverwaltung & Inventuren
+
+Artikel (SKU, Name, Lagerort, Bestand, Mindestbestand) werden serverseitig gespeichert (`stockItems`-Collection)
+und starten leer, bis welche angelegt werden. Eine Inventur zählt die Bestände neu und setzt den Zeitstempel
+„Letzte Inventur" — beides bleibt über Neustarts hinweg erhalten (`src/app/api/stock/*`).
+
+### Digitales Fahrtenbuch
+
+Fahrten (Datum, Fahrer, Fahrzeug, Strecke, km-Stände, Zweck) werden serverseitig gespeichert und starten leer.
+Fahrer- und Fahrzeugauswahl im Erfassungsformular kommen live aus den echten Mitarbeiter-Konten (Rolle „Fahrer")
+und dem echten Fuhrpark, nicht aus einer festen Liste (`src/app/api/trips/*`).
+
 ### Rechnungserstellung mit PDF-Export
 
-Rechnungen lassen sich wie bisher mit Positionen kalkulieren und zusätzlich direkt als PDF herunterladen
-(`src/lib/invoice-pdf.ts`, via `jspdf`) — sowohl beim Erstellen als auch nachträglich aus der Liste.
+Rechnungen werden serverseitig gespeichert (`invoices`-Collection, starten leer) und lassen sich mit Positionen
+kalkulieren, deren Zahlungsstatus (Offen/Bezahlt/Überfällig) direkt in der Liste ändern und zusätzlich direkt als
+PDF herunterladen (`src/lib/invoice-pdf.ts`, via `jspdf`) — sowohl beim Erstellen als auch nachträglich aus der
+Liste (`src/app/api/invoices/*`).
+
+### Finanzbuchhaltung
+
+Zeigt eine ehrliche, auf die echten Rechnungsdaten beschränkte Übersicht (offene Forderungen, bezahlt gesamt,
+überfällige Rechnungen) — es gibt bewusst **keine** erfundene Ausgaben-/Kassenbuchhaltung (Kraftstoff, Personal,
+Werkstatt) mehr, da dafür keine echte Datenquelle existiert; die Seite weist das auch so aus.
 
 ### Fahrzeugverwaltung: Anlegen/Löschen
 
@@ -117,12 +137,13 @@ Dies ist eine funktionale Demo mit einem schlanken eigenen Backend. Vor einem ec
   und sind offen erreichbar. Das betrifft insbesondere `/api/employees` (Mitarbeiter-Konten anlegen/ändern/löschen)
   und `/api/login`: Für den Produktivbetrieb braucht es serverseitige Authentifizierung mit sicherem
   Session-/Token-Handling, Passwort-Hashing sowie serverseitig durchgesetzte Rollen/Rechte auf jeder API-Route
-  (insbesondere `/api/employees`, `/api/admin/*`, `/api/vehicles` POST/DELETE, `/api/driver-cards`).
-- **Datenpersistenz**: Disposition, Fahrzeuge, Fahrerkarten, Aufträge/Chat und alle Website-Inhalte laufen über
-  einen dateibasierten Store (eine JSON-Datei auf dem Server, `src/lib/server/store.ts`) — funktional korrekt für
-  eine Einzelserver-Demo, aber nicht nebenläufigkeitssicher und kein Ersatz für eine echte Datenbank. Lager,
-  Fahrtenbuch und Finanzbuchhaltung nutzen weiterhin nur lokalen React-State mit Beispieldaten (kein Speichern).
-  Regelmäßige Backups von `.data/db.json` sind empfehlenswert (siehe Hosting-Anleitungen).
+  (insbesondere `/api/employees`, `/api/admin/*`, `/api/stock`, `/api/trips`, `/api/invoices`, `/api/vehicles`
+  POST/DELETE, `/api/driver-cards`).
+- **Datenpersistenz**: Disposition, Fahrzeuge, Fahrerkarten, Aufträge/Chat, Lagerbestände, Fahrtenbuch, Rechnungen
+  und alle Website-Inhalte laufen über einen dateibasierten Store (eine JSON-Datei auf dem Server,
+  `src/lib/server/store.ts`) — funktional korrekt für eine Einzelserver-Demo, aber nicht nebenläufigkeitssicher und
+  kein Ersatz für eine echte Datenbank. Regelmäßige Backups von `.data/db.json` sind empfehlenswert (siehe
+  Hosting-Anleitungen).
 - **Formulare**: Das Kontaktformular und das Bewerbungsportal zeigen aktuell nur eine Erfolgsmeldung an; es wird
   noch keine E-Mail versendet oder Datei gespeichert. Hierfür wird ein Backend (API-Route + E-Mail-Versand bzw.
   Dateispeicher) benötigt.

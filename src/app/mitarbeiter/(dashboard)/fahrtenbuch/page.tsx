@@ -3,14 +3,16 @@
 import { useState, type FormEvent } from "react";
 import { EmployeePageHeader, StatCard } from "@/components/employee/page-header";
 import { Badge, Button } from "@/components/ui/primitives";
+import { usePolling } from "@/lib/use-polling";
+import type { VehicleRecord } from "@/lib/fleet-data";
 
 type Purpose = "Geschäftlich" | "Privat";
 
 type Trip = {
   id: string;
   date: string;
-  driver: string;
-  vehicle: string;
+  driverName: string;
+  vehiclePlate: string;
   start: string;
   end: string;
   kmStart: number;
@@ -18,41 +20,53 @@ type Trip = {
   purpose: Purpose;
 };
 
-const drivers = ["Lukas Schmidt", "Piotr Nowak", "Timo Fischer", "Anja Krüger", "Rafael Lindt"];
-const vehicles = ["SN-BF 101", "SN-BF 102", "SN-BF 104", "SN-BF 112", "SN-BF 118", "SN-BF 122"];
-
-const initialTrips: Trip[] = [
-  { id: "FT-9001", date: "2026-09-01", driver: "Lukas Schmidt", vehicle: "SN-BF 101", start: "Falkenwalde", end: "Berlin", kmStart: 128100, kmEnd: 128450, purpose: "Geschäftlich" },
-  { id: "FT-9002", date: "2026-09-01", driver: "Piotr Nowak", vehicle: "SN-BF 104", start: "Falkenwalde", end: "Danzig (PL)", kmStart: 41780, kmEnd: 42110, purpose: "Geschäftlich" },
-  { id: "FT-9003", date: "2026-08-31", driver: "Timo Fischer", vehicle: "SN-BF 112", start: "Rostock", end: "Falkenwalde", kmStart: 210520, kmEnd: 210870, purpose: "Geschäftlich" },
-  { id: "FT-9004", date: "2026-08-31", driver: "Anja Krüger", vehicle: "SN-BF 118", start: "Falkenwalde", end: "Greifswald", kmStart: 265120, kmEnd: 265400, purpose: "Geschäftlich" },
-];
+type Employee = { username: string; name: string; roleKey: string };
 
 export default function FahrtenbuchPage() {
-  const [trips, setTrips] = useState<Trip[]>(initialTrips);
+  const { data: tripData, refetch } = usePolling<{ trips: Trip[] }>("/api/trips", 5000);
+  const { data: employeeData } = usePolling<{ employees: Employee[] }>("/api/employees", 10000);
+  const { data: vehicleData } = usePolling<{ vehicles: VehicleRecord[] }>("/api/vehicles", 10000);
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const trips = tripData?.trips ?? [];
+  const drivers = (employeeData?.employees ?? []).filter((e) => e.roleKey === "fahrer").map((e) => e.name);
+  const vehicles = (vehicleData?.vehicles ?? []).map((v) => v.plate);
 
   const totalKm = trips.reduce((sum, t) => sum + (t.kmEnd - t.kmStart), 0);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError(null);
     const form = new FormData(event.currentTarget);
-    const kmStart = Number(form.get("kmStart"));
-    const kmEnd = Number(form.get("kmEnd"));
-    const trip: Trip = {
-      id: `FT-${9000 + trips.length + 5}`,
-      date: String(form.get("date")),
-      driver: String(form.get("driver")),
-      vehicle: String(form.get("vehicle")),
-      start: String(form.get("start")),
-      end: String(form.get("end")),
-      kmStart,
-      kmEnd: Math.max(kmEnd, kmStart),
-      purpose: form.get("purpose") as Purpose,
+    const payload = {
+      date: String(form.get("date") ?? ""),
+      driverName: String(form.get("driverName") ?? ""),
+      vehiclePlate: String(form.get("vehiclePlate") ?? ""),
+      start: String(form.get("start") ?? ""),
+      end: String(form.get("end") ?? ""),
+      kmStart: Number(form.get("kmStart") ?? 0),
+      kmEnd: Number(form.get("kmEnd") ?? 0),
+      purpose: String(form.get("purpose") ?? "Geschäftlich"),
     };
-    setTrips((prev) => [trip, ...prev]);
+    const res = await fetch("/api/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) {
+      setError(json.error ?? "Fahrt konnte nicht gespeichert werden.");
+      return;
+    }
+    await refetch();
     setShowForm(false);
     event.currentTarget.reset();
+  }
+
+  async function handleDelete(id: string) {
+    await fetch(`/api/trips/${id}`, { method: "DELETE" });
+    await refetch();
   }
 
   return (
@@ -67,11 +81,10 @@ export default function FahrtenbuchPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Fahrten erfasst" value={String(trips.length)} />
         <StatCard label="Gesamt gefahrene km" value={`${totalKm.toLocaleString("de-DE")} km`} />
-        <StatCard label="Aktive Fahrer" value={String(new Set(trips.map((t) => t.driver)).size)} />
-        <StatCard label="Erfassung" value="lückenlos digital" tone="good" />
+        <StatCard label="Aktive Fahrer" value={String(new Set(trips.map((t) => t.driverName)).size)} />
       </div>
 
       {showForm ? (
@@ -80,13 +93,14 @@ export default function FahrtenbuchPage() {
           className="mt-6 grid grid-cols-1 gap-4 rounded-2xl border border-navy-900/8 bg-white p-6 shadow-sm shadow-navy-950/5 sm:grid-cols-2 lg:grid-cols-4"
         >
           <FormField label="Datum" name="date" type="date" required />
-          <SelectField label="Fahrer" name="driver" options={drivers} />
-          <SelectField label="Fahrzeug" name="vehicle" options={vehicles} />
+          <SelectField label="Fahrer" name="driverName" options={drivers} />
+          <SelectField label="Fahrzeug" name="vehiclePlate" options={vehicles} />
           <SelectField label="Zweck" name="purpose" options={["Geschäftlich", "Privat"]} />
           <FormField label="Start" name="start" placeholder="z. B. Falkenwalde" required />
           <FormField label="Ziel" name="end" placeholder="z. B. Berlin" required />
           <FormField label="km-Stand Start" name="kmStart" type="number" required />
           <FormField label="km-Stand Ende" name="kmEnd" type="number" required />
+          {error ? <p className="text-sm text-red-600 sm:col-span-2 lg:col-span-4">{error}</p> : null}
           <div className="sm:col-span-2 lg:col-span-4">
             <Button type="submit" icon={false}>
               Fahrt speichern
@@ -106,24 +120,44 @@ export default function FahrtenbuchPage() {
               <th className="px-4 py-3 font-medium">Strecke</th>
               <th className="px-4 py-3 font-medium">km</th>
               <th className="px-4 py-3 font-medium">Zweck</th>
+              <th className="px-4 py-3 font-medium">&nbsp;</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-navy-900/6">
-            {trips.map((t) => (
-              <tr key={t.id}>
-                <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-navy-700/70">{t.id}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-navy-700/70">{new Date(t.date).toLocaleDateString("de-DE")}</td>
-                <td className="px-4 py-3 font-medium text-navy-900">{t.driver}</td>
-                <td className="px-4 py-3 font-mono text-xs text-navy-700/70">{t.vehicle}</td>
-                <td className="px-4 py-3 text-navy-700/80">
-                  {t.start} → {t.end}
-                </td>
-                <td className="px-4 py-3 text-navy-800">{(t.kmEnd - t.kmStart).toLocaleString("de-DE")} km</td>
-                <td className="px-4 py-3">
-                  <Badge tone={t.purpose === "Geschäftlich" ? "green" : "navy"}>{t.purpose}</Badge>
+            {trips.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-navy-700/60">
+                  Noch keine Fahrten erfasst.
                 </td>
               </tr>
-            ))}
+            ) : (
+              trips.map((t) => (
+                <tr key={t.id}>
+                  <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-navy-700/70">{t.id}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-navy-700/70">
+                    {new Date(t.date).toLocaleDateString("de-DE")}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-navy-900">{t.driverName}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-navy-700/70">{t.vehiclePlate}</td>
+                  <td className="px-4 py-3 text-navy-700/80">
+                    {t.start} → {t.end}
+                  </td>
+                  <td className="px-4 py-3 text-navy-800">{(t.kmEnd - t.kmStart).toLocaleString("de-DE")} km</td>
+                  <td className="px-4 py-3">
+                    <Badge tone={t.purpose === "Geschäftlich" ? "green" : "navy"}>{t.purpose}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(t.id)}
+                      className="text-xs font-semibold text-red-600 hover:text-red-700"
+                    >
+                      Löschen
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -172,6 +206,7 @@ function SelectField({ label, name, options }: { label: string; name: string; op
         name={name}
         className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm text-navy-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
       >
+        {options.length === 0 ? <option value="">— keine verfügbar —</option> : null}
         {options.map((o) => (
           <option key={o} value={o}>
             {o}
