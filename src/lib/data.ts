@@ -2,15 +2,29 @@ export const company = {
   name: "Baltic Freight GmbH",
   claim: "Spedition & Logistik aus Falkenwalde",
   founded: 2007,
-  street: "Ostseestraße 14",
+  street: "Industriestraße 7-12",
   zip: "17337",
   city: "Falkenwalde",
-  phone: "+49 3973 219 40",
-  fax: "+49 3973 219 41",
-  email: "info@baltic-freight.de",
-  disposition_email: "disposition@baltic-freight.de",
-  karriere_email: "karriere@baltic-freight.de",
-  mapsQuery: "Falkenwalde, Vorpommern-Greifswald",
+  phone: "",
+  email: "",
+  disposition_email: "",
+  karriere_email: "",
+  mapsQuery: "Industriestraße 7-12, Falkenwalde, Vorpommern-Greifswald",
+};
+
+/**
+ * Impressum/Datenschutz "verantwortliche Person" — deliberately separate from
+ * `company` above. This site presents a fictional Spedition ("Baltic Freight
+ * GmbH"), but German law (§5 TMG, DSGVO) requires the real operator to be
+ * named with a real address/contact, not the in-universe company.
+ */
+export const legalContact = {
+  name: "Lucas Ehlers",
+  street: "Lensahner Straße 3",
+  zip: "23758",
+  city: "Wangels OT Hansühn",
+  phone: "01725111069",
+  email: "presse.lucas.ehlers@gmail.com",
 };
 
 export const navLinks = [
@@ -58,7 +72,7 @@ export const services: Service[] = [
     short: "Ein- und Auslagerung, Kommissionierung, Bestandsführung.",
     description:
       "In unserem Logistikzentrum in Falkenwalde bieten wir Lagerflächen mit digitaler Bestandsführung, Kommissionierung und Value-Added-Services für Ihre Waren.",
-    points: ["12.000 m² Lagerfläche", "Digitale Inventuren", "Kommissionierung & Verpackung", "Cross-Docking"],
+    points: ["Lagerflächen mit digitaler Bestandsführung", "Digitale Inventuren", "Kommissionierung & Verpackung", "Cross-Docking"],
     icon: "warehouse",
   },
   {
@@ -100,65 +114,22 @@ export type TeamMember = {
 
 export const management: TeamMember[] = [
   {
-    name: "Torsten Wegner",
+    name: "Mark Winter",
     role: "Geschäftsführer",
     department: "Geschäftsleitung",
-    bio: "Gründete Baltic Freight 2007 und verantwortet Strategie, Vertrieb und internationale Partnerschaften.",
-    initials: "TW",
+    bio: "Verantwortet Strategie, Vertrieb und die Entwicklung der Baltic Freight GmbH.",
+    initials: "MW",
   },
   {
-    name: "Kristina Bahlke",
-    role: "Geschäftsführerin, Prokuristin",
-    department: "Geschäftsleitung & Finanzen",
-    bio: "Leitet Finanzen, Controlling und Personalwesen und ist zweite Geschäftsführerin der Baltic Freight GmbH.",
-    initials: "KB",
+    name: "Lucas Summer",
+    role: "Geschäftsführer",
+    department: "Geschäftsleitung",
+    bio: "Verantwortet Finanzen, Personal und die operative Steuerung der Baltic Freight GmbH.",
+    initials: "LS",
   },
 ];
 
-export const keyPositions: TeamMember[] = [
-  {
-    name: "Marek Nowicki",
-    role: "Leiter Disposition",
-    department: "Disposition",
-    bio: "Verantwortet die tägliche Tourenplanung sowie die Steuerung des Fuhrparks im In- und Ausland.",
-    initials: "MN",
-  },
-  {
-    name: "Sandra Lehmann",
-    role: "Leiterin Lagerlogistik",
-    department: "Lager & Kontraktlogistik",
-    bio: "Organisiert Wareneingang, Kommissionierung und Inventuren im Logistikzentrum Falkenwalde.",
-    initials: "SL",
-  },
-  {
-    name: "Jonas Petersen",
-    role: "Leiter Fuhrparkmanagement",
-    department: "Fuhrpark & Werkstatt",
-    bio: "Zuständig für Wartung, Prüftermine und die Digitalisierung von Fahrtenbuch und Fahrerkarten.",
-    initials: "JP",
-  },
-  {
-    name: "Anke Voss",
-    role: "Leiterin Personal & Recruiting",
-    department: "Personal",
-    bio: "Erste Ansprechperson für Bewerbungen, Ausbildung und Mitarbeiterentwicklung.",
-    initials: "AV",
-  },
-  {
-    name: "Dennis Kramer",
-    role: "Leiter Buchhaltung",
-    department: "Finanzbuchhaltung",
-    bio: "Verantwortet Rechnungsstellung, Debitoren- und Kreditorenbuchhaltung sowie das Reporting.",
-    initials: "DK",
-  },
-  {
-    name: "Piotr Zieliński",
-    role: "Leiter Internationale Verkehre",
-    department: "Disposition International",
-    bio: "Koordiniert grenzüberschreitende Transporte in den Baltikum- und Ostseeraum.",
-    initials: "PZ",
-  },
-];
+export const keyPositions: TeamMember[] = [];
 
 export type FleetVehicle = {
   category: string;
@@ -167,32 +138,7 @@ export type FleetVehicle = {
   features: string[];
 };
 
-export const fleet: FleetVehicle[] = [
-  {
-    category: "Sattelzugmaschinen",
-    count: 48,
-    description: "Moderne Zugmaschinen der Euro-6-Klasse für nationale und internationale Fernverkehre.",
-    features: ["Euro 6 / Euro 6E", "Abstandsregeltempomat", "Telematik & GPS-Tracking", "Ø Alter 2,4 Jahre"],
-  },
-  {
-    category: "Standard-Sattelauflieger",
-    count: 55,
-    description: "Curtainsider und Kofferauflieger für Stückgut, Paletten und Komplettladungen.",
-    features: ["Volumen bis 100 m³", "Zurrschienen & Ladungssicherung", "Doppelstockverladung möglich"],
-  },
-  {
-    category: "Kühl- & Temperaturführung",
-    count: 14,
-    description: "Multi-Temperatur-Auflieger für temperaturgeführte Transporte.",
-    features: ["-25 °C bis +25 °C", "Temperaturaufzeichnung", "Lebensmittel- & Pharmatransporte"],
-  },
-  {
-    category: "Wechselbrücken & Solofahrzeuge",
-    count: 22,
-    description: "Flexible Fahrzeuge für Nahverkehr, Cross-Docking und Same-Day-Touren.",
-    features: ["7,5 t bis 18 t", "Ladebordwand verfügbar", "Ideal für Stadtlogistik"],
-  },
-];
+export const fleet: FleetVehicle[] = [];
 
 export type NewsPost = {
   slug: string;
@@ -203,60 +149,7 @@ export type NewsPost = {
   content: string[];
 };
 
-export const news: NewsPost[] = [
-  {
-    slug: "erweiterung-logistikzentrum-falkenwalde",
-    title: "Baltic Freight erweitert Logistikzentrum in Falkenwalde",
-    date: "2026-07-14",
-    category: "Unternehmen",
-    excerpt:
-      "Mit einer neuen Lagerhalle wächst unsere Lagerfläche in Falkenwalde auf über 12.000 m² – für noch mehr Kapazität in der Kontraktlogistik.",
-    content: [
-      "Baltic Freight investiert weiter in den Standort Falkenwalde: Mit einer neuen Halle wächst die verfügbare Lagerfläche auf über 12.000 m².",
-      "Die Erweiterung schafft zusätzliche Kapazitäten für Kommissionierung, Cross-Docking und temperaturgeführte Lagerung und stärkt unsere Position als Logistikdrehscheibe im Ostseeraum.",
-      "Die neue Halle soll im vierten Quartal 2026 in Betrieb genommen werden.",
-    ],
-  },
-  {
-    slug: "zehn-neue-euro6-sattelzugmaschinen",
-    title: "Zehn neue Euro-6-Sattelzugmaschinen für den Fuhrpark",
-    date: "2026-05-02",
-    category: "Fuhrpark",
-    excerpt:
-      "Zehn weitere Zugmaschinen der neuesten Euro-6-Generation verstärken unsere Flotte und senken den durchschnittlichen CO₂-Ausstoß je Tour.",
-    content: [
-      "Zum Frühjahr 2026 hat Baltic Freight zehn neue Sattelzugmaschinen der neuesten Euro-6-Generation in Dienst gestellt.",
-      "Die Fahrzeuge sind mit moderner Telematik ausgestattet und tragen zur weiteren Senkung unseres CO₂-Fußabdrucks je gefahrenem Kilometer bei.",
-      "Damit umfasst unser Fuhrpark aktuell 48 Zugmaschinen und über 90 Auflieger verschiedener Bauart.",
-    ],
-  },
-  {
-    slug: "digitales-fahrtenbuch-rollout",
-    title: "Digitales Fahrtenbuch für alle Fahrzeuge eingeführt",
-    date: "2026-02-18",
-    category: "Digitalisierung",
-    excerpt:
-      "Mit dem flächendeckenden Rollout des digitalen Fahrtenbuchs sind alle Touren jetzt lückenlos und rechtssicher dokumentiert.",
-    content: [
-      "Nach einer Pilotphase mit zehn Fahrzeugen läuft das digitale Fahrtenbuch nun flottenweit.",
-      "Fahrer erfassen Fahrten direkt über ein Tablet im Führerhaus, die Disposition erhält in Echtzeit Einblick in Kilometerstände und Standorte.",
-      "Das Projekt ist ein weiterer Baustein unserer Digitalisierungsstrategie, zu der auch die digitale Fahrerkarte und das interne Dispositionssystem gehören.",
-    ],
-  },
-  {
-    slug: "ausbildungsstart-2026",
-    title: "Neun neue Auszubildende starten bei Baltic Freight",
-    date: "2025-09-01",
-    category: "Personal",
-    excerpt:
-      "Zum Ausbildungsjahr 2026 begrüßen wir neun neue Auszubildende in den Bereichen Spedition, Berufskraftfahrer und Lagerlogistik.",
-    content: [
-      "Wir freuen uns über neun neue Auszubildende, die zum 1. September ihre Ausbildung bei Baltic Freight begonnen haben.",
-      "Die jungen Kolleginnen und Kollegen durchlaufen alle Fachbereiche – von der Disposition über die Lagerlogistik bis zum Fahrerhaus.",
-      "Bewerbungen für das nächste Ausbildungsjahr nehmen wir laufend über unser Bewerbungsportal entgegen.",
-    ],
-  },
-];
+export const news: NewsPost[] = [];
 
 export type Job = {
   slug: string;
@@ -271,8 +164,8 @@ export type Job = {
 
 export const jobs: Job[] = [
   {
-    slug: "berufskraftfahrer-cE",
-    title: "Berufskraftfahrer (m/w/d) CE – Nah- & Fernverkehr",
+    slug: "berufskraftfahrer-ce",
+    title: "Berufskraftfahrer (m/w/d) CE",
     location: "Falkenwalde",
     type: "Vollzeit",
     department: "Fuhrpark",
@@ -281,7 +174,7 @@ export const jobs: Job[] = [
     tasks: [
       "Durchführung von Nah- und Fernverkehrstouren",
       "Be- und Entladung sowie Ladungssicherung",
-      "Digitale Dokumentation über Fahrtenbuch-App",
+      "Digitale Dokumentation über die Disposition",
       "Freundlicher Umgang mit Kunden vor Ort",
     ],
     requirements: [
@@ -292,85 +185,64 @@ export const jobs: Job[] = [
     ],
   },
   {
+    slug: "azubi-berufskraftfahrer",
+    title: "Ausbildung Berufskraftfahrer (m/w/d) CE",
+    location: "Falkenwalde",
+    type: "Ausbildung",
+    department: "Fuhrpark",
+    description: "Starte deine Karriere hinterm Steuer – wir bilden dich zum Berufskraftfahrer aus.",
+    tasks: [
+      "Praxisnahe Ausbildung im Nah- und Fernverkehr",
+      "Begleitung durch erfahrene Berufskraftfahrer",
+      "Kennenlernen von Ladungssicherung und Fahrzeugtechnik",
+      "Vorbereitung auf die Berufskraftfahrerqualifikation",
+    ],
+    requirements: [
+      "Führerschein Klasse B von Vorteil, CE wird begleitet erworben",
+      "Zuverlässigkeit und Verantwortungsbewusstsein",
+      "Freude am Fahren und am Umgang mit Menschen",
+      "Guter Hauptschulabschluss oder vergleichbar",
+    ],
+  },
+  {
     slug: "disponent",
-    title: "Disponent (m/w/d) Nationale Verkehre",
+    title: "Disponent (m/w/d)",
     location: "Falkenwalde",
     type: "Vollzeit",
     department: "Disposition",
     description:
       "Für unser Dispositionsteam suchen wir eine engagierte Persönlichkeit, die Touren plant und unsere Fahrer sowie Kunden koordiniert.",
     tasks: [
-      "Planung und Steuerung nationaler Transporte",
+      "Planung und Steuerung nationaler und internationaler Transporte",
       "Kommunikation mit Fahrern, Kunden und Partnern",
-      "Nutzung unseres digitalen Dispositionssystems",
       "Überwachung von Terminen und Lieferqualität",
+      "Angebotserstellung und Kundenbetreuung",
     ],
     requirements: [
-      "Abgeschlossene Ausbildung als Kaufmann/-frau für Spedition und Logistikdienstleistung",
+      "Abgeschlossene Ausbildung als Kaufmann/-frau für Spedition und Logistikdienstleistung oder vergleichbar",
       "Erste Berufserfahrung in der Disposition wünschenswert",
-      "Sicherer Umgang mit Dispositionssoftware",
       "Belastbarkeit und Organisationstalent",
+      "Sicherer Umgang mit gängiger Bürosoftware",
     ],
   },
   {
-    slug: "lagerlogistiker",
-    title: "Fachkraft für Lagerlogistik (m/w/d)",
-    location: "Falkenwalde",
-    type: "Vollzeit / Schicht",
-    department: "Lager",
-    description:
-      "Wir suchen Verstärkung für Wareneingang, Kommissionierung und digitale Inventuren in unserem Logistikzentrum.",
-    tasks: [
-      "Warenannahme, Einlagerung und Kommissionierung",
-      "Durchführung digitaler Inventuren",
-      "Bedienung von Flurförderzeugen (Staplerschein von Vorteil)",
-      "Einhaltung von Qualitäts- und Sicherheitsstandards",
-    ],
-    requirements: [
-      "Abgeschlossene Ausbildung als Fachkraft für Lagerlogistik oder vergleichbar",
-      "Staplerschein wünschenswert",
-      "Sorgfältige und zuverlässige Arbeitsweise",
-      "Bereitschaft zur Schichtarbeit",
-    ],
-  },
-  {
-    slug: "kfz-mechatroniker",
-    title: "Kfz-Mechatroniker Nutzfahrzeuge (m/w/d)",
-    location: "Falkenwalde",
-    type: "Vollzeit",
-    department: "Werkstatt",
-    description: "Für unsere hauseigene Werkstatt suchen wir einen Kfz-Mechatroniker zur Wartung unseres Fuhrparks.",
-    tasks: [
-      "Wartung und Reparatur von Lkw und Aufliegern",
-      "Durchführung von Prüf- und Wartungsterminen",
-      "Fehlerdiagnose an modernen Nutzfahrzeugen",
-      "Dokumentation in der digitalen Fahrzeugverwaltung",
-    ],
-    requirements: [
-      "Abgeschlossene Ausbildung als Kfz-Mechatroniker, Schwerpunkt Nutzfahrzeugtechnik",
-      "Erfahrung mit gängigen Lkw-Marken von Vorteil",
-      "Führerschein Klasse C/CE wünschenswert",
-      "Selbstständige und lösungsorientierte Arbeitsweise",
-    ],
-  },
-  {
-    slug: "azubi-kaufmann-spedition",
+    slug: "azubi-disponent",
     title: "Ausbildung Kaufmann/-frau für Spedition und Logistikdienstleistung",
     location: "Falkenwalde",
     type: "Ausbildung",
-    department: "Disposition / Verwaltung",
+    department: "Disposition",
     description: "Starte deine Karriere in der Logistik mit einer praxisnahen Ausbildung bei Baltic Freight.",
     tasks: [
-      "Einblicke in Disposition, Vertrieb und Buchhaltung",
+      "Einblicke in Disposition, Vertrieb und Verwaltung",
       "Mitarbeit an nationalen und internationalen Transporten",
-      "Kennenlernen digitaler Speditionsprozesse",
+      "Kennenlernen speditioneller Abläufe von A bis Z",
       "Begleitung durch feste Ausbildungspaten",
     ],
     requirements: [
       "Guter Realschulabschluss oder (Fach-)Abitur",
       "Interesse an Logistik und internationalem Handel",
       "Organisationstalent und Kommunikationsfreude",
-      "Gute Deutschkenntnisse, Englisch von Vorteil",
+      "Gute Deutschkenntnisse",
     ],
   },
 ];
@@ -383,36 +255,7 @@ export type Review = {
   date: string;
 };
 
-export const reviews: Review[] = [
-  {
-    author: "Michael Rathke",
-    company: "Rathke Baustoffe GmbH",
-    rating: 5,
-    text: "Zuverlässige Termine, transparente Kommunikation und ein Dispositionsteam, das auch bei kurzfristigen Änderungen mitdenkt. Seit Jahren unser Speditionspartner.",
-    date: "2026-06-01",
-  },
-  {
-    author: "Anna Kowalska",
-    company: "Nordbalt Trading Sp. z o.o.",
-    rating: 5,
-    text: "Für unsere Transporte ins Baltikum ist Baltic Freight erste Wahl. Grenzformalitäten laufen reibungslos, die Sendungsverfolgung ist top.",
-    date: "2026-04-22",
-  },
-  {
-    author: "Sven Ohlerich",
-    company: "Küstenlogistik Nord",
-    rating: 4,
-    text: "Sehr professioneller Auftritt und moderner Fuhrpark. Die Preise liegen leicht über dem Marktdurchschnitt, die Qualität rechtfertigt es aber.",
-    date: "2026-03-11",
-  },
-  {
-    author: "Julia Berndt",
-    company: "Berndt Frischwaren",
-    rating: 5,
-    text: "Unsere Kühltransporte sind bei Baltic Freight in besten Händen. Temperaturprotokolle kommen lückenlos und pünktlich.",
-    date: "2026-01-27",
-  },
-];
+export const reviews: Review[] = [];
 
 export type Partner = {
   name: string;
@@ -420,10 +263,5 @@ export type Partner = {
 };
 
 export const partners: Partner[] = [
-  { name: "Ostsee Cargo Network", category: "Transportnetzwerk" },
-  { name: "Baltic Ports Alliance", category: "Hafenlogistik" },
-  { name: "NordLog Systems", category: "Software & Telematik" },
-  { name: "PolTrans Partner Sp. z o.o.", category: "Kooperationspartner Polen" },
-  { name: "Greenline Fuel Services", category: "Kraftstoff & Tankkarten" },
-  { name: "AssekuraLog Versicherungen", category: "Transportversicherung" },
+  { name: "Freiwillige Feuerwehr Falkenwalde – Löschzug 11", category: "Getränke-, Werkzeug- & Materiallieferungen" },
 ];

@@ -20,33 +20,43 @@ export default async function FuhrparkPage() {
       <PageHero
         eyebrow="Fuhrpark"
         title="Ein Fuhrpark, der mitdenkt"
-        description={`${totalVehicles}+ Fahrzeuge – von der Sattelzugmaschine bis zum Kühlauflieger. Regelmäßig gewartet, modern ausgestattet und digital vernetzt.`}
+        description={
+          fleet.length > 0
+            ? `${totalVehicles}+ Fahrzeuge – von der Sattelzugmaschine bis zum Kühlauflieger. Regelmäßig gewartet, modern ausgestattet und digital vernetzt.`
+            : "Unser Fuhrpark wird gerade aufgebaut. Details folgen in Kürze."
+        }
       />
 
       <Section>
         <Container>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {fleet.map((item) => (
-              <Card key={item.id} className="flex flex-col">
-                <div className="flex items-center justify-between">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-navy-900 text-amber-400">
-                    <TruckIcon className="h-5 w-5" />
+          {fleet.length > 0 ? (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {fleet.map((item) => (
+                <Card key={item.id} className="flex flex-col">
+                  <div className="flex items-center justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-navy-900 text-amber-400">
+                      <TruckIcon className="h-5 w-5" />
+                    </div>
+                    <span className="text-3xl font-bold text-navy-900">{item.count}</span>
                   </div>
-                  <span className="text-3xl font-bold text-navy-900">{item.count}</span>
-                </div>
-                <h3 className="mt-4 text-lg font-semibold text-navy-900">{item.category}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-navy-700/70">{item.description}</p>
-                <ul className="mt-4 space-y-2">
-                  {item.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-navy-800">
-                      <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            ))}
-          </div>
+                  <h3 className="mt-4 text-lg font-semibold text-navy-900">{item.category}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-navy-700/70">{item.description}</p>
+                  <ul className="mt-4 space-y-2">
+                    {item.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-sm text-navy-800">
+                        <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-navy-900/8 bg-white p-8 text-sm text-navy-700/60">
+              Die Fuhrpark-Übersicht wird aktuell aufgebaut und in Kürze veröffentlicht.
+            </p>
+          )}
         </Container>
       </Section>
 

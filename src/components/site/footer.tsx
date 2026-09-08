@@ -29,18 +29,22 @@ export async function Footer() {
               <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
               {company.street}, {company.zip} {company.city}
             </li>
-            <li className="flex items-center gap-2.5">
-              <PhoneIcon className="h-4 w-4 shrink-0 text-amber-400" />
-              <a href={`tel:${company.phone.replace(/\s/g, "")}`} className="hover:text-white">
-                {company.phone}
-              </a>
-            </li>
-            <li className="flex items-center gap-2.5">
-              <MailIcon className="h-4 w-4 shrink-0 text-amber-400" />
-              <a href={`mailto:${company.email}`} className="hover:text-white">
-                {company.email}
-              </a>
-            </li>
+            {company.phone ? (
+              <li className="flex items-center gap-2.5">
+                <PhoneIcon className="h-4 w-4 shrink-0 text-amber-400" />
+                <a href={`tel:${company.phone.replace(/\s/g, "")}`} className="hover:text-white">
+                  {company.phone}
+                </a>
+              </li>
+            ) : null}
+            {company.email ? (
+              <li className="flex items-center gap-2.5">
+                <MailIcon className="h-4 w-4 shrink-0 text-amber-400" />
+                <a href={`mailto:${company.email}`} className="hover:text-white">
+                  {company.email}
+                </a>
+              </li>
+            ) : null}
           </ul>
         </div>
 
@@ -83,6 +87,9 @@ export async function Footer() {
             </Link>
             <Link href="/standort" className="hover:text-white">
               Standort
+            </Link>
+            <Link href="/mitarbeiter/login" className="hover:text-white">
+              Mitarbeiter Login
             </Link>
           </div>
         </div>

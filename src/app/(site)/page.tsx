@@ -28,10 +28,10 @@ const serviceIcons = {
 };
 
 const stats = [
-  { value: "18+", label: "Jahre Erfahrung" },
-  { value: "48", label: "Zugmaschinen im Fuhrpark" },
-  { value: "12.000 m²", label: "Lagerfläche in Falkenwalde" },
-  { value: "120+", label: "Mitarbeitende" },
+  { value: "Seit 2007", label: "Am Start im Ostseeraum" },
+  { value: "Falkenwalde", label: "Unser Standort" },
+  { value: "National & International", label: "Einsatzgebiet" },
+  { value: "Persönlich", label: "Direkter Draht zur Disposition" },
 ];
 
 export default async function HomePage() {
@@ -129,105 +129,111 @@ export default async function HomePage() {
       </Section>
 
       {/* Fleet teaser */}
-      <Section>
-        <Container>
-          <Reveal>
-            <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
-              <SectionHeading
-                eyebrow="Fuhrpark"
-                title={`${totalVehicles}+ Fahrzeuge für jeden Bedarf`}
-                description="Moderne Sattelzugmaschinen, Kühl- und Standardauflieger sowie flexible Solofahrzeuge für Nah- und Fernverkehr."
-              />
-              <Button href="/fuhrpark" variant="outline" className="shrink-0">
-                Fuhrpark ansehen
-              </Button>
-            </div>
-          </Reveal>
-          <Reveal delayMs={100}>
-            <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {fleet.map((item) => (
-                <Card key={item.category}>
-                  <div className="text-3xl font-bold text-navy-900">
-                    <AnimatedNumber value={String(item.count)} />
-                  </div>
-                  <div className="mt-1 text-sm font-semibold text-amber-600">{item.category}</div>
-                  <p className="mt-3 text-sm leading-relaxed text-navy-700/70">{item.description}</p>
-                </Card>
-              ))}
-            </div>
-          </Reveal>
-        </Container>
-      </Section>
+      {fleet.length > 0 ? (
+        <Section>
+          <Container>
+            <Reveal>
+              <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+                <SectionHeading
+                  eyebrow="Fuhrpark"
+                  title={`${totalVehicles}+ Fahrzeuge für jeden Bedarf`}
+                  description="Moderne Sattelzugmaschinen, Kühl- und Standardauflieger sowie flexible Solofahrzeuge für Nah- und Fernverkehr."
+                />
+                <Button href="/fuhrpark" variant="outline" className="shrink-0">
+                  Fuhrpark ansehen
+                </Button>
+              </div>
+            </Reveal>
+            <Reveal delayMs={100}>
+              <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                {fleet.map((item) => (
+                  <Card key={item.category}>
+                    <div className="text-3xl font-bold text-navy-900">
+                      <AnimatedNumber value={String(item.count)} />
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-amber-600">{item.category}</div>
+                    <p className="mt-3 text-sm leading-relaxed text-navy-700/70">{item.description}</p>
+                  </Card>
+                ))}
+              </div>
+            </Reveal>
+          </Container>
+        </Section>
+      ) : null}
 
       {/* Reviews */}
-      <Section className="bg-mist-100">
-        <Container>
-          <Reveal>
-            <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
-              <SectionHeading
-                eyebrow="Kundenstimmen"
-                title="Was unsere Kunden sagen"
-                description={`Ø ${avgRating} von 5 Sternen aus ${reviews.length}+ Bewertungen zufriedener Kunden.`}
-              />
-              <Button href="/rezensionen" variant="outline" className="shrink-0">
-                Alle Rezensionen
-              </Button>
-            </div>
-          </Reveal>
-          <Reveal delayMs={100}>
-            <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2">
-              {reviews.slice(0, 4).map((review) => (
-                <Card key={review.author}>
-                  <div className="flex items-center gap-1 text-amber-500">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <StarIcon key={i} className={`h-4 w-4 ${i < review.rating ? "" : "opacity-25"}`} />
-                    ))}
-                  </div>
-                  <p className="mt-3 text-sm leading-relaxed text-navy-800/90">&ldquo;{review.text}&rdquo;</p>
-                  <div className="mt-4 text-sm font-semibold text-navy-900">{review.author}</div>
-                  <div className="text-xs text-navy-700/60">{review.company}</div>
-                </Card>
-              ))}
-            </div>
-          </Reveal>
-        </Container>
-      </Section>
+      {reviews.length > 0 ? (
+        <Section className="bg-mist-100">
+          <Container>
+            <Reveal>
+              <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+                <SectionHeading
+                  eyebrow="Kundenstimmen"
+                  title="Was unsere Kunden sagen"
+                  description={`Ø ${avgRating} von 5 Sternen aus ${reviews.length}+ Bewertungen zufriedener Kunden.`}
+                />
+                <Button href="/rezensionen" variant="outline" className="shrink-0">
+                  Alle Rezensionen
+                </Button>
+              </div>
+            </Reveal>
+            <Reveal delayMs={100}>
+              <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2">
+                {reviews.slice(0, 4).map((review) => (
+                  <Card key={review.author}>
+                    <div className="flex items-center gap-1 text-amber-500">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <StarIcon key={i} className={`h-4 w-4 ${i < review.rating ? "" : "opacity-25"}`} />
+                      ))}
+                    </div>
+                    <p className="mt-3 text-sm leading-relaxed text-navy-800/90">&ldquo;{review.text}&rdquo;</p>
+                    <div className="mt-4 text-sm font-semibold text-navy-900">{review.author}</div>
+                    <div className="text-xs text-navy-700/60">{review.company}</div>
+                  </Card>
+                ))}
+              </div>
+            </Reveal>
+          </Container>
+        </Section>
+      ) : null}
 
       {/* News */}
-      <Section>
-        <Container>
-          <Reveal>
-            <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
-              <SectionHeading eyebrow="Aktuelles" title="News aus dem Unternehmen" />
-              <Button href="/news" variant="outline" className="shrink-0">
-                Alle News
-              </Button>
-            </div>
-          </Reveal>
-          <Reveal delayMs={100}>
-            <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
-              {news.slice(0, 3).map((post) => (
-                <Link
-                  key={post.slug}
-                  href={`/news/${post.slug}`}
-                  className="group flex flex-col rounded-2xl border border-navy-900/8 bg-white p-6 shadow-sm shadow-navy-950/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-navy-950/10"
-                >
-                  <span className="text-xs font-semibold uppercase tracking-wider text-amber-600">
-                    {post.category}
-                  </span>
-                  <h3 className="mt-3 text-lg font-semibold text-navy-900 group-hover:text-amber-700">
-                    {post.title}
-                  </h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-navy-700/70">{post.excerpt}</p>
-                  <time className="mt-4 text-xs text-navy-700/50">
-                    {new Date(post.date).toLocaleDateString("de-DE", { year: "numeric", month: "long", day: "numeric" })}
-                  </time>
-                </Link>
-              ))}
-            </div>
-          </Reveal>
-        </Container>
-      </Section>
+      {news.length > 0 ? (
+        <Section>
+          <Container>
+            <Reveal>
+              <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+                <SectionHeading eyebrow="Aktuelles" title="News aus dem Unternehmen" />
+                <Button href="/news" variant="outline" className="shrink-0">
+                  Alle News
+                </Button>
+              </div>
+            </Reveal>
+            <Reveal delayMs={100}>
+              <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+                {news.slice(0, 3).map((post) => (
+                  <Link
+                    key={post.slug}
+                    href={`/news/${post.slug}`}
+                    className="group flex flex-col rounded-2xl border border-navy-900/8 bg-white p-6 shadow-sm shadow-navy-950/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-navy-950/10"
+                  >
+                    <span className="text-xs font-semibold uppercase tracking-wider text-amber-600">
+                      {post.category}
+                    </span>
+                    <h3 className="mt-3 text-lg font-semibold text-navy-900 group-hover:text-amber-700">
+                      {post.title}
+                    </h3>
+                    <p className="mt-2 flex-1 text-sm leading-relaxed text-navy-700/70">{post.excerpt}</p>
+                    <time className="mt-4 text-xs text-navy-700/50">
+                      {new Date(post.date).toLocaleDateString("de-DE", { year: "numeric", month: "long", day: "numeric" })}
+                    </time>
+                  </Link>
+                ))}
+              </div>
+            </Reveal>
+          </Container>
+        </Section>
+      ) : null}
 
       {/* Karriere teaser */}
       <Section className="bg-navy-900 text-white">

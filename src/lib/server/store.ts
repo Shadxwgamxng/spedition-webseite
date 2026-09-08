@@ -1,6 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
+  COLLECTION_ID_FIELD,
+  makeId,
   seedDb,
   type CollectionName,
   type CompanyInfo,
@@ -61,12 +63,50 @@ async function writeDb(db: Db): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Generic collection read, backing the typed getters below.
+// Generic collection CRUD, used by the admin "Verwaltung" (CMS) API routes.
 // ---------------------------------------------------------------------------
 
-async function listCollection<T = unknown>(name: CollectionName): Promise<T[]> {
+export async function listCollection<T = unknown>(name: CollectionName): Promise<T[]> {
   const db = await readDb();
   return db[name] as T[];
+}
+
+export async function createCollectionItem<T extends Record<string, unknown>>(
+  name: CollectionName,
+  data: T,
+): Promise<T> {
+  const db = await readDb();
+  const idField = COLLECTION_ID_FIELD[name];
+  const item: T = data[idField] ? data : ({ ...data, [idField]: makeId(String(Object.values(data)[0] ?? "item")) } as T);
+  (db[name] as unknown as T[]).push(item);
+  await writeDb(db);
+  return item;
+}
+
+export async function updateCollectionItem<T extends Record<string, unknown>>(
+  name: CollectionName,
+  id: string,
+  patch: Partial<T>,
+): Promise<T | null> {
+  const db = await readDb();
+  const idField = COLLECTION_ID_FIELD[name];
+  const items = db[name] as unknown as T[];
+  const item = items.find((i) => i[idField] === id);
+  if (!item) return null;
+  Object.assign(item, patch);
+  await writeDb(db);
+  return item;
+}
+
+export async function deleteCollectionItem(name: CollectionName, id: string): Promise<boolean> {
+  const db = await readDb();
+  const idField = COLLECTION_ID_FIELD[name];
+  const items = db[name] as unknown as Record<string, unknown>[];
+  const index = items.findIndex((i) => i[idField] === id);
+  if (index === -1) return false;
+  items.splice(index, 1);
+  await writeDb(db);
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,5 +152,12 @@ export async function getPartners() {
 
 export async function getCompany(): Promise<CompanyInfo> {
   const db = await readDb();
+  return db.company;
+}
+
+export async function updateCompany(patch: Partial<CompanyInfo>): Promise<CompanyInfo> {
+  const db = await readDb();
+  db.company = { ...db.company, ...patch };
+  await writeDb(db);
   return db.company;
 }

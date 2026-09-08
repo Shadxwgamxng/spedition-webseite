@@ -35,18 +35,22 @@ export default async function AuftragPage() {
                   Unsere Disposition ist während der Geschäftszeiten auch telefonisch für Sie erreichbar.
                 </p>
                 <ul className="mt-4 space-y-3 text-sm text-navy-800">
-                  <li className="flex items-center gap-2.5">
-                    <PhoneIcon className="h-4 w-4 shrink-0 text-amber-600" />
-                    <a href={`tel:${company.phone.replace(/\s/g, "")}`} className="hover:text-amber-700">
-                      {company.phone}
-                    </a>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <MailIcon className="h-4 w-4 shrink-0 text-amber-600" />
-                    <a href={`mailto:${company.disposition_email}`} className="hover:text-amber-700">
-                      {company.disposition_email}
-                    </a>
-                  </li>
+                  {company.phone ? (
+                    <li className="flex items-center gap-2.5">
+                      <PhoneIcon className="h-4 w-4 shrink-0 text-amber-600" />
+                      <a href={`tel:${company.phone.replace(/\s/g, "")}`} className="hover:text-amber-700">
+                        {company.phone}
+                      </a>
+                    </li>
+                  ) : null}
+                  {company.disposition_email ? (
+                    <li className="flex items-center gap-2.5">
+                      <MailIcon className="h-4 w-4 shrink-0 text-amber-600" />
+                      <a href={`mailto:${company.disposition_email}`} className="hover:text-amber-700">
+                        {company.disposition_email}
+                      </a>
+                    </li>
+                  ) : null}
                   <li className="flex items-center gap-2.5">
                     <ClockIcon className="h-4 w-4 shrink-0 text-amber-600" />
                     Mo–Fr 06:00–20:00 Uhr

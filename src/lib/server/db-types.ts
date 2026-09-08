@@ -40,6 +40,10 @@ function slugify(input: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+export function makeId(input: string): string {
+  return `${slugify(input) || "item"}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function withIds<T extends Record<string, unknown>>(items: T[], keyFn: (item: T) => string): WithId<T>[] {
   const seen = new Map<string, number>();
   return items.map((item) => {
@@ -75,6 +79,10 @@ export const COLLECTION_ID_FIELD = {
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_ID_FIELD;
+
+export function isCollectionName(name: string): name is CollectionName {
+  return Object.prototype.hasOwnProperty.call(COLLECTION_ID_FIELD, name);
+}
 
 export function seedDb(): Db {
   return {

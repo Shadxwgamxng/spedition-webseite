@@ -47,40 +47,44 @@ export default async function GeschaeftsfuehrungPage() {
         </Container>
       </Section>
 
-      <Section className="bg-mist-100">
-        <Container>
-          <SectionHeading
-            eyebrow="Führungsteam"
-            title="Wichtige Positionen im Unternehmen"
-            description="Von der Disposition über das Lager bis zur Buchhaltung – unsere Abteilungsleitungen im Überblick."
-          />
-          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {keyPositions.map((person) => (
-              <PersonCard key={person.id} person={person} />
-            ))}
-          </div>
-        </Container>
-      </Section>
-
-      <Section>
-        <Container>
-          <div className="flex flex-col items-start gap-6 rounded-3xl border border-navy-900/8 bg-white p-8 sm:flex-row sm:items-center sm:justify-between sm:p-10">
-            <div>
-              <h2 className="text-xl font-bold text-navy-900">Sie möchten unsere Geschäftsführung erreichen?</h2>
-              <p className="mt-2 text-sm text-navy-700/70">
-                Für allgemeine Anfragen wenden Sie sich gerne direkt an unser Team.
-              </p>
+      {keyPositions.length > 0 ? (
+        <Section className="bg-mist-100">
+          <Container>
+            <SectionHeading
+              eyebrow="Führungsteam"
+              title="Wichtige Positionen im Unternehmen"
+              description="Von der Disposition über das Lager bis zur Buchhaltung – unsere Abteilungsleitungen im Überblick."
+            />
+            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {keyPositions.map((person) => (
+                <PersonCard key={person.id} person={person} />
+              ))}
             </div>
-            <a
-              href={`mailto:${company.email}`}
-              className="inline-flex items-center gap-2 rounded-full bg-navy-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy-800"
-            >
-              <MailIcon className="h-4 w-4" />
-              {company.email}
-            </a>
-          </div>
-        </Container>
-      </Section>
+          </Container>
+        </Section>
+      ) : null}
+
+      {company.email ? (
+        <Section>
+          <Container>
+            <div className="flex flex-col items-start gap-6 rounded-3xl border border-navy-900/8 bg-white p-8 sm:flex-row sm:items-center sm:justify-between sm:p-10">
+              <div>
+                <h2 className="text-xl font-bold text-navy-900">Sie möchten unsere Geschäftsführung erreichen?</h2>
+                <p className="mt-2 text-sm text-navy-700/70">
+                  Für allgemeine Anfragen wenden Sie sich gerne direkt an unser Team.
+                </p>
+              </div>
+              <a
+                href={`mailto:${company.email}`}
+                className="inline-flex items-center gap-2 rounded-full bg-navy-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy-800"
+              >
+                <MailIcon className="h-4 w-4" />
+                {company.email}
+              </a>
+            </div>
+          </Container>
+        </Section>
+      ) : null}
     </>
   );
 }

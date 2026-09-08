@@ -53,32 +53,32 @@ export default async function StandortPage() {
                   </div>
                 </div>
               </Card>
-              <Card>
-                <div className="flex items-start gap-3">
-                  <PhoneIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                  <div>
-                    <div className="text-sm font-semibold text-navy-900">Telefon &amp; Fax</div>
-                    <div className="mt-1 text-sm text-navy-700/75">
-                      Tel: {company.phone}
-                      <br />
-                      Fax: {company.fax}
+              {company.phone ? (
+                <Card>
+                  <div className="flex items-start gap-3">
+                    <PhoneIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                    <div>
+                      <div className="text-sm font-semibold text-navy-900">Telefon</div>
+                      <div className="mt-1 text-sm text-navy-700/75">{company.phone}</div>
                     </div>
                   </div>
-                </div>
-              </Card>
-              <Card>
-                <div className="flex items-start gap-3">
-                  <MailIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                  <div>
-                    <div className="text-sm font-semibold text-navy-900">E-Mail</div>
-                    <div className="mt-1 space-y-0.5 text-sm text-navy-700/75">
-                      <div>Allgemein: {company.email}</div>
-                      <div>Disposition: {company.disposition_email}</div>
-                      <div>Karriere: {company.karriere_email}</div>
+                </Card>
+              ) : null}
+              {company.email || company.disposition_email || company.karriere_email ? (
+                <Card>
+                  <div className="flex items-start gap-3">
+                    <MailIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                    <div>
+                      <div className="text-sm font-semibold text-navy-900">E-Mail</div>
+                      <div className="mt-1 space-y-0.5 text-sm text-navy-700/75">
+                        {company.email ? <div>Allgemein: {company.email}</div> : null}
+                        {company.disposition_email ? <div>Disposition: {company.disposition_email}</div> : null}
+                        {company.karriere_email ? <div>Karriere: {company.karriere_email}</div> : null}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
+              ) : null}
               <Card>
                 <div className="flex items-start gap-3">
                   <ClockIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />

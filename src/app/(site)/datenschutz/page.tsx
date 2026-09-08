@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/site/page-hero";
 import { Container, Section } from "@/components/ui/primitives";
-import { getCompany } from "@/lib/server/store";
-
-export const dynamic = "force-dynamic";
+import { legalContact } from "@/lib/data";
 
 export const metadata: Metadata = {
   title: "Datenschutz",
 };
 
-export default async function DatenschutzPage() {
-  const company = await getCompany();
+export default function DatenschutzPage() {
   return (
     <>
       <PageHero eyebrow="Rechtliches" title="Datenschutzerklärung" />
@@ -26,7 +23,8 @@ export default async function DatenschutzPage() {
             <div>
               <h2 className="text-base font-semibold text-navy-900">1. Verantwortlicher</h2>
               <p className="mt-2">
-                {company.name}, {company.street}, {company.zip} {company.city}, E-Mail: {company.email}
+                {legalContact.name}, {legalContact.street}, {legalContact.zip} {legalContact.city}, E-Mail:{" "}
+                {legalContact.email}
               </p>
             </div>
 
@@ -60,7 +58,7 @@ export default async function DatenschutzPage() {
               <p className="mt-2">
                 Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung,
                 Datenübertragbarkeit sowie Widerspruch gegen die Verarbeitung Ihrer personenbezogenen Daten. Wenden
-                Sie sich hierzu an {company.email}.
+                Sie sich hierzu an {legalContact.email}.
               </p>
             </div>
 

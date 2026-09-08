@@ -55,21 +55,27 @@ export default async function RezensionenPage() {
             </div>
 
             <div className="lg:col-span-2 grid grid-cols-1 gap-6 sm:grid-cols-2">
-              {reviews.map((review) => (
-                <Card key={review.id}>
-                  <div className="flex items-center gap-1 text-amber-500">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <StarIcon key={i} className={`h-4 w-4 ${i < review.rating ? "" : "opacity-25"}`} />
-                    ))}
-                  </div>
-                  <p className="mt-3 text-sm leading-relaxed text-navy-800/90">&ldquo;{review.text}&rdquo;</p>
-                  <div className="mt-4 text-sm font-semibold text-navy-900">{review.author}</div>
-                  <div className="text-xs text-navy-700/60">{review.company}</div>
-                  <time className="mt-1 block text-xs text-navy-700/40">
-                    {new Date(review.date).toLocaleDateString("de-DE", { year: "numeric", month: "long" })}
-                  </time>
-                </Card>
-              ))}
+              {reviews.length === 0 ? (
+                <p className="sm:col-span-2 rounded-2xl border border-navy-900/8 bg-white p-8 text-sm text-navy-700/60">
+                  Aktuell liegen noch keine Rezensionen vor.
+                </p>
+              ) : (
+                reviews.map((review) => (
+                  <Card key={review.id}>
+                    <div className="flex items-center gap-1 text-amber-500">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <StarIcon key={i} className={`h-4 w-4 ${i < review.rating ? "" : "opacity-25"}`} />
+                      ))}
+                    </div>
+                    <p className="mt-3 text-sm leading-relaxed text-navy-800/90">&ldquo;{review.text}&rdquo;</p>
+                    <div className="mt-4 text-sm font-semibold text-navy-900">{review.author}</div>
+                    <div className="text-xs text-navy-700/60">{review.company}</div>
+                    <time className="mt-1 block text-xs text-navy-700/40">
+                      {new Date(review.date).toLocaleDateString("de-DE", { year: "numeric", month: "long" })}
+                    </time>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
         </Container>

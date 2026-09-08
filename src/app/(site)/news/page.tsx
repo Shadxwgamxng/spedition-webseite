@@ -18,6 +18,11 @@ export default async function NewsPage() {
       <PageHero eyebrow="Aktuelles" title="News von Baltic Freight" description="Neuigkeiten rund um Fuhrpark, Digitalisierung, Standort und Team." />
       <Section>
         <Container>
+          {news.length === 0 ? (
+            <p className="rounded-2xl border border-navy-900/8 bg-white p-8 text-sm text-navy-700/60">
+              Aktuell gibt es keine News. Schauen Sie bald wieder vorbei.
+            </p>
+          ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {news.map((post) => (
               <Link
@@ -34,6 +39,7 @@ export default async function NewsPage() {
               </Link>
             ))}
           </div>
+          )}
         </Container>
       </Section>
     </>
