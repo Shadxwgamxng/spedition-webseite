@@ -5,21 +5,27 @@ import { useAuth } from "@/lib/auth";
 import { employeeModules } from "@/lib/employee-nav";
 import { canAccessModule } from "@/lib/roles";
 import { StatCard } from "@/components/employee/page-header";
+import { usePolling } from "@/lib/use-polling";
 import { ArrowRightIcon } from "@/components/ui/icons";
-
-const overviewStats = [
-  { label: "Offene Aufträge", value: "23", hint: "in Disposition" },
-  { label: "Fahrzeuge einsatzbereit", value: "112 / 119", hint: "7 in Wartung" },
-  { label: "Offene Rechnungen", value: "€ 84.320", hint: "18 Rechnungen" },
-  { label: "Lagerartikel unter Mindestbestand", value: "6", hint: "Inventur empfohlen" },
-];
+import type { OrderRecord, VehicleRecord } from "@/lib/fleet-data";
 
 export default function EmployeeDashboardPage() {
   const { user } = useAuth();
+  const { data: orderData } = usePolling<{ orders: OrderRecord[] }>("/api/orders", 5000);
+  const { data: vehicleData } = usePolling<{ vehicles: VehicleRecord[] }>("/api/vehicles", 5000);
+
   if (!user) return null;
 
   const visibleModules = employeeModules.filter((mod) => canAccessModule(user.roleKey, mod.key));
   const isFahrer = user.roleKey === "fahrer";
+
+  const orders = orderData?.orders ?? [];
+  const openOrders = orders.filter((o) => o.status !== "Zugestellt" && o.status !== "Abgelehnt");
+  const requestedOrders = orders.filter((o) => o.status === "Angefragt");
+
+  const vehicles = vehicleData?.vehicles ?? [];
+  const readyVehicles = vehicles.filter((v) => v.maintenanceStatus === "Einsatzbereit");
+  const inServiceVehicles = vehicles.filter((v) => v.maintenanceStatus !== "Einsatzbereit");
 
   return (
     <div>
@@ -32,10 +38,17 @@ export default function EmployeeDashboardPage() {
       </div>
 
       {!isFahrer ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {overviewStats.map((stat) => (
-            <StatCard key={stat.label} {...stat} />
-          ))}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <StatCard
+            label="Offene Aufträge"
+            value={orderData ? String(openOrders.length) : "…"}
+            hint={requestedOrders.length > 0 ? `${requestedOrders.length} neue Anfrage(n)` : undefined}
+          />
+          <StatCard
+            label="Fahrzeuge einsatzbereit"
+            value={vehicleData ? `${readyVehicles.length} / ${vehicles.length}` : "…"}
+            hint={inServiceVehicles.length > 0 ? `${inServiceVehicles.length} in Werkstatt/TÜV fällig` : undefined}
+          />
         </div>
       ) : null}
 
