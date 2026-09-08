@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { EmployeePageHeader } from "@/components/employee/page-header";
 import { CollectionManager, type FieldConfig } from "@/components/employee/collection-manager";
+import { EmployeeManager } from "@/components/employee/employee-manager";
 import { CompanyForm } from "./company-form";
 
 const teamFields: FieldConfig[] = [
@@ -24,6 +25,7 @@ const tabs = [
   { key: "reviews", label: "Rezensionen" },
   { key: "partners", label: "Partner" },
   { key: "unternehmen", label: "Unternehmensdaten" },
+  { key: "mitarbeiter", label: "Mitarbeiter-Konten" },
 ] as const;
 
 type TabKey = (typeof tabs)[number]["key"];
@@ -40,7 +42,7 @@ export default function VerwaltungPage() {
     <div>
       <EmployeePageHeader
         title="Website-Verwaltung"
-        description="Inhalte der öffentlichen Website pflegen. Änderungen erscheinen sofort live auf baltic-freight.de."
+        description="Inhalte der öffentlichen Website sowie Mitarbeiter-Konten pflegen. Änderungen erscheinen sofort live."
       />
 
       <div className="flex flex-wrap gap-2 border-b border-navy-900/8 pb-4">
@@ -197,6 +199,8 @@ export default function VerwaltungPage() {
         ) : null}
 
         {tab === "unternehmen" ? <CompanyForm /> : null}
+
+        {tab === "mitarbeiter" ? <EmployeeManager /> : null}
       </div>
     </div>
   );

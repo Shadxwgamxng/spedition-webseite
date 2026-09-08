@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/site/logo";
-import { useAuth, demoAccountHints } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
 import { LockIcon } from "@/components/ui/icons";
 import Link from "next/link";
 
@@ -13,14 +13,19 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  if (user) {
-    router.replace("/mitarbeiter");
-  }
+  useEffect(() => {
+    if (user) {
+      router.replace("/mitarbeiter");
+    }
+  }, [user, router]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const result = login(username, password);
+    setSubmitting(true);
+    const result = await login(username, password);
+    setSubmitting(false);
     if (!result.ok) {
       setError(result.error ?? "Anmeldung fehlgeschlagen.");
       return;
@@ -80,24 +85,18 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="w-full rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-amber-400"
+              disabled={submitting}
+              className="w-full rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-navy-950 transition-colors hover:bg-amber-400 disabled:opacity-60"
             >
-              Anmelden
+              {submitting ? "Wird geprüft…" : "Anmelden"}
             </button>
           </form>
 
-          <div className="mt-6 rounded-xl bg-mist-100 p-4 text-xs leading-relaxed text-navy-700/70">
-            <div className="font-semibold text-navy-800">Demo-Zugänge (Passwort jeweils: baltic2026)</div>
-            <ul className="mt-1.5 space-y-0.5">
-              {demoAccountHints.map((acc) => (
-                <li key={acc.username}>
-                  <span className="font-mono">{acc.username}</span> — {acc.department}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <p className="mt-6 text-center text-xs text-navy-700/50">
+            Noch kein Konto? Wenden Sie sich an Ihre Geschäftsführung.
+          </p>
 
-          <Link href="/" className="mt-6 block text-center text-xs font-medium text-navy-700/60 hover:text-navy-900">
+          <Link href="/" className="mt-4 block text-center text-xs font-medium text-navy-700/60 hover:text-navy-900">
             ← Zurück zur öffentlichen Website
           </Link>
         </div>

@@ -34,7 +34,7 @@ Passwortgeschützter Bereich mit **rollenbasierter Sichtbarkeit** — jede Rolle
 ihre eigenen Module; ein direkter Aufruf einer nicht erlaubten URL wird zur Übersicht zurückgeleitet
 (`src/lib/roles.ts`, durchgesetzt in `DashboardShell`).
 
-**Demo-Zugänge** (Passwort jeweils `baltic2026`):
+**Seed-Zugänge** (Passwort jeweils `baltic2026`, beim ersten Start automatisch angelegt):
 
 | Konto | Rolle | Sichtbare Module |
 | --- | --- | --- |
@@ -44,6 +44,19 @@ ihre eigenen Module; ein direkter Aufruf einer nicht erlaubten URL wird zur Übe
 | `fuhrpark` | Fuhrpark & Werkstatt | Fahrzeugverwaltung (nur lesend), Digitales Fahrtenbuch |
 | `buchhaltung` | Buchhaltung | Rechnungserstellung (inkl. PDF-Export), Finanzbuchhaltung |
 | `fahrer1` … `fahrer5` | Fahrer | Nur eigene Fahrerkarte + „Aktuelle Aufträge" (Chat mit der Disposition) |
+
+### Mitarbeiter-Konten anlegen (nur Geschäftsführung)
+
+Unter Website-Verwaltung → **„Mitarbeiter-Konten"** kann die Geschäftsführung neue Konten für Mitarbeitende
+anlegen, bearbeiten und löschen — Benutzername, Passwort, Name, Abteilung sowie eine **feste Rolle** (Disposition,
+Lager, Fuhrpark & Werkstatt, Buchhaltung, Fahrer oder Geschäftsführung), die automatisch dieselben
+Modul-Berechtigungen wie oben vergibt (`src/lib/roles.ts`). Ein neues Fahrer-Konto bekommt beim Anlegen
+automatisch eine leere Fahrerkarte, damit die digitale Fahrerkarte sofort funktioniert.
+
+Konten liegen serverseitig im Store (`employees`-Collection in `.data/db.json`), der Login läuft über
+`POST /api/login` (`src/app/api/login/route.ts`), die Verwaltung über `src/app/api/employees/*`. Passwörter werden
+unverschlüsselt gespeichert und API-Antworten geben sie nie zurück — s. Sicherheitshinweis unten, bevor echte,
+sensible Zugangsdaten damit verwaltet werden.
 
 ### Fahrer-Login → Fahrzeug → Disposition (echt, geräteübergreifend)
 
@@ -98,12 +111,13 @@ einen Löschen-Button je Zeile; alle anderen Rollen mit Zugriff auf dieses Modul
 
 Dies ist eine funktionale Demo mit einem schlanken eigenen Backend. Vor einem echten Launch sollte ergänzt werden:
 
-- **Echte Authentifizierung & Autorisierung**: Der Login ist aktuell eine clientseitige Demo (Konten im Code,
-  Session in `localStorage`, keine Passwort-Hashes, keine serverseitige Session-Prüfung). Die Rollenprüfung
-  (`src/lib/roles.ts`) läuft ebenfalls nur clientseitig in der UI — die API-Routen unter `/api/*` prüfen aktuell
-  **keine** Berechtigung und sind offen erreichbar. Für den Produktivbetrieb braucht es serverseitige
-  Authentifizierung mit sicherem Session-/Token-Handling und serverseitig durchgesetzte Rollen/Rechte auf jeder
-  API-Route (insbesondere `/api/admin/*`, `/api/vehicles` POST/DELETE, `/api/driver-cards`).
+- **Echte Authentifizierung & Autorisierung**: Passwörter liegen unverschlüsselt im Store (kein Hashing), die
+  Session liegt in `localStorage`, es gibt keine serverseitige Session-Prüfung. Die Rollenprüfung (`src/lib/roles.ts`)
+  läuft ebenfalls nur clientseitig in der UI — die API-Routen unter `/api/*` prüfen aktuell **keine** Berechtigung
+  und sind offen erreichbar. Das betrifft insbesondere `/api/employees` (Mitarbeiter-Konten anlegen/ändern/löschen)
+  und `/api/login`: Für den Produktivbetrieb braucht es serverseitige Authentifizierung mit sicherem
+  Session-/Token-Handling, Passwort-Hashing sowie serverseitig durchgesetzte Rollen/Rechte auf jeder API-Route
+  (insbesondere `/api/employees`, `/api/admin/*`, `/api/vehicles` POST/DELETE, `/api/driver-cards`).
 - **Datenpersistenz**: Disposition, Fahrzeuge, Fahrerkarten, Aufträge/Chat und alle Website-Inhalte laufen über
   einen dateibasierten Store (eine JSON-Datei auf dem Server, `src/lib/server/store.ts`) — funktional korrekt für
   eine Einzelserver-Demo, aber nicht nebenläufigkeitssicher und kein Ersatz für eine echte Datenbank. Lager,

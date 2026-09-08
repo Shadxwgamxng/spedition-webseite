@@ -9,6 +9,12 @@ export const roleLabels: Record<RoleKey, string> = {
   fahrer: "Fahrer",
 };
 
+export const roleKeys = Object.keys(roleLabels) as RoleKey[];
+
+export function isRoleKey(value: string): value is RoleKey {
+  return Object.prototype.hasOwnProperty.call(roleLabels, value);
+}
+
 /**
  * Which employee module routes (the segment under /mitarbeiter/) each role may
  * open. Enforced both for the sidebar (what's shown) and in DashboardShell

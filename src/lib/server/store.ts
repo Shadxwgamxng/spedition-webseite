@@ -8,16 +8,19 @@ import {
   type CompanyInfo,
   type Db,
   type DriverCardRecord,
+  type EmployeeRecord,
   type FleetCategoryRecord,
   type JobRecord,
   type NewsRecord,
   type PartnerRecord,
+  type PublicEmployee,
   type ReminderEntry,
   type ReviewRecord,
   type ServiceRecord,
   type TeamMemberRecord,
 } from "@/lib/server/db-types";
 import type { OrderMessage, OrderRecord, VehicleRecord } from "@/lib/fleet-data";
+import { roleLabels, type RoleKey } from "@/lib/roles";
 
 /**
  * File-backed JSON store standing in for a real database/CMS backend. It exists
@@ -400,4 +403,127 @@ export async function acknowledgeDriverReminder(driverName: string, reminderId: 
   if (reminder) reminder.read = true;
   await writeDb(db);
   return card;
+}
+
+// ---------------------------------------------------------------------------
+// Mitarbeiter-Konten (employee accounts) — managed by Geschäftsführung under
+// Website-Verwaltung. Fixed role per account, enforced client-side via
+// roleModuleAccess (src/lib/roles.ts) same as the seeded demo accounts.
+// ---------------------------------------------------------------------------
+
+function toPublicEmployee(employee: EmployeeRecord): PublicEmployee {
+  const { id, username, name, role, roleKey, department } = employee;
+  return { id, username, name, role, roleKey, department };
+}
+
+export async function getEmployees(): Promise<PublicEmployee[]> {
+  const db = await readDb();
+  return db.employees.map(toPublicEmployee);
+}
+
+export async function createEmployee(input: {
+  username: string;
+  password: string;
+  name: string;
+  roleKey: RoleKey;
+  department: string;
+}): Promise<PublicEmployee> {
+  const db = await readDb();
+  const username = input.username.trim().toLowerCase();
+  if (!username) throw new Error("Benutzername ist erforderlich.");
+  if (!input.password.trim()) throw new Error("Passwort ist erforderlich.");
+  if (db.employees.some((e) => e.username.toLowerCase() === username)) {
+    throw new Error("Dieser Benutzername ist bereits vergeben.");
+  }
+
+  const employee: EmployeeRecord = {
+    id: makeId(username),
+    username,
+    password: input.password,
+    name: input.name.trim(),
+    role: roleLabels[input.roleKey],
+    roleKey: input.roleKey,
+    department: input.department.trim(),
+  };
+  db.employees.push(employee);
+
+  // Fahrer-Konten brauchen eine Fahrerkarte, damit die digitale Fahrerkarte
+  // sofort funktioniert (sonst "keine Karte gefunden" bei erstem Login).
+  if (input.roleKey === "fahrer" && !db.driverCards.some((c) => c.driverName === employee.name)) {
+    db.driverCards.push({
+      driverName: employee.name,
+      active: false,
+      drivingTodayMinutes: 0,
+      drivingWeekMinutes: 0,
+      onBreak: false,
+      breakStartedAt: null,
+      breakTakenTodayMinutes: 0,
+      reminders: [],
+    });
+  }
+
+  await writeDb(db);
+  return toPublicEmployee(employee);
+}
+
+export async function updateEmployee(
+  id: string,
+  patch: Partial<{ username: string; password: string; name: string; roleKey: RoleKey; department: string }>,
+): Promise<PublicEmployee | null> {
+  const db = await readDb();
+  const employee = db.employees.find((e) => e.id === id);
+  if (!employee) return null;
+
+  if (patch.username !== undefined) {
+    const username = patch.username.trim().toLowerCase();
+    if (!username) throw new Error("Benutzername ist erforderlich.");
+    if (db.employees.some((e) => e.id !== id && e.username.toLowerCase() === username)) {
+      throw new Error("Dieser Benutzername ist bereits vergeben.");
+    }
+    employee.username = username;
+  }
+  if (patch.password !== undefined && patch.password.trim()) {
+    employee.password = patch.password;
+  }
+  if (patch.name !== undefined && patch.name.trim()) {
+    employee.name = patch.name.trim();
+  }
+  if (patch.department !== undefined) {
+    employee.department = patch.department.trim();
+  }
+  if (patch.roleKey !== undefined) {
+    employee.roleKey = patch.roleKey;
+    employee.role = roleLabels[patch.roleKey];
+    if (patch.roleKey === "fahrer" && !db.driverCards.some((c) => c.driverName === employee.name)) {
+      db.driverCards.push({
+        driverName: employee.name,
+        active: false,
+        drivingTodayMinutes: 0,
+        drivingWeekMinutes: 0,
+        onBreak: false,
+        breakStartedAt: null,
+        breakTakenTodayMinutes: 0,
+        reminders: [],
+      });
+    }
+  }
+
+  await writeDb(db);
+  return toPublicEmployee(employee);
+}
+
+export async function deleteEmployee(id: string): Promise<boolean> {
+  const db = await readDb();
+  const index = db.employees.findIndex((e) => e.id === id);
+  if (index === -1) return false;
+  db.employees.splice(index, 1);
+  await writeDb(db);
+  return true;
+}
+
+export async function verifyEmployeeLogin(username: string, password: string): Promise<PublicEmployee | null> {
+  const db = await readDb();
+  const employee = db.employees.find((e) => e.username.toLowerCase() === username.trim().toLowerCase());
+  if (!employee || employee.password !== password) return null;
+  return toPublicEmployee(employee);
 }

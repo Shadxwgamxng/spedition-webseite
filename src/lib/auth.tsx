@@ -1,8 +1,7 @@
 "use client";
 
 import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
-import { driverRoster } from "@/lib/fleet-data";
-import { roleLabels, type RoleKey } from "@/lib/roles";
+import type { RoleKey } from "@/lib/roles";
 
 export type EmployeeUser = {
   username: string;
@@ -11,68 +10,6 @@ export type EmployeeUser = {
   roleKey: RoleKey;
   department: string;
 };
-
-const DEMO_ACCOUNTS: Record<string, { password: string; user: EmployeeUser }> = {
-  disposition: {
-    password: "baltic2026",
-    user: {
-      username: "disposition",
-      name: "Marek Nowicki",
-      role: "Leiter Disposition",
-      roleKey: "disposition",
-      department: "Disposition",
-    },
-  },
-  lager: {
-    password: "baltic2026",
-    user: {
-      username: "lager",
-      name: "Sandra Lehmann",
-      role: "Leiterin Lagerlogistik",
-      roleKey: "lager",
-      department: "Lager",
-    },
-  },
-  fuhrpark: {
-    password: "baltic2026",
-    user: {
-      username: "fuhrpark",
-      name: "Jonas Petersen",
-      role: "Leiter Fuhrparkmanagement",
-      roleKey: "fuhrpark",
-      department: "Fuhrpark & Werkstatt",
-    },
-  },
-  buchhaltung: {
-    password: "baltic2026",
-    user: {
-      username: "buchhaltung",
-      name: "Dennis Kramer",
-      role: "Leiter Buchhaltung",
-      roleKey: "buchhaltung",
-      department: "Finanzbuchhaltung",
-    },
-  },
-  admin: {
-    password: "baltic2026",
-    user: {
-      username: "admin",
-      name: "Torsten Wegner",
-      role: "Geschäftsführer",
-      roleKey: "geschaeftsfuehrung",
-      department: "Geschäftsleitung",
-    },
-  },
-};
-
-// One demo login per roster driver: fahrer1 … fahrerN, e.g. "fahrer1" = Lukas Schmidt.
-driverRoster.forEach((name, index) => {
-  const username = `fahrer${index + 1}`;
-  DEMO_ACCOUNTS[username] = {
-    password: "baltic2026",
-    user: { username, name, role: roleLabels.fahrer, roleKey: "fahrer", department: "Fahrbetrieb" },
-  };
-});
 
 const STORAGE_KEY = "bf-employee-session";
 
@@ -117,7 +54,7 @@ function persistUser(user: EmployeeUser | null) {
 type AuthContextValue = {
   user: EmployeeUser | null;
   status: "loading" | "ready";
-  login: (username: string, password: string) => { ok: boolean; error?: string };
+  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
 };
 
@@ -140,13 +77,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [raw]);
 
-  function login(username: string, password: string) {
-    const account = DEMO_ACCOUNTS[username.trim().toLowerCase()];
-    if (!account || account.password !== password) {
-      return { ok: false, error: "Benutzername oder Passwort ist falsch." };
+  async function login(username: string, password: string) {
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        return { ok: false, error: json.error ?? "Anmeldung fehlgeschlagen." };
+      }
+      persistUser(json.user as EmployeeUser);
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Verbindung zum Server fehlgeschlagen." };
     }
-    persistUser(account.user);
-    return { ok: true };
   }
 
   function logout() {
@@ -177,12 +123,3 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
   return ctx;
 }
-
-const nonDriverHints = Object.values(DEMO_ACCOUNTS)
-  .filter((a) => a.user.roleKey !== "fahrer")
-  .map((a) => ({ username: a.user.username, department: a.user.department }));
-
-export const demoAccountHints = [
-  ...nonDriverHints,
-  { username: `fahrer1 … fahrer${driverRoster.length}`, department: `Fahrer (z. B. ${driverRoster[0]})` },
-];
