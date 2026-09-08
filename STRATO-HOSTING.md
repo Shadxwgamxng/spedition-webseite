@@ -10,7 +10,7 @@ Strato-Produkt mit Root-Zugriff und Node.js, z. B.:
 Empfehlung: mindestens **2 GB RAM** (für serverseitiges Rendering), 1 vCPU reicht für den Start.
 
 Falls die Domain bereits bei Strato registriert ist, kann sie im selben Kundenkonto verwaltet werden – sie muss
-später nur per DNS auf den neuen Server zeigen (Schritt 6).
+später nur per DNS auf den neuen Server zeigen (Schritt 7).
 
 ---
 
@@ -51,7 +51,28 @@ cd spedition-webseite
 Alternativ per SFTP/`scp` das gesamte Projektverzeichnis hochladen (ohne `node_modules` und `.next` – die werden
 auf dem Server neu gebaut).
 
-## 4. Installieren & bauen
+## 4. Umgebungsvariablen für den Discord-Login einrichten
+
+Der Mitarbeiterbereich wird ausschließlich über Discord-OAuth2 entsperrt (kein Passwort-Login mehr). Dafür im
+Projektverzeichnis eine Datei `.env.local` anlegen (git-ignoriert, wird **nicht** mit hochgeladen/committet):
+
+```bash
+cat > .env.local << 'EOF'
+DISCORD_CLIENT_ID=deine-discord-client-id
+DISCORD_CLIENT_SECRET=dein-discord-client-secret
+DISCORD_REDIRECT_URI=https://deine-domain.de/api/auth/discord/callback
+SESSION_SECRET=eine-lange-zufaellige-zeichenkette
+OWNER_DISCORD_ID=deine-eigene-discord-nutzer-id
+EOF
+```
+
+Woher diese Werte kommen und wie du eine Discord-Anwendung dafür anlegst, steht ausführlich im
+[`README.md`](./README.md) unter „Login: ausschließlich über Discord (OAuth2)". Wichtig:
+`DISCORD_REDIRECT_URI` muss **exakt** der Redirect-URI entsprechen, die du im Discord Developer Portal
+hinterlegst (mit `https://` und der echten Domain, nicht `localhost`). `OWNER_DISCORD_ID` wird nur beim
+allerersten Start ausgelesen, um dein eigenes Geschäftsführungs-Konto zu verknüpfen.
+
+## 5. Installieren & bauen
 
 ```bash
 npm install
@@ -61,7 +82,7 @@ npm run build
 `npm run build` erzeugt den optimierten Produktions-Build (`.next/`). Das dauert beim ersten Mal ein bis zwei
 Minuten.
 
-## 5. Dauerhaft laufen lassen mit PM2
+## 6. Dauerhaft laufen lassen mit PM2
 
 Ohne einen Prozess-Manager stirbt der Server, sobald die SSH-Sitzung endet. **PM2** startet ihn automatisch neu
 (auch nach einem Server-Reboot):
@@ -81,13 +102,13 @@ pm2 logs baltic-freight # Logs live ansehen
 pm2 restart baltic-freight
 ```
 
-## 6. Domain auf den Server zeigen lassen
+## 7. Domain auf den Server zeigen lassen
 
 Im Strato-Kundenpanel unter **Domains → DNS-Einstellungen** der gewünschten Domain einen **A-Record** anlegen, der
 auf die Server-IP zeigt (für `www` entsprechend einen zweiten A-Record oder einen CNAME auf die Hauptdomain).
 DNS-Änderungen können bis zu 24 Stunden brauchen, meist geht es aber innerhalb weniger Minuten bis Stunden.
 
-## 7. Reverse Proxy + kostenloses SSL-Zertifikat (nginx + Let's Encrypt)
+## 8. Reverse Proxy + kostenloses SSL-Zertifikat (nginx + Let's Encrypt)
 
 Node.js soll nicht direkt öffentlich auf Port 3000 erreichbar sein. Stattdessen übernimmt **nginx** Port 80/443
 und leitet intern an Node weiter – das ermöglicht außerdem ein kostenloses HTTPS-Zertifikat.
@@ -127,7 +148,7 @@ certbot --nginx -d deine-domain.de -d www.deine-domain.de
 
 Certbot verlängert das Zertifikat danach automatisch (Cronjob/Timer wird mit installiert).
 
-## 8. Firewall
+## 9. Firewall
 
 Nur die wirklich benötigten Ports öffentlich lassen:
 
@@ -140,7 +161,7 @@ ufw enable
 
 Port 3000 (Node.js) bleibt intern – nginx spricht ihn über `localhost` an, von außen ist er nicht erreichbar.
 
-## 9. Zukünftige Updates einspielen
+## 10. Zukünftige Updates einspielen
 
 ```bash
 cd spedition-webseite
@@ -150,7 +171,7 @@ npm run build
 pm2 restart baltic-freight
 ```
 
-## 10. Wichtig zu wissen
+## 11. Wichtig zu wissen
 
 - **Inhaltsdaten (`.data/db.json`)**: News, Stellenangebote, Fuhrpark-Kategorien, Team, Rezensionen, Partner und
   Unternehmensdaten liegen in einer einzelnen JSON-Datei auf dem Server (siehe README). Sie wird beim ersten
@@ -158,8 +179,11 @@ pm2 restart baltic-freight
   geht dieser Ordner verloren, sind alle über die Website-Verwaltung gepflegten Inhalte weg (der Code/die
   Struktur der Website ist davon nicht betroffen, nur die Inhalte).
 - **Kein serverseitiger Zugriffsschutz auf API-Routen**: Die `/api/*`-Routen prüfen aktuell keine Berechtigung
-  (nur der Mitarbeiterbereich selbst ist per Login geschützt, das Frontend). Für die aktuelle Nutzung ausreichend,
-  aber kein produktionsreifer Sicherheitsstandard für sensible Daten.
-- **Mitarbeiter-Login-Zugangsdaten** (alle Rollen: admin, disposition, lager, fuhrpark, buchhaltung, fahrer1…N)
-  änderst du in `src/lib/auth.tsx` (`DEMO_ACCOUNTS`) – nach einer Änderung musst du erneut bauen und deployen
-  (Schritt 9).
+  (nur der Mitarbeiterbereich selbst ist per Discord-Login geschützt, das Frontend). Für die aktuelle Nutzung
+  ausreichend, aber kein produktionsreifer Sicherheitsstandard für sensible Daten.
+- **Discord-Login statt Passwort**: Wer sich einloggen darf, verwaltest du nicht mehr im Code, sondern in der
+  Website-Verwaltung unter „Mitarbeiter-Konten" (dort trägst du je Mitarbeiter die Discord-Nutzer-ID ein). Die
+  Umgebungsvariablen aus Schritt 4 (`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`,
+  `SESSION_SECRET`, `OWNER_DISCORD_ID`) müssen in `.env.local` auf dem Server gesetzt sein, **bevor** `pm2 start`
+  bzw. `pm2 restart` läuft, sonst bleibt der Mitarbeiterbereich für alle unzugänglich. Nach einer Änderung an
+  `.env.local` reicht `pm2 restart baltic-freight` (kein erneuter Build nötig).

@@ -1,8 +1,8 @@
 # Baltic Freight GmbH – Speditions-Website
 
 Unternehmenswebsite für die Baltic Freight GmbH (Falkenwalde) mit öffentlichem Bereich und einem
-rollenbasierten, passwortgeschützten Mitarbeiterbereich. Gebaut mit Next.js (App Router), TypeScript und
-Tailwind CSS.
+rollenbasierten Mitarbeiterbereich, der ausschließlich über **Discord-Login (OAuth2)** entsperrt wird. Gebaut
+mit Next.js (App Router), TypeScript und Tailwind CSS.
 
 ## Erste Schritte
 
@@ -30,33 +30,59 @@ eingetragen werden.
 
 ## Mitarbeiterbereich (`/mitarbeiter`)
 
-Passwortgeschützter Bereich mit **rollenbasierter Sichtbarkeit** — jede Rolle sieht in Sidebar und Dashboard nur
-ihre eigenen Module; ein direkter Aufruf einer nicht erlaubten URL wird zur Übersicht zurückgeleitet
-(`src/lib/roles.ts`, durchgesetzt in `DashboardShell`).
+Bereich mit **rollenbasierter Sichtbarkeit** — jede Rolle sieht in Sidebar und Dashboard nur ihre eigenen
+Module; ein direkter Aufruf einer nicht erlaubten URL wird zur Übersicht zurückgeleitet (`src/lib/roles.ts`,
+durchgesetzt in `DashboardShell`).
 
-**Seed-Zugänge** (Passwort jeweils `baltic2026`, beim ersten Start automatisch angelegt):
+### Login: ausschließlich über Discord (OAuth2)
 
-| Konto | Rolle | Sichtbare Module |
-| --- | --- | --- |
-| `admin` | Geschäftsführung | **Alles**, inkl. Website-Verwaltung; einzige Rolle mit Fahrzeuge anlegen/löschen |
-| `disposition` | Disposition | Disposition, Fahrzeugverwaltung, Fahrerkarte (aller Fahrer, inkl. Erinnerungen senden) |
-| `lager` | Lager | Lagerverwaltung & Inventuren |
-| `fuhrpark` | Fuhrpark & Werkstatt | Fahrzeugverwaltung (nur lesend), Digitales Fahrtenbuch |
-| `buchhaltung` | Buchhaltung | Rechnungserstellung (inkl. PDF-Export), Finanzbuchhaltung |
-| `fahrer1` … `fahrer5` | Fahrer | Nur eigene Fahrerkarte + „Aktuelle Aufträge" (Chat mit der Disposition) |
+Es gibt **kein** Passwort-Login mehr. Ein Mitarbeitender loggt sich über „Mit Discord anmelden" ein
+(`/mitarbeiter/login` → `GET /api/auth/discord/login` → Discord-Autorisierung → `GET
+/api/auth/discord/callback`). Der Callback gleicht die vom Discord-Profil gelieferte, feste Nutzer-ID
+(„Snowflake", **nicht** der änderbare Benutzername) gegen das Feld `discordId` der `employees`-Collection ab
+(`verifyDiscordLogin` in `src/lib/server/store.ts`). Gibt es keinen Treffer, landet man mit einer Fehlermeldung
+zurück auf der Login-Seite — das Konto muss zuerst von der Geschäftsführung verknüpft werden.
+
+Bei Erfolg wird ein **signiertes, httpOnly Session-Cookie** gesetzt (HMAC-SHA256 über `node:crypto`,
+`src/lib/server/session.ts`) — es lässt sich nicht durch Bearbeiten von `localStorage` oder Query-Parametern
+fälschen. `GET /api/auth/session` liefert den aktuell eingeloggten Nutzer, `POST /api/auth/logout` löscht das
+Cookie. Der OAuth-Callback ist zusätzlich per signiertem `state`-Cookie gegen CSRF abgesichert.
+
+**Erforderliche Umgebungsvariablen** (z. B. in `.env.local`, siehe Hosting-Anleitungen):
+
+| Variable | Zweck |
+| --- | --- |
+| `DISCORD_CLIENT_ID` | Client-ID der Discord-Anwendung |
+| `DISCORD_CLIENT_SECRET` | Client-Secret der Discord-Anwendung |
+| `DISCORD_REDIRECT_URI` | Muss exakt der in Discord hinterlegten Redirect-URI entsprechen, z. B. `https://deine-domain.de/api/auth/discord/callback` |
+| `SESSION_SECRET` | Beliebige lange Zufallszeichenkette zum Signieren der Session-/State-Cookies |
+| `OWNER_DISCORD_ID` | Deine eigene Discord-Nutzer-ID — wird beim allerersten Start automatisch als `discordId` des `admin`-Kontos gesetzt (löst das „Henne-Ei-Problem": ohne bestehendes Geschäftsführungs-Konto könnte sonst niemand ein erstes Konto verknüpfen) |
+
+**Discord-Anwendung einrichten:**
+
+1. [Discord Developer Portal](https://discord.com/developers/applications) → „New Application".
+2. Reiter „OAuth2" → Client-ID und Client-Secret kopieren (→ `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`).
+3. Dort unter „Redirects" die URL `https://deine-domain.de/api/auth/discord/callback` (bzw. für lokale
+   Entwicklung `http://localhost:3000/api/auth/discord/callback`) eintragen und exakt so auch als
+   `DISCORD_REDIRECT_URI` setzen.
+4. Eigene Discord-Nutzer-ID ermitteln: Discord-Einstellungen → „Erweitert" → „Entwicklermodus" aktivieren, dann
+   Rechtsklick auf den eigenen Namen → „Nutzer-ID kopieren" → als `OWNER_DISCORD_ID` setzen.
+
+Ohne diese Variablen zeigt `/api/auth/discord/login` einen sprechenden Konfigurationsfehler statt eines
+Redirects — der Mitarbeiterbereich bleibt dann für alle, inklusive der Geschäftsführung, unzugänglich.
 
 ### Mitarbeiter-Konten anlegen (nur Geschäftsführung)
 
 Unter Website-Verwaltung → **„Mitarbeiter-Konten"** kann die Geschäftsführung neue Konten für Mitarbeitende
-anlegen, bearbeiten und löschen — Benutzername, Passwort, Name, Abteilung sowie eine **feste Rolle** (Disposition,
-Lager, Fuhrpark & Werkstatt, Buchhaltung, Fahrer oder Geschäftsführung), die automatisch dieselben
-Modul-Berechtigungen wie oben vergibt (`src/lib/roles.ts`). Ein neues Fahrer-Konto bekommt beim Anlegen
-automatisch eine leere Fahrerkarte, damit die digitale Fahrerkarte sofort funktioniert.
+anlegen, bearbeiten und löschen — Benutzername (intern), Discord-Nutzer-ID, Discord-Benutzername (nur zur
+Anzeige), Name, Abteilung sowie eine **feste Rolle** (Disposition, Lager, Fuhrpark & Werkstatt, Buchhaltung,
+Fahrer oder Geschäftsführung), die automatisch dieselben Modul-Berechtigungen wie oben vergibt
+(`src/lib/roles.ts`). Ein neues Fahrer-Konto bekommt beim Anlegen automatisch eine leere Fahrerkarte, damit die
+digitale Fahrerkarte sofort funktioniert. Ohne eingetragene Discord-Nutzer-ID kann sich das Konto nicht
+einloggen — das wird in der Liste farblich hervorgehoben.
 
-Konten liegen serverseitig im Store (`employees`-Collection in `.data/db.json`), der Login läuft über
-`POST /api/login` (`src/app/api/login/route.ts`), die Verwaltung über `src/app/api/employees/*`. Passwörter werden
-unverschlüsselt gespeichert und API-Antworten geben sie nie zurück — s. Sicherheitshinweis unten, bevor echte,
-sensible Zugangsdaten damit verwaltet werden.
+Konten liegen serverseitig im Store (`employees`-Collection in `.data/db.json`), die Verwaltung läuft über
+`src/app/api/employees/*`.
 
 ### Fahrer-Login → Fahrzeug → Disposition (echt, geräteübergreifend)
 
@@ -77,7 +103,8 @@ die dem Fahrer als Banner auf seiner Fahrerkarte erscheint, bis er sie bestätig
 
 Über „Auftrag einreichen" eingehende Anfragen landen mit Status „Angefragt" direkt bei der Disposition
 (Panel „Neue Anfragen von der Website"), die sie annehmen (inkl. Bestätigung des Liefertermins) oder ablehnen
-kann.
+kann. Jeder Auftrag in der Disposition lässt sich zudem über einen „Löschen"-Button je Zeile endgültig entfernen
+(`DELETE /api/orders/[id]`).
 
 ### Aktuelle Aufträge & Chat mit der Disposition
 
@@ -131,14 +158,15 @@ einen Löschen-Button je Zeile; alle anderen Rollen mit Zugriff auf dieses Modul
 
 Dies ist eine funktionale Demo mit einem schlanken eigenen Backend. Vor einem echten Launch sollte ergänzt werden:
 
-- **Echte Authentifizierung & Autorisierung**: Passwörter liegen unverschlüsselt im Store (kein Hashing), die
-  Session liegt in `localStorage`, es gibt keine serverseitige Session-Prüfung. Die Rollenprüfung (`src/lib/roles.ts`)
-  läuft ebenfalls nur clientseitig in der UI — die API-Routen unter `/api/*` prüfen aktuell **keine** Berechtigung
-  und sind offen erreichbar. Das betrifft insbesondere `/api/employees` (Mitarbeiter-Konten anlegen/ändern/löschen)
-  und `/api/login`: Für den Produktivbetrieb braucht es serverseitige Authentifizierung mit sicherem
-  Session-/Token-Handling, Passwort-Hashing sowie serverseitig durchgesetzte Rollen/Rechte auf jeder API-Route
-  (insbesondere `/api/employees`, `/api/admin/*`, `/api/stock`, `/api/trips`, `/api/invoices`, `/api/vehicles`
-  POST/DELETE, `/api/driver-cards`).
+- **Authentifizierung**: Der Login selbst ist jetzt kryptographisch sauber — Discord-OAuth2 mit signiertem,
+  httpOnly Session-Cookie (siehe oben), kein Passwort mehr im Store, keine fälschbare `localStorage`-Session. Was
+  weiterhin **fehlt**, ist serverseitige **Autorisierung**: Die Rollenprüfung (`src/lib/roles.ts`) läuft nur
+  clientseitig in der UI — die API-Routen unter `/api/*` prüfen aktuell **nicht**, ob der aufrufende Nutzer
+  überhaupt eingeloggt ist oder die passende Rolle hat, und sind technisch offen erreichbar (insbesondere
+  `/api/employees`, `/api/admin/*`, `/api/stock`, `/api/trips`, `/api/invoices`, `/api/vehicles` POST/DELETE,
+  `/api/driver-cards`, `/api/orders`). Für den Produktivbetrieb braucht es serverseitig durchgesetzte
+  Rollen/Rechte auf jeder API-Route (z. B. Session-Cookie in jeder Route Handler prüfen, bevor Daten
+  gelesen/geändert werden).
 - **Datenpersistenz**: Disposition, Fahrzeuge, Fahrerkarten, Aufträge/Chat, Lagerbestände, Fahrtenbuch, Rechnungen
   und alle Website-Inhalte laufen über einen dateibasierten Store (eine JSON-Datei auf dem Server,
   `src/lib/server/store.ts`) — funktional korrekt für eine Einzelserver-Demo, aber nicht nebenläufigkeitssicher und
@@ -150,5 +178,7 @@ Dies ist eine funktionale Demo mit einem schlanken eigenen Backend. Vor einem ec
 - **Rechtliche Angaben**: Handelsregisternummer/USt-ID sind bewusst nicht angegeben (siehe Hinweis auf der
   Impressum-Seite). Sollte sich das ändern, `src/lib/data.ts` (`legalContact`) sowie die Impressum-Seite
   entsprechend ergänzen und rechtlich prüfen lassen.
-- **Lenkzeiten**: Die Lenkzeit-Werte in der Fahrerkarte sind Beispieldaten und werden nicht automatisch aus realen
-  Fahrten berechnet — eine echte Anbindung bräuchte Fahrtenschreiber-/Telematikdaten.
+- **Lenkzeiten**: Neu angelegte Fahrerkarten starten bei 0 Minuten (heute/Woche/Pause) und füllen sich nur durch
+  echte Nutzung (Aktivieren/Pausieren durch den Fahrer). Es gibt weiterhin **keine** automatische
+  Tages-/Wochen-Rollover-Logik oder Anbindung an echte Fahrtenschreiber-/Telematikdaten — die Werte laufen so
+  lange weiter, bis sie manuell/serverseitig zurückgesetzt werden.

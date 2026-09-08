@@ -10,14 +10,16 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/employees/
 
   const patch: {
     username?: string;
-    password?: string;
+    discordId?: string;
+    discordUsername?: string;
     name?: string;
     roleKey?: RoleKey;
     department?: string;
   } = {};
 
   if (typeof body.username === "string") patch.username = body.username;
-  if (typeof body.password === "string") patch.password = body.password;
+  if (typeof body.discordId === "string") patch.discordId = body.discordId;
+  if (typeof body.discordUsername === "string") patch.discordUsername = body.discordUsername;
   if (typeof body.name === "string") patch.name = body.name;
   if (typeof body.department === "string") patch.department = body.department;
   if (typeof body.roleKey === "string") {

@@ -327,6 +327,15 @@ export async function updateOrder(
   return order;
 }
 
+export async function deleteOrder(id: string): Promise<boolean> {
+  const db = await readDb();
+  const index = db.orders.findIndex((o) => o.id === id);
+  if (index === -1) return false;
+  db.orders.splice(index, 1);
+  await writeDb(db);
+  return true;
+}
+
 export async function addOrderMessage(
   orderId: string,
   message: Omit<OrderMessage, "id" | "at">,
@@ -415,35 +424,36 @@ export async function acknowledgeDriverReminder(driverName: string, reminderId: 
 // roleModuleAccess (src/lib/roles.ts) same as the seeded demo accounts.
 // ---------------------------------------------------------------------------
 
-function toPublicEmployee(employee: EmployeeRecord): PublicEmployee {
-  const { id, username, name, role, roleKey, department } = employee;
-  return { id, username, name, role, roleKey, department };
-}
-
 export async function getEmployees(): Promise<PublicEmployee[]> {
   const db = await readDb();
-  return db.employees.map(toPublicEmployee);
+  return db.employees;
 }
 
 export async function createEmployee(input: {
   username: string;
-  password: string;
+  discordId: string;
+  discordUsername?: string;
   name: string;
   roleKey: RoleKey;
   department: string;
 }): Promise<PublicEmployee> {
   const db = await readDb();
   const username = input.username.trim().toLowerCase();
+  const discordId = input.discordId.trim();
   if (!username) throw new Error("Benutzername ist erforderlich.");
-  if (!input.password.trim()) throw new Error("Passwort ist erforderlich.");
+  if (!discordId) throw new Error("Discord-Nutzer-ID ist erforderlich.");
   if (db.employees.some((e) => e.username.toLowerCase() === username)) {
     throw new Error("Dieser Benutzername ist bereits vergeben.");
+  }
+  if (db.employees.some((e) => e.discordId === discordId)) {
+    throw new Error("Diese Discord-Nutzer-ID ist bereits einem anderen Konto zugeordnet.");
   }
 
   const employee: EmployeeRecord = {
     id: makeId(username),
     username,
-    password: input.password,
+    discordId,
+    discordUsername: input.discordUsername?.trim() ?? "",
     name: input.name.trim(),
     role: roleLabels[input.roleKey],
     roleKey: input.roleKey,
@@ -467,12 +477,12 @@ export async function createEmployee(input: {
   }
 
   await writeDb(db);
-  return toPublicEmployee(employee);
+  return employee;
 }
 
 export async function updateEmployee(
   id: string,
-  patch: Partial<{ username: string; password: string; name: string; roleKey: RoleKey; department: string }>,
+  patch: Partial<{ username: string; discordId: string; discordUsername: string; name: string; roleKey: RoleKey; department: string }>,
 ): Promise<PublicEmployee | null> {
   const db = await readDb();
   const employee = db.employees.find((e) => e.id === id);
@@ -486,8 +496,15 @@ export async function updateEmployee(
     }
     employee.username = username;
   }
-  if (patch.password !== undefined && patch.password.trim()) {
-    employee.password = patch.password;
+  if (patch.discordId !== undefined) {
+    const discordId = patch.discordId.trim();
+    if (discordId && db.employees.some((e) => e.id !== id && e.discordId === discordId)) {
+      throw new Error("Diese Discord-Nutzer-ID ist bereits einem anderen Konto zugeordnet.");
+    }
+    employee.discordId = discordId;
+  }
+  if (patch.discordUsername !== undefined) {
+    employee.discordUsername = patch.discordUsername.trim();
   }
   if (patch.name !== undefined && patch.name.trim()) {
     employee.name = patch.name.trim();
@@ -513,7 +530,7 @@ export async function updateEmployee(
   }
 
   await writeDb(db);
-  return toPublicEmployee(employee);
+  return employee;
 }
 
 export async function deleteEmployee(id: string): Promise<boolean> {
@@ -525,11 +542,10 @@ export async function deleteEmployee(id: string): Promise<boolean> {
   return true;
 }
 
-export async function verifyEmployeeLogin(username: string, password: string): Promise<PublicEmployee | null> {
+export async function verifyDiscordLogin(discordId: string): Promise<PublicEmployee | null> {
   const db = await readDb();
-  const employee = db.employees.find((e) => e.username.toLowerCase() === username.trim().toLowerCase());
-  if (!employee || employee.password !== password) return null;
-  return toPublicEmployee(employee);
+  const employee = db.employees.find((e) => e.discordId && e.discordId === discordId);
+  return employee ?? null;
 }
 
 // ---------------------------------------------------------------------------

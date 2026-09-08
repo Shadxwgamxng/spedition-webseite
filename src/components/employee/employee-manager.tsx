@@ -27,17 +27,14 @@ export function EmployeeManager() {
     setError(null);
     setSaving(true);
     const form = new FormData(event.currentTarget);
-    const password = String(form.get("password") ?? "");
     const payload: Record<string, unknown> = {
       username: String(form.get("username") ?? ""),
+      discordId: String(form.get("discordId") ?? ""),
+      discordUsername: String(form.get("discordUsername") ?? ""),
       name: String(form.get("name") ?? ""),
       roleKey: String(form.get("roleKey") ?? ""),
       department: String(form.get("department") ?? ""),
     };
-    // On creation the password is required; when editing, an empty field means "unverändert".
-    if (isNew || password) {
-      payload.password = password;
-    }
 
     try {
       const res = await fetch(isNew ? "/api/employees" : `/api/employees/${editingId}`, {
@@ -85,27 +82,13 @@ export function EmployeeManager() {
         >
           <div>
             <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor="username">
-              Benutzername
+              Benutzername (intern)
             </label>
             <input
               id="username"
               name="username"
               required
               defaultValue={editingEmployee?.username ?? ""}
-              className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor="password">
-              Passwort
-              {!isNew ? <span className="ml-1 font-normal text-navy-700/50">(leer lassen = unverändert)</span> : null}
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required={isNew}
-              autoComplete="new-password"
               className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
             />
           </div>
@@ -118,6 +101,34 @@ export function EmployeeManager() {
               name="name"
               required
               defaultValue={editingEmployee?.name ?? ""}
+              className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor="discordId">
+              Discord-Nutzer-ID
+              <span className="ml-1 font-normal text-navy-700/50">(erforderlich zum Einloggen)</span>
+            </label>
+            <input
+              id="discordId"
+              name="discordId"
+              required
+              inputMode="numeric"
+              placeholder="z. B. 123456789012345678"
+              defaultValue={editingEmployee?.discordId ?? ""}
+              className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm font-mono outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor="discordUsername">
+              Discord-Benutzername
+              <span className="ml-1 font-normal text-navy-700/50">(nur zur Anzeige)</span>
+            </label>
+            <input
+              id="discordUsername"
+              name="discordUsername"
+              placeholder="z. B. lucas.ehlers"
+              defaultValue={editingEmployee?.discordUsername ?? ""}
               className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
             />
           </div>
@@ -138,7 +149,7 @@ export function EmployeeManager() {
               ))}
             </select>
           </div>
-          <div className="sm:col-span-2">
+          <div>
             <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor="department">
               Abteilung
             </label>
@@ -151,6 +162,11 @@ export function EmployeeManager() {
               className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
             />
           </div>
+
+          <p className="text-xs text-navy-700/50 sm:col-span-2">
+            Die Discord-Nutzer-ID findet dein Mitarbeiter in seinen Discord-Einstellungen unter &bdquo;Erweitert&ldquo; →
+            &bdquo;Entwicklermodus&ldquo; aktivieren, dann Rechtsklick auf den eigenen Namen → &bdquo;Nutzer-ID kopieren&ldquo;.
+          </p>
 
           {error ? <p className="text-sm text-red-600 sm:col-span-2">{error}</p> : null}
           <div className="sm:col-span-2">
@@ -183,6 +199,13 @@ export function EmployeeManager() {
                 </div>
                 <div className="truncate text-xs text-navy-700/60">
                   {employee.role} · {employee.department}
+                </div>
+                <div className="truncate text-xs text-navy-700/50">
+                  {employee.discordId ? (
+                    <>Discord: {employee.discordUsername || employee.discordId}</>
+                  ) : (
+                    <span className="text-amber-600">Noch nicht mit Discord verknüpft — Login nicht möglich</span>
+                  )}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-3">

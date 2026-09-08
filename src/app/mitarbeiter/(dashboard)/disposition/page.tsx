@@ -68,6 +68,12 @@ export default function DispositionPage() {
     await orders.refetch();
   }
 
+  async function deleteOrderRow(id: string) {
+    if (!window.confirm(`Auftrag ${id} wirklich unwiderruflich löschen?`)) return;
+    await fetch(`/api/orders/${id}`, { method: "DELETE" });
+    await orders.refetch();
+  }
+
   function assignVehicle(order: OrderRecord, plate: string) {
     if (plate === UNASSIGNED) {
       patchOrder(order.id, { driverName: null, vehiclePlate: null });
@@ -202,6 +208,7 @@ export default function DispositionPage() {
                   <th className="px-4 py-3 font-medium">Fahrzeug (aktiv)</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Nachrichten</th>
+                  <th className="px-4 py-3 font-medium">&nbsp;</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-900/6">
@@ -269,10 +276,19 @@ export default function DispositionPage() {
                             {unreadCount || 0}
                           </button>
                         </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => deleteOrderRow(order.id)}
+                            className="text-xs font-semibold text-red-600 hover:text-red-700"
+                          >
+                            Löschen
+                          </button>
+                        </td>
                       </tr>
                       {expanded ? (
                         <tr>
-                          <td colSpan={7} className="bg-mist-100/60 px-4 py-4">
+                          <td colSpan={8} className="bg-mist-100/60 px-4 py-4">
                             {user ? (
                               <OrderChat order={order} from="dispo" authorName={user.name} onSent={orders.refetch} />
                             ) : null}
@@ -284,7 +300,7 @@ export default function DispositionPage() {
                 })}
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-navy-700/50">
+                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-navy-700/50">
                       {orders.data ? "Keine Aufträge in dieser Ansicht." : "Aufträge werden geladen…"}
                     </td>
                   </tr>

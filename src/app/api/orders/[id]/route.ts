@@ -1,4 +1,4 @@
-import { addOrderMessage, updateOrder } from "@/lib/server/store";
+import { addOrderMessage, deleteOrder, updateOrder } from "@/lib/server/store";
 import type { OrderStatus } from "@/lib/fleet-data";
 
 const VALID_STATUSES: OrderStatus[] = ["Angefragt", "Neu", "Disponiert", "Unterwegs", "Zugestellt", "Abgelehnt"];
@@ -49,4 +49,11 @@ export async function POST(request: Request, ctx: RouteContext<"/api/orders/[id]
     return Response.json({ ok: false, error: "Auftrag nicht gefunden." }, { status: 404 });
   }
   return Response.json({ ok: true, order });
+}
+
+export async function DELETE(_request: Request, ctx: RouteContext<"/api/orders/[id]">) {
+  const { id } = await ctx.params;
+  const ok = await deleteOrder(id);
+  if (!ok) return Response.json({ ok: false, error: "Auftrag nicht gefunden." }, { status: 404 });
+  return Response.json({ ok: true });
 }

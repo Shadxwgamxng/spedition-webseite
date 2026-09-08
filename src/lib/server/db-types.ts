@@ -47,23 +47,26 @@ export type DriverCardRecord = {
 };
 
 /**
- * A Mitarbeiter-Konto: username/password login, a fixed role (RoleKey) that
- * determines module access via `roleModuleAccess` (src/lib/roles.ts), plus
- * display info. Managed by Geschäftsführung under Website-Verwaltung →
- * Mitarbeiter-Konten. `password` never leaves the server — API responses
- * strip it (see `toPublicEmployee` in server/store.ts).
+ * A Mitarbeiter-Konto: identified by a linked Discord account (`discordId`,
+ * the stable numeric Discord user ID) rather than a password. Login happens
+ * via Discord OAuth (src/app/api/auth/discord/*) — the callback matches the
+ * signed-in Discord user's ID against this field. A fixed role (RoleKey)
+ * determines module access via `roleModuleAccess` (src/lib/roles.ts).
+ * Managed by Geschäftsführung under Website-Verwaltung → Mitarbeiter-Konten.
+ * `discordId` empty ("") means the account isn't linked yet and can't log in.
  */
 export type EmployeeRecord = {
   id: string;
   username: string;
-  password: string;
+  discordId: string;
+  discordUsername: string;
   name: string;
   role: string;
   roleKey: RoleKey;
   department: string;
 };
 
-export type PublicEmployee = Omit<EmployeeRecord, "password">;
+export type PublicEmployee = EmployeeRecord;
 
 export type StockItemRecord = {
   id: string;
@@ -193,15 +196,22 @@ export function isCmsCollection(name: string): name is CmsCollectionName {
 }
 
 function seedEmployees(): EmployeeRecord[] {
+  // Bootstrap: the very first Geschäftsführung account has no admin yet to
+  // link its Discord account for it, so it's seeded from an env var the site
+  // operator sets once (see README). Every other seed account starts
+  // unlinked (discordId: "") until Geschäftsführung links a real employee to
+  // it under Website-Verwaltung → Mitarbeiter-Konten.
+  const ownerDiscordId = process.env.OWNER_DISCORD_ID ?? "";
   const base: Array<Omit<EmployeeRecord, "id">> = [
-    { username: "admin", password: "baltic2026", name: "Torsten Wegner", role: roleLabels.geschaeftsfuehrung, roleKey: "geschaeftsfuehrung", department: "Geschäftsleitung" },
-    { username: "disposition", password: "baltic2026", name: "Marek Nowicki", role: "Leiter Disposition", roleKey: "disposition", department: "Disposition" },
-    { username: "lager", password: "baltic2026", name: "Sandra Lehmann", role: "Leiterin Lagerlogistik", roleKey: "lager", department: "Lager" },
-    { username: "fuhrpark", password: "baltic2026", name: "Jonas Petersen", role: "Leiter Fuhrparkmanagement", roleKey: "fuhrpark", department: "Fuhrpark & Werkstatt" },
-    { username: "buchhaltung", password: "baltic2026", name: "Dennis Kramer", role: "Leiter Buchhaltung", roleKey: "buchhaltung", department: "Finanzbuchhaltung" },
+    { username: "admin", discordId: ownerDiscordId, discordUsername: "", name: "Torsten Wegner", role: roleLabels.geschaeftsfuehrung, roleKey: "geschaeftsfuehrung", department: "Geschäftsleitung" },
+    { username: "disposition", discordId: "", discordUsername: "", name: "Marek Nowicki", role: "Leiter Disposition", roleKey: "disposition", department: "Disposition" },
+    { username: "lager", discordId: "", discordUsername: "", name: "Sandra Lehmann", role: "Leiterin Lagerlogistik", roleKey: "lager", department: "Lager" },
+    { username: "fuhrpark", discordId: "", discordUsername: "", name: "Jonas Petersen", role: "Leiter Fuhrparkmanagement", roleKey: "fuhrpark", department: "Fuhrpark & Werkstatt" },
+    { username: "buchhaltung", discordId: "", discordUsername: "", name: "Dennis Kramer", role: "Leiter Buchhaltung", roleKey: "buchhaltung", department: "Finanzbuchhaltung" },
     ...driverRoster.map((name, i) => ({
       username: `fahrer${i + 1}`,
-      password: "baltic2026",
+      discordId: "",
+      discordUsername: "",
       name,
       role: roleLabels.fahrer,
       roleKey: "fahrer" as const,
@@ -215,14 +225,14 @@ export function seedDb(): Db {
   return {
     vehicles: initialVehicles,
     orders: initialOrders.map((o) => ({ ...o, messages: [] })),
-    driverCards: driverRoster.map((name, i) => ({
+    driverCards: driverRoster.map((name) => ({
       driverName: name,
       active: false,
-      drivingTodayMinutes: [390, 252, 0, 468, 186][i] ?? 0,
-      drivingWeekMinutes: [2280, 1740, 2640, 2460, 1320][i] ?? 0,
+      drivingTodayMinutes: 0,
+      drivingWeekMinutes: 0,
       onBreak: false,
       breakStartedAt: null,
-      breakTakenTodayMinutes: [30, 15, 60, 20, 45][i] ?? 0,
+      breakTakenTodayMinutes: 0,
       reminders: [],
     })),
     employees: seedEmployees(),

@@ -1,119 +1,68 @@
 "use client";
 
-import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { RoleKey } from "@/lib/roles";
 
 export type EmployeeUser = {
+  id: string;
   username: string;
+  discordId: string;
+  discordUsername: string;
   name: string;
   role: string;
   roleKey: RoleKey;
   department: string;
 };
 
-const STORAGE_KEY = "bf-employee-session";
-
-let listeners: Array<() => void> = [];
-
-function emitChange() {
-  for (const listener of listeners) listener();
-}
-
-function subscribe(listener: () => void) {
-  listeners = [...listeners, listener];
-  return () => {
-    listeners = listeners.filter((l) => l !== listener);
-  };
-}
-
-function getSnapshot(): string | null {
-  try {
-    return window.localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function getServerSnapshot(): string | null {
-  return null;
-}
-
-function persistUser(user: EmployeeUser | null) {
-  try {
-    if (user) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-    } else {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {
-    // ignore storage errors (e.g. private browsing)
-  }
-  emitChange();
-}
-
 type AuthContextValue = {
   user: EmployeeUser | null;
   status: "loading" | "ready";
-  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  refresh: () => Promise<void>;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const raw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const hydrated = useSyncExternalStore(
-    subscribe,
-    () => true,
-    () => false,
-  );
+  const [user, setUser] = useState<EmployeeUser | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready">("loading");
 
-  const user = useMemo<EmployeeUser | null>(() => {
-    if (!raw) return null;
+  const refresh = useCallback(async () => {
     try {
-      return JSON.parse(raw) as EmployeeUser;
-    } catch {
-      return null;
-    }
-  }, [raw]);
-
-  async function login(username: string, password: string) {
-    try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+      const res = await fetch("/api/auth/session", { cache: "no-store" });
       const json = await res.json();
-      if (!res.ok || !json.ok) {
-        return { ok: false, error: json.error ?? "Anmeldung fehlgeschlagen." };
-      }
-      persistUser(json.user as EmployeeUser);
-      return { ok: true };
+      setUser(json.user ?? null);
     } catch {
-      return { ok: false, error: "Verbindung zum Server fehlgeschlagen." };
+      setUser(null);
+    } finally {
+      setStatus("ready");
     }
-  }
+  }, []);
 
-  function logout() {
+  useEffect(() => {
+    // Runs once on mount: the session lives in an httpOnly cookie (set by the
+    // Discord OAuth callback), so it can only be read by asking the server —
+    // there's nothing to synchronously read from localStorage here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refresh();
+  }, [refresh]);
+
+  const logout = useCallback(() => {
     if (user?.roleKey === "fahrer") {
       fetch("/api/vehicles/logout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ driverName: user.name }),
       }).catch(() => {
-        // best-effort: local session is cleared either way
+        // best-effort: session is cleared either way
       });
     }
-    persistUser(null);
-  }
+    fetch("/api/auth/logout", { method: "POST" })
+      .catch(() => {})
+      .finally(() => setUser(null));
+  }, [user]);
 
-  const value: AuthContextValue = {
-    user,
-    status: hydrated ? "ready" : "loading",
-    login,
-    logout,
-  };
+  const value: AuthContextValue = { user, status, refresh, logout };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
