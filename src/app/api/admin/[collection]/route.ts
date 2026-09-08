@@ -1,9 +1,9 @@
-import { isCollectionName } from "@/lib/server/db-types";
+import { isCmsCollection } from "@/lib/server/db-types";
 import { createCollectionItem, listCollection } from "@/lib/server/store";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/admin/[collection]">) {
   const { collection } = await ctx.params;
-  if (!isCollectionName(collection)) {
+  if (!isCmsCollection(collection)) {
     return Response.json({ ok: false, error: "Unbekannte Inhaltsart." }, { status: 400 });
   }
   const items = await listCollection(collection);
@@ -12,7 +12,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/admin/[coll
 
 export async function POST(request: Request, ctx: RouteContext<"/api/admin/[collection]">) {
   const { collection } = await ctx.params;
-  if (!isCollectionName(collection)) {
+  if (!isCmsCollection(collection)) {
     return Response.json({ ok: false, error: "Unbekannte Inhaltsart." }, { status: 400 });
   }
   const body = await request.json().catch(() => null);

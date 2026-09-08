@@ -7,15 +7,17 @@ import {
   jobs as jobsSeed,
   reviews as reviewsSeed,
   partners as partnersSeed,
-  fleet as fleetSeed,
   type Service,
   type TeamMember,
   type NewsPost,
   type Job,
   type Review,
   type Partner,
-  type FleetVehicle,
 } from "@/lib/data";
+import { fleet as fleetSeed, type FleetVehicle } from "@/lib/data";
+import { initialOrders, initialVehicles, driverRoster, type OrderRecord, type VehicleRecord } from "@/lib/fleet-data";
+
+export type { OrderMessage } from "@/lib/fleet-data";
 
 export type CompanyInfo = typeof companySeed;
 export type WithId<T> = T & { id: string };
@@ -26,6 +28,22 @@ export type PartnerRecord = WithId<Partner>;
 export type ServiceRecord = Service; // slug already unique, used as id
 export type NewsRecord = NewsPost; // slug already unique, used as id
 export type JobRecord = Job; // slug already unique, used as id
+
+export type ReminderEntry = { id: string; text: string; at: string; read: boolean };
+
+// (OrderMessage re-exported above from fleet-data.ts, kept there to avoid a
+// circular import between fleet-data.ts and this file.)
+
+export type DriverCardRecord = {
+  driverName: string;
+  active: boolean;
+  drivingTodayMinutes: number;
+  drivingWeekMinutes: number;
+  onBreak: boolean;
+  breakStartedAt: string | null;
+  breakTakenTodayMinutes: number;
+  reminders: ReminderEntry[];
+};
 
 function slugify(input: string): string {
   return input
@@ -56,6 +74,9 @@ function withIds<T extends Record<string, unknown>>(items: T[], keyFn: (item: T)
 }
 
 export type Db = {
+  vehicles: VehicleRecord[];
+  orders: OrderRecord[];
+  driverCards: DriverCardRecord[];
   news: NewsRecord[];
   jobs: JobRecord[];
   services: ServiceRecord[];
@@ -68,6 +89,9 @@ export type Db = {
 };
 
 export const COLLECTION_ID_FIELD = {
+  vehicles: "plate",
+  orders: "id",
+  driverCards: "driverName",
   news: "slug",
   jobs: "slug",
   services: "slug",
@@ -80,12 +104,44 @@ export const COLLECTION_ID_FIELD = {
 
 export type CollectionName = keyof typeof COLLECTION_ID_FIELD;
 
-export function isCollectionName(name: string): name is CollectionName {
-  return Object.prototype.hasOwnProperty.call(COLLECTION_ID_FIELD, name);
+/**
+ * Collections exposed through the generic /api/admin/[collection] CRUD routes
+ * for the "Verwaltung" CMS. Vehicles/orders/driverCards are deliberately
+ * excluded — they have their own routes with real business logic (vehicle
+ * login state, order numbering, driving-time tracking) that a generic
+ * create/patch/delete would bypass.
+ */
+export const CMS_COLLECTIONS = [
+  "news",
+  "jobs",
+  "services",
+  "management",
+  "keyPositions",
+  "fleetCategories",
+  "reviews",
+  "partners",
+] as const;
+
+export type CmsCollectionName = (typeof CMS_COLLECTIONS)[number];
+
+export function isCmsCollection(name: string): name is CmsCollectionName {
+  return (CMS_COLLECTIONS as readonly string[]).includes(name);
 }
 
 export function seedDb(): Db {
   return {
+    vehicles: initialVehicles,
+    orders: initialOrders.map((o) => ({ ...o, messages: [] })),
+    driverCards: driverRoster.map((name, i) => ({
+      driverName: name,
+      active: false,
+      drivingTodayMinutes: [390, 252, 0, 468, 186][i] ?? 0,
+      drivingWeekMinutes: [2280, 1740, 2640, 2460, 1320][i] ?? 0,
+      onBreak: false,
+      breakStartedAt: null,
+      breakTakenTodayMinutes: [30, 15, 60, 20, 45][i] ?? 0,
+      reminders: [],
+    })),
     news: newsSeed,
     jobs: jobsSeed,
     services: servicesSeed,

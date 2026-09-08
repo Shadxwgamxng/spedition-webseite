@@ -19,3 +19,15 @@ export function EmployeePageHeader({
     </div>
   );
 }
+
+export function StatCard({ label, value, hint, tone = "default" }: { label: string; value: string; hint?: string; tone?: "default" | "warn" | "good" }) {
+  const toneClass =
+    tone === "warn" ? "text-amber-600" : tone === "good" ? "text-emerald-600" : "text-navy-900";
+  return (
+    <div className="rounded-2xl border border-navy-900/8 bg-white p-5 shadow-sm shadow-navy-950/5">
+      <div className="text-xs font-medium uppercase tracking-wide text-navy-700/50">{label}</div>
+      <div className={`mt-2 text-2xl font-bold ${toneClass}`}>{value}</div>
+      {hint ? <div className="mt-1 text-xs text-navy-700/50">{hint}</div> : null}
+    </div>
+  );
+}

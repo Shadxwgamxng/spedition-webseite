@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Polls a JSON GET endpoint on an interval so client components stay in sync with
- * the shared server-side store. Good enough for a demo; a production system
- * would use websockets/SSE instead of polling.
+ * the shared server-side store (e.g. a dispatcher's screen picking up a driver's
+ * vehicle login from a different device). Good enough for a demo; a production
+ * system would use websockets/SSE instead of polling.
  */
 export function usePolling<T>(url: string, intervalMs = 4000) {
   const [data, setData] = useState<T | null>(null);

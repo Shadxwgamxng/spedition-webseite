@@ -1,27 +1,44 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "@/components/site/logo";
-import { CloseIcon, LockIcon, MenuIcon, SettingsIcon } from "@/components/ui/icons";
-
-const navItems = [{ href: "/mitarbeiter/verwaltung", label: "Website-Verwaltung", icon: SettingsIcon }];
+import { employeeModules } from "@/lib/employee-nav";
+import { canAccessModule, roleModuleAccess } from "@/lib/roles";
+import { CloseIcon, LockIcon, MenuIcon } from "@/components/ui/icons";
+import { VehicleGate } from "@/components/employee/vehicle-gate";
 
 export function DashboardShell({ children }: { children: ReactNode }) {
-  const { ready, loggedIn, logout } = useAuth();
+  const { user, status, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const currentModuleKey = pathname.split("/")[2] ?? null;
+  const allowed = user ? roleModuleAccess[user.roleKey] : [];
+  const visibleModules = useMemo(
+    () => (user ? employeeModules.filter((mod) => canAccessModule(user.roleKey, mod.key)) : []),
+    [user],
+  );
+
   useEffect(() => {
-    if (ready && !loggedIn) {
+    if (status === "ready" && !user) {
       router.replace("/mitarbeiter/login");
     }
-  }, [ready, loggedIn, router]);
+  }, [status, user, router]);
 
-  if (!ready || !loggedIn) {
+  // Route guard: block direct navigation to a module the current role can't see,
+  // not just hide it from the sidebar — otherwise this is only a UI convenience.
+  useEffect(() => {
+    if (!user || !currentModuleKey) return;
+    if (!canAccessModule(user.roleKey, currentModuleKey)) {
+      router.replace("/mitarbeiter");
+    }
+  }, [user, currentModuleKey, router]);
+
+  if (status === "loading" || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-mist-50">
         <div className="flex items-center gap-2 text-sm text-navy-700/60">
@@ -30,6 +47,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  if (currentModuleKey && !allowed.includes(currentModuleKey)) {
+    // About to be redirected by the effect above — render nothing in the meantime.
+    return null;
   }
 
   const sidebar = (
@@ -48,19 +70,19 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           Übersicht
         </Link>
         <div className="mt-3 border-t border-white/10 pt-3">
-          {navItems.map((item) => {
-            const active = pathname === item.href;
+          {visibleModules.map((mod) => {
+            const active = pathname === mod.href;
             return (
               <Link
-                key={item.href}
-                href={item.href}
+                key={mod.href}
+                href={mod.href}
                 onClick={() => setMobileOpen(false)}
                 className={`mt-1 flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                   active ? "bg-amber-400 text-navy-950" : "text-white/75 hover:bg-white/10"
                 }`}
               >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {item.label}
+                <mod.icon className="h-4 w-4 shrink-0" />
+                {mod.label}
               </Link>
             );
           })}
@@ -107,6 +129,16 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </button>
           <div className="text-sm font-semibold text-navy-900 lg:hidden">Mitarbeiterbereich</div>
           <div className="ml-auto flex items-center gap-3">
+            <div className="hidden text-right sm:block">
+              <div className="text-sm font-semibold text-navy-900">{user.name}</div>
+              <div className="text-xs text-navy-700/60">{user.role}</div>
+            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-navy-900 text-xs font-bold text-amber-400">
+              {user.name
+                .split(" ")
+                .map((p) => p[0])
+                .join("")}
+            </div>
             <button
               type="button"
               onClick={() => {
@@ -119,7 +151,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
-        <main className="px-4 py-8 sm:px-6 lg:py-10">{children}</main>
+        <main className="px-4 py-8 sm:px-6 lg:py-10">
+          {user.roleKey === "fahrer" ? <VehicleGate driverName={user.name}>{children}</VehicleGate> : children}
+        </main>
       </div>
     </div>
   );

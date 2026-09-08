@@ -1,9 +1,9 @@
-import { isCollectionName } from "@/lib/server/db-types";
+import { isCmsCollection } from "@/lib/server/db-types";
 import { deleteCollectionItem, updateCollectionItem } from "@/lib/server/store";
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/admin/[collection]/[id]">) {
   const { collection, id } = await ctx.params;
-  if (!isCollectionName(collection)) {
+  if (!isCmsCollection(collection)) {
     return Response.json({ ok: false, error: "Unbekannte Inhaltsart." }, { status: 400 });
   }
   const body = await request.json().catch(() => null);
@@ -17,7 +17,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/admin/[col
 
 export async function DELETE(_request: Request, ctx: RouteContext<"/api/admin/[collection]/[id]">) {
   const { collection, id } = await ctx.params;
-  if (!isCollectionName(collection)) {
+  if (!isCmsCollection(collection)) {
     return Response.json({ ok: false, error: "Unbekannte Inhaltsart." }, { status: 400 });
   }
   const ok = await deleteCollectionItem(collection, decodeURIComponent(id));

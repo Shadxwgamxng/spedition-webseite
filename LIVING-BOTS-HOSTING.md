@@ -167,7 +167,8 @@ pm2 restart baltic-freight
 - **Kein serverseitiger Zugriffsschutz auf API-Routen**: Die `/api/*`-Routen prüfen aktuell keine Berechtigung
   (nur der Mitarbeiterbereich selbst ist per Login geschützt, das Frontend). Für die aktuelle Nutzung ausreichend,
   aber kein produktionsreifer Sicherheitsstandard für sensible Daten.
-- **Mitarbeiter-Login-Zugangsdaten** änderst du in `src/lib/auth.tsx` (`ADMIN_USERNAME` / `ADMIN_PASSWORD`) – nach
-  einer Änderung musst du erneut bauen und deployen (Schritt 9).
+- **Mitarbeiter-Login-Zugangsdaten** (alle Rollen: admin, disposition, lager, fuhrpark, buchhaltung, fahrer1…N)
+  änderst du in `src/lib/auth.tsx` (`DEMO_ACCOUNTS`) – nach einer Änderung musst du erneut bauen und deployen
+  (Schritt 9).
 - **Prepaid-Guthaben im Blick behalten**: Läuft das Guthaben bei Living-Bots ab, wird der Server pausiert/gelöscht
   – rechtzeitig aufladen bzw. automatische Verlängerung im Kundenkonto aktivieren, sonst geht die Website offline.

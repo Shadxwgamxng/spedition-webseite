@@ -71,10 +71,6 @@ export function CompanyForm() {
           />
         </div>
       ))}
-      <p className="sm:col-span-2 text-xs text-navy-700/50">
-        Diese Angaben werden auf der öffentlichen Website (Footer, Standort, Auftrag einreichen …) angezeigt. Für das
-        rechtlich verantwortliche Impressum gelten separate, feste Angaben.
-      </p>
       <div className="sm:col-span-2 flex items-center gap-3">
         <button
           type="submit"

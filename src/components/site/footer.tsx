@@ -13,11 +13,20 @@ const serviceLinks = [
   { href: "/partner", label: "Partner" },
 ];
 
+const employeeLinks = [
+  { href: "/mitarbeiter/login", label: "Mitarbeiter Login" },
+  { href: "/mitarbeiter/disposition", label: "Disposition" },
+  { href: "/mitarbeiter/lager", label: "Lagerverwaltung" },
+  { href: "/mitarbeiter/fahrzeuge", label: "Fahrzeugverwaltung" },
+  { href: "/mitarbeiter/fahrtenbuch", label: "Digitales Fahrtenbuch" },
+  { href: "/mitarbeiter/rechnungen", label: "Rechnungserstellung" },
+];
+
 export async function Footer() {
   const company = await getCompany();
   return (
     <footer className="bg-navy-950 text-white">
-      <div className="container-page grid grid-cols-1 gap-10 py-16 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="container-page grid grid-cols-1 gap-10 py-16 sm:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <Logo light />
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/60">
@@ -73,6 +82,19 @@ export async function Footer() {
             ))}
           </ul>
         </div>
+
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-white/50">Mitarbeiterbereich</h3>
+          <ul className="mt-4 space-y-2.5 text-sm text-white/70">
+            {employeeLinks.map((link) => (
+              <li key={link.href}>
+                <Link href={link.href} className="hover:text-white">
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       <div className="border-t border-white/10">
@@ -87,9 +109,6 @@ export async function Footer() {
             </Link>
             <Link href="/standort" className="hover:text-white">
               Standort
-            </Link>
-            <Link href="/mitarbeiter/login" className="hover:text-white">
-              Mitarbeiter Login
             </Link>
           </div>
         </div>

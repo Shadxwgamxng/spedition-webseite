@@ -66,12 +66,12 @@ export default async function FuhrparkPage() {
             <div>
               <SectionHeading eyebrow="Fuhrparkmanagement" title="Digital verwaltet, immer einsatzbereit" />
               <p className="mt-4 text-sm leading-relaxed text-white/70">
-                Wartungen, Prüftermine und Laufleistungen jedes Fahrzeugs werden lückenlos dokumentiert. So stellen
-                wir sicher, dass unsere Flotte jederzeit sicher und einsatzbereit ist.
+                Unsere interne Fahrzeugverwaltung dokumentiert Wartungen, Prüftermine und Laufleistungen jedes
+                Fahrzeugs. So stellen wir sicher, dass unsere Flotte jederzeit sicher und einsatzbereit ist.
               </p>
               <div className="mt-6">
-                <Button href="/auftrag" variant="primary">
-                  Auftrag einreichen
+                <Button href="/mitarbeiter/fahrzeuge" variant="primary">
+                  Zur Fahrzeugverwaltung (Mitarbeiter)
                 </Button>
               </div>
             </div>

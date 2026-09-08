@@ -7,21 +7,25 @@ import {
   type CollectionName,
   type CompanyInfo,
   type Db,
+  type DriverCardRecord,
   type FleetCategoryRecord,
   type JobRecord,
   type NewsRecord,
   type PartnerRecord,
+  type ReminderEntry,
   type ReviewRecord,
   type ServiceRecord,
   type TeamMemberRecord,
 } from "@/lib/server/db-types";
+import type { OrderMessage, OrderRecord, VehicleRecord } from "@/lib/fleet-data";
 
 /**
  * File-backed JSON store standing in for a real database/CMS backend. It exists
- * so a content edit reaches the public site without a redeploy. Not
- * concurrency-safe, and resets if `.data/db.json` is deleted — fine for a
- * demo/single-instance deployment, not a substitute for a real database in
- * production.
+ * so cross-role, cross-device flows (a driver's vehicle login reaching the
+ * dispatcher, an admin's content edit reaching the public site) work against
+ * one shared source of truth on the running server. Not concurrency-safe, and
+ * resets if `.data/db.json` is deleted — fine for a demo/single-instance
+ * deployment, not a substitute for a real database in production.
  */
 
 const DB_PATH = path.join(process.cwd(), ".data", "db.json");
@@ -42,13 +46,30 @@ async function readDb(): Promise<Db> {
   }
 
   // Backfill anything missing from an on-disk db.json written by an earlier
-  // version of this schema — otherwise reads of those collections would
-  // return undefined and crash callers.
+  // version of this schema (e.g. a file saved before "company"/"news"/driver
+  // cards existed) — otherwise reads of those collections would return
+  // undefined and crash callers like `company.street`.
   const seed = seedDb();
   let changed = false;
   for (const key of Object.keys(seed) as (keyof Db)[]) {
     if (db[key] === undefined) {
       (db as Db)[key] = seed[key] as never;
+      changed = true;
+    }
+  }
+  for (const order of db.orders ?? []) {
+    if (!Array.isArray(order.messages)) {
+      order.messages = [];
+      changed = true;
+    }
+    if (order.origin === undefined) {
+      order.origin = "intern";
+      order.contactName ??= "";
+      order.email ??= "";
+      order.phone ??= "";
+      order.cargoType ??= "";
+      order.requestedPickupDate ??= order.date;
+      order.requestedDeliveryDate ??= order.date;
       changed = true;
     }
   }
@@ -69,6 +90,12 @@ async function writeDb(db: Db): Promise<void> {
 export async function listCollection<T = unknown>(name: CollectionName): Promise<T[]> {
   const db = await readDb();
   return db[name] as T[];
+}
+
+export async function getCollectionItem<T = unknown>(name: CollectionName, id: string): Promise<T | null> {
+  const idField = COLLECTION_ID_FIELD[name];
+  const items = await listCollection<Record<string, unknown>>(name);
+  return (items.find((item) => item[idField] === id) as T) ?? null;
 }
 
 export async function createCollectionItem<T extends Record<string, unknown>>(
@@ -160,4 +187,217 @@ export async function updateCompany(patch: Partial<CompanyInfo>): Promise<Compan
   db.company = { ...db.company, ...patch };
   await writeDb(db);
   return db.company;
+}
+
+// ---------------------------------------------------------------------------
+// Vehicles
+// ---------------------------------------------------------------------------
+
+export async function getVehicles(): Promise<VehicleRecord[]> {
+  const db = await readDb();
+  return db.vehicles;
+}
+
+export async function createVehicle(data: Omit<VehicleRecord, "activeDriver" | "activeSince">): Promise<VehicleRecord> {
+  const db = await readDb();
+  if (db.vehicles.some((v) => v.plate === data.plate)) {
+    throw new Error("Ein Fahrzeug mit diesem Kennzeichen existiert bereits.");
+  }
+  const vehicle: VehicleRecord = { ...data, activeDriver: null, activeSince: null };
+  db.vehicles.push(vehicle);
+  await writeDb(db);
+  return vehicle;
+}
+
+export async function deleteVehicle(plate: string): Promise<boolean> {
+  const db = await readDb();
+  const index = db.vehicles.findIndex((v) => v.plate === plate);
+  if (index === -1) return false;
+  db.vehicles.splice(index, 1);
+  await writeDb(db);
+  return true;
+}
+
+export async function loginVehicle(
+  plate: string,
+  driverName: string,
+): Promise<{ ok: true; vehicle: VehicleRecord } | { ok: false; error: string }> {
+  const db = await readDb();
+  const vehicle = db.vehicles.find((v) => v.plate === plate);
+  if (!vehicle) return { ok: false, error: "Fahrzeug nicht gefunden." };
+  if (vehicle.activeDriver && vehicle.activeDriver !== driverName) {
+    return { ok: false, error: `Fahrzeug ist bereits bei ${vehicle.activeDriver} angemeldet.` };
+  }
+
+  for (const v of db.vehicles) {
+    if (v.activeDriver === driverName && v.plate !== plate) {
+      v.activeDriver = null;
+      v.activeSince = null;
+    }
+  }
+
+  vehicle.activeDriver = driverName;
+  vehicle.activeSince = new Date().toISOString();
+  await writeDb(db);
+  return { ok: true, vehicle };
+}
+
+export async function logoutVehicle(driverName: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const db = await readDb();
+  const vehicle = db.vehicles.find((v) => v.activeDriver === driverName);
+  if (!vehicle) return { ok: false, error: "Kein Fahrzeug für diesen Fahrer angemeldet." };
+  vehicle.activeDriver = null;
+  vehicle.activeSince = null;
+  await writeDb(db);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Orders
+// ---------------------------------------------------------------------------
+
+export async function getOrders(): Promise<OrderRecord[]> {
+  const db = await readDb();
+  return db.orders;
+}
+
+export async function createOrder(input: {
+  customer: string;
+  pickup: string;
+  delivery: string;
+  date?: string;
+  notes?: string;
+  origin?: "web" | "intern";
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  cargoType?: string;
+  requestedPickupDate?: string;
+  requestedDeliveryDate?: string;
+}): Promise<OrderRecord> {
+  const db = await readDb();
+  const maxNumber = db.orders.reduce((max, o) => {
+    const n = Number(o.id.replace("BF-", ""));
+    return Number.isFinite(n) ? Math.max(max, n) : max;
+  }, 48200);
+  const origin = input.origin ?? "web";
+  const order: OrderRecord = {
+    id: `BF-${maxNumber + 1}`,
+    customer: input.customer,
+    pickup: input.pickup,
+    delivery: input.delivery,
+    // Internal orders (Disposition's "Neuer Auftrag") are scheduled immediately;
+    // web submissions get their confirmed date only once Disposition accepts them.
+    date: origin === "intern" ? (input.date ?? "") : "",
+    notes: input.notes ?? "",
+    status: origin === "intern" ? "Neu" : "Angefragt",
+    driverName: null,
+    vehiclePlate: null,
+    createdAt: new Date().toISOString(),
+    messages: [],
+    origin,
+    contactName: input.contactName ?? "",
+    email: input.email ?? "",
+    phone: input.phone ?? "",
+    cargoType: input.cargoType ?? "",
+    requestedPickupDate: input.requestedPickupDate ?? input.date ?? "",
+    requestedDeliveryDate: input.requestedDeliveryDate ?? "",
+  };
+  db.orders.unshift(order);
+  await writeDb(db);
+  return order;
+}
+
+export async function updateOrder(
+  id: string,
+  patch: Partial<Pick<OrderRecord, "status" | "driverName" | "vehiclePlate" | "date">>,
+): Promise<OrderRecord | null> {
+  const db = await readDb();
+  const order = db.orders.find((o) => o.id === id);
+  if (!order) return null;
+  Object.assign(order, patch);
+  await writeDb(db);
+  return order;
+}
+
+export async function addOrderMessage(
+  orderId: string,
+  message: Omit<OrderMessage, "id" | "at">,
+): Promise<OrderRecord | null> {
+  const db = await readDb();
+  const order = db.orders.find((o) => o.id === orderId);
+  if (!order) return null;
+  order.messages.push({ ...message, id: makeId(message.text), at: new Date().toISOString() });
+  await writeDb(db);
+  return order;
+}
+
+// ---------------------------------------------------------------------------
+// Driver cards
+// ---------------------------------------------------------------------------
+
+export async function getDriverCards(): Promise<DriverCardRecord[]> {
+  const db = await readDb();
+  return db.driverCards;
+}
+
+function findCard(db: Db, driverName: string): DriverCardRecord | undefined {
+  return db.driverCards.find((c) => c.driverName === driverName);
+}
+
+export async function setDriverCardActive(driverName: string, active: boolean): Promise<DriverCardRecord | null> {
+  const db = await readDb();
+  const card = findCard(db, driverName);
+  if (!card) return null;
+  card.active = active;
+  if (!active && card.onBreak) {
+    card.onBreak = false;
+    card.breakStartedAt = null;
+  }
+  await writeDb(db);
+  return card;
+}
+
+export async function startDriverBreak(driverName: string): Promise<DriverCardRecord | null> {
+  const db = await readDb();
+  const card = findCard(db, driverName);
+  if (!card) return null;
+  card.onBreak = true;
+  card.breakStartedAt = new Date().toISOString();
+  await writeDb(db);
+  return card;
+}
+
+export async function endDriverBreak(driverName: string): Promise<DriverCardRecord | null> {
+  const db = await readDb();
+  const card = findCard(db, driverName);
+  if (!card) return null;
+  if (card.onBreak && card.breakStartedAt) {
+    const elapsedMinutes = Math.round((Date.now() - new Date(card.breakStartedAt).getTime()) / 60000);
+    card.breakTakenTodayMinutes += Math.max(0, elapsedMinutes);
+  }
+  card.onBreak = false;
+  card.breakStartedAt = null;
+  await writeDb(db);
+  return card;
+}
+
+export async function sendDriverReminder(driverName: string, text: string): Promise<DriverCardRecord | null> {
+  const db = await readDb();
+  const card = findCard(db, driverName);
+  if (!card) return null;
+  const reminder: ReminderEntry = { id: makeId(text), text, at: new Date().toISOString(), read: false };
+  card.reminders.unshift(reminder);
+  await writeDb(db);
+  return card;
+}
+
+export async function acknowledgeDriverReminder(driverName: string, reminderId: string): Promise<DriverCardRecord | null> {
+  const db = await readDb();
+  const card = findCard(db, driverName);
+  if (!card) return null;
+  const reminder = card.reminders.find((r) => r.id === reminderId);
+  if (reminder) reminder.read = true;
+  await writeDb(db);
+  return card;
 }

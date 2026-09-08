@@ -1,24 +1,22 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/site/logo";
-import { useAuth } from "@/lib/auth";
+import { useAuth, demoAccountHints } from "@/lib/auth";
 import { LockIcon } from "@/components/ui/icons";
 import Link from "next/link";
 
 export default function LoginPage() {
-  const { ready, login, loggedIn } = useAuth();
+  const { login, user } = useAuth();
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (ready && loggedIn) {
-      router.replace("/mitarbeiter");
-    }
-  }, [ready, loggedIn, router]);
+  if (user) {
+    router.replace("/mitarbeiter");
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,7 +43,8 @@ export default function LoginPage() {
           </div>
           <h1 className="mt-3 text-2xl font-bold text-navy-900">Anmelden</h1>
           <p className="mt-1 text-sm text-navy-700/70">
-            Melden Sie sich an, um die Inhalte der Website zu verwalten.
+            Melden Sie sich mit Ihrem internen Benutzerkonto an, um Disposition, Lager, Fuhrpark und weitere Systeme
+            zu nutzen.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -86,6 +85,17 @@ export default function LoginPage() {
               Anmelden
             </button>
           </form>
+
+          <div className="mt-6 rounded-xl bg-mist-100 p-4 text-xs leading-relaxed text-navy-700/70">
+            <div className="font-semibold text-navy-800">Demo-Zugänge (Passwort jeweils: baltic2026)</div>
+            <ul className="mt-1.5 space-y-0.5">
+              {demoAccountHints.map((acc) => (
+                <li key={acc.username}>
+                  <span className="font-mono">{acc.username}</span> — {acc.department}
+                </li>
+              ))}
+            </ul>
+          </div>
 
           <Link href="/" className="mt-6 block text-center text-xs font-medium text-navy-700/60 hover:text-navy-900">
             ← Zurück zur öffentlichen Website

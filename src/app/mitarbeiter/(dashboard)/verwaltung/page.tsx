@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/lib/auth";
 import { EmployeePageHeader } from "@/components/employee/page-header";
 import { CollectionManager, type FieldConfig } from "@/components/employee/collection-manager";
 import { CompanyForm } from "./company-form";
@@ -10,7 +11,7 @@ const teamFields: FieldConfig[] = [
   { key: "role", label: "Position", required: true },
   { key: "department", label: "Abteilung", required: true },
   { key: "bio", label: "Kurzprofil", type: "textarea", required: true },
-  { key: "initials", label: "Kürzel", required: true, placeholder: "z. B. MW", help: "2 Buchstaben" },
+  { key: "initials", label: "Kürzel", required: true, placeholder: "z. B. TW", help: "2 Buchstaben" },
 ];
 
 const tabs = [
@@ -28,13 +29,18 @@ const tabs = [
 type TabKey = (typeof tabs)[number]["key"];
 
 export default function VerwaltungPage() {
-  const [tab, setTab] = useState<TabKey>("fleetCategories");
+  const { user } = useAuth();
+  const [tab, setTab] = useState<TabKey>("news");
+
+  if (!user || user.roleKey !== "geschaeftsfuehrung") {
+    return <p className="text-sm text-navy-700/60">Kein Zugriff.</p>;
+  }
 
   return (
     <div>
       <EmployeePageHeader
         title="Website-Verwaltung"
-        description="Inhalte der öffentlichen Website pflegen. Änderungen erscheinen sofort live."
+        description="Inhalte der öffentlichen Website pflegen. Änderungen erscheinen sofort live auf baltic-freight.de."
       />
 
       <div className="flex flex-wrap gap-2 border-b border-navy-900/8 pb-4">
