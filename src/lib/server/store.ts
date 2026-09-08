@@ -37,6 +37,20 @@ import { roleLabels, type RoleKey } from "@/lib/roles";
 
 const DB_PATH = path.join(process.cwd(), ".data", "db.json");
 
+/**
+ * The fabricated example minutes driver cards used to be seeded with (removed
+ * in favor of starting at 0 — see seedDb() in db-types.ts). Kept here only so
+ * readDb() can recognize and clean up already-persisted .data/db.json files
+ * that still have these exact values from before the fix.
+ */
+const LEGACY_FABRICATED_DRIVER_MINUTES: Record<string, { today: number; week: number; breakTaken: number }> = {
+  "Lukas Schmidt": { today: 390, week: 2280, breakTaken: 30 },
+  "Piotr Nowak": { today: 252, week: 1740, breakTaken: 15 },
+  "Timo Fischer": { today: 0, week: 2640, breakTaken: 60 },
+  "Anja Krüger": { today: 468, week: 2460, breakTaken: 20 },
+  "Rafael Lindt": { today: 186, week: 1320, breakTaken: 45 },
+};
+
 async function readDb(): Promise<Db> {
   let db: Partial<Db> | null = null;
   try {
@@ -77,6 +91,27 @@ async function readDb(): Promise<Db> {
       order.cargoType ??= "";
       order.requestedPickupDate ??= order.date;
       order.requestedDeliveryDate ??= order.date;
+      changed = true;
+    }
+  }
+
+  // One-time cleanup for db.json files written before driver cards stopped
+  // seeding fabricated example minutes: an untouched card (never activated)
+  // still carrying the exact old hardcoded numbers gets reset to a real
+  // zeroed-out starting point. Only fires on that exact legacy combination,
+  // so genuine recorded driving/break time is never touched.
+  for (const card of db.driverCards ?? []) {
+    const legacy = LEGACY_FABRICATED_DRIVER_MINUTES[card.driverName];
+    if (
+      legacy &&
+      !card.active &&
+      card.drivingTodayMinutes === legacy.today &&
+      card.drivingWeekMinutes === legacy.week &&
+      card.breakTakenTodayMinutes === legacy.breakTaken
+    ) {
+      card.drivingTodayMinutes = 0;
+      card.drivingWeekMinutes = 0;
+      card.breakTakenTodayMinutes = 0;
       changed = true;
     }
   }

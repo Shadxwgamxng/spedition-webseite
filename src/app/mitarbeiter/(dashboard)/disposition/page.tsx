@@ -152,8 +152,8 @@ export default function DispositionPage() {
         </div>
       ) : null}
 
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div className="mt-8 space-y-6">
+        <div>
           {showForm ? (
             <form
               onSubmit={handleCreate}
@@ -311,7 +311,7 @@ export default function DispositionPage() {
         </div>
 
         <div>
-          <div className="rounded-2xl border border-navy-900/8 bg-white p-5 shadow-sm shadow-navy-950/5">
+          <div className="max-w-sm rounded-2xl border border-navy-900/8 bg-white p-5 shadow-sm shadow-navy-950/5">
             <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-amber-600">
               <TruckIcon className="h-4 w-4" />
               Aktive Fahrzeuge
