@@ -139,7 +139,7 @@ export function EmployeeManager() {
             <select
               id="roleKey"
               name="roleKey"
-              defaultValue={editingEmployee?.roleKey ?? ("disposition" satisfies RoleKey)}
+              defaultValue={editingEmployee?.roleKey ?? ("disponent" satisfies RoleKey)}
               className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
             >
               {roleKeys.map((key) => (

@@ -96,6 +96,30 @@ async function readDb(): Promise<Db> {
       changed = true;
     }
   }
+
+  // One-time rename: the "disposition" role was split into "chefdisponent"
+  // (leadership) and "disponent" (day-to-day) — existing accounts keep their
+  // access by moving to "chefdisponent", the closer match of the two. Runs
+  // before the label resync below so the renamed role's display text updates
+  // in the same pass.
+  for (const employee of db.employees ?? []) {
+    if ((employee.roleKey as string) === "disposition") {
+      employee.roleKey = "chefdisponent";
+      changed = true;
+    }
+  }
+  // Employee.role is always derived from roleModuleAccess's roleLabels, never
+  // independently edited — keep it in sync so a role-label change (like the
+  // rename above, or "Geschäftsführung" → "Geschäftsführer") reaches every
+  // already-persisted employee, not just ones saved again after the change.
+  for (const employee of db.employees ?? []) {
+    const label = roleLabels[employee.roleKey];
+    if (label && employee.role !== label) {
+      employee.role = label;
+      changed = true;
+    }
+  }
+
   for (const order of db.orders ?? []) {
     if (!Array.isArray(order.messages)) {
       order.messages = [];

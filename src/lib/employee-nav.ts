@@ -1,6 +1,7 @@
 import {
   ChartIcon,
   ClipboardIcon,
+  FolderIcon,
   IdCardIcon,
   InvoiceIcon,
   MessageIcon,
@@ -66,6 +67,13 @@ export const employeeModules = [
     label: "Finanzbuchhaltung",
     description: "Buchungen, offene Posten und Reporting.",
     icon: ChartIcon,
+  },
+  {
+    key: "personalakten",
+    href: "/mitarbeiter/personalakten",
+    label: "Personalakten",
+    description: "Persönliche Daten und Dokumente der Mitarbeiter verwalten.",
+    icon: FolderIcon,
   },
   {
     key: "verwaltung",

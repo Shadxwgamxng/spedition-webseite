@@ -267,7 +267,9 @@ function seedEmployees(): EmployeeRecord[] {
   const ownerDiscordId = process.env.OWNER_DISCORD_ID ?? "";
   const base: Array<Omit<EmployeeRecord, "id">> = [
     { username: "admin", discordId: ownerDiscordId, discordUsername: "", name: "Torsten Wegner", role: roleLabels.geschaeftsfuehrung, roleKey: "geschaeftsfuehrung", department: "Geschäftsleitung" },
-    { username: "disposition", discordId: "", discordUsername: "", name: "Marek Nowicki", role: "Leiter Disposition", roleKey: "disposition", department: "Disposition" },
+    { username: "betriebsleiter", discordId: "", discordUsername: "", name: "Nadine Brandt", role: roleLabels.betriebsleiter, roleKey: "betriebsleiter", department: "Betriebsleitung" },
+    { username: "chefdisponent", discordId: "", discordUsername: "", name: "Marek Nowicki", role: roleLabels.chefdisponent, roleKey: "chefdisponent", department: "Disposition" },
+    { username: "disponent", discordId: "", discordUsername: "", name: "Kevin Albrecht", role: roleLabels.disponent, roleKey: "disponent", department: "Disposition" },
     { username: "lager", discordId: "", discordUsername: "", name: "Sandra Lehmann", role: "Leiterin Lagerlogistik", roleKey: "lager", department: "Lager" },
     { username: "fuhrpark", discordId: "", discordUsername: "", name: "Jonas Petersen", role: "Leiter Fuhrparkmanagement", roleKey: "fuhrpark", department: "Fuhrpark & Werkstatt" },
     { username: "buchhaltung", discordId: "", discordUsername: "", name: "Dennis Kramer", role: "Leiter Buchhaltung", roleKey: "buchhaltung", department: "Finanzbuchhaltung" },

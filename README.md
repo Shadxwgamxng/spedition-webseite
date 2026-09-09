@@ -34,6 +34,22 @@ Bereich mit **rollenbasierter Sichtbarkeit** — jede Rolle sieht in Sidebar und
 Module; ein direkter Aufruf einer nicht erlaubten URL wird zur Übersicht zurückgeleitet (`src/lib/roles.ts`,
 durchgesetzt in `DashboardShell`).
 
+| Rolle | Sichtbare Module |
+| --- | --- |
+| Geschäftsführer | **Alles**, inkl. Website-Verwaltung und Personalakten; einzige Rolle mit Fahrzeuge anlegen/löschen |
+| Betriebsleiter | Disposition, Lagerverwaltung, Fahrzeugverwaltung, Fahrtenbuch, Fahrerkarte (aller Fahrer) |
+| Chefdisponent | Disposition, Fahrzeugverwaltung, Fahrerkarte (aller Fahrer, inkl. Erinnerungen senden) |
+| Disponent | Disposition |
+| Lager | Lagerverwaltung & Inventuren |
+| Fuhrpark & Werkstatt | Fahrzeugverwaltung (nur lesend), Digitales Fahrtenbuch |
+| Buchhaltung | Rechnungserstellung (inkl. PDF-Export), Finanzbuchhaltung |
+| Fahrer | Nur eigene Fahrerkarte + „Aktuelle Aufträge" (Chat mit der Disposition) |
+
+Personalakten sind bewusst auf die Rolle Geschäftsführer beschränkt — von allen Rollen ist das die einzige, zu
+deren Aufgaben laut Rollenbeschreibung explizit Personalentscheidungen gehören, und die Daten dahinter
+(Geburtsdatum, IBAN, Steuer-ID, Sozialversicherungsnummer, …) sind deutlich sensibler als alles andere in der
+App (siehe Abschnitt „Personalakten" unten).
+
 ### Login: ausschließlich über Discord (OAuth2)
 
 Es gibt **kein** Passwort-Login mehr. Ein Mitarbeitender loggt sich über „Mit Discord anmelden" ein
@@ -71,23 +87,26 @@ Cookie. Der OAuth-Callback ist zusätzlich per signiertem `state`-Cookie gegen C
 Ohne diese Variablen zeigt `/api/auth/discord/login` einen sprechenden Konfigurationsfehler statt eines
 Redirects — der Mitarbeiterbereich bleibt dann für alle, inklusive der Geschäftsführung, unzugänglich.
 
-### Mitarbeiter-Konten anlegen (nur Geschäftsführung)
+### Mitarbeiter-Konten anlegen (nur Geschäftsführer)
 
 Unter Website-Verwaltung → **„Mitarbeiter-Konten"** kann die Geschäftsführung neue Konten für Mitarbeitende
 anlegen, bearbeiten und löschen — Benutzername (intern), Discord-Nutzer-ID, Discord-Benutzername (nur zur
-Anzeige), Name, Abteilung sowie eine **feste Rolle** (Disposition, Lager, Fuhrpark & Werkstatt, Buchhaltung,
-Fahrer oder Geschäftsführung), die automatisch dieselben Modul-Berechtigungen wie oben vergibt
-(`src/lib/roles.ts`). Ein neues Fahrer-Konto bekommt beim Anlegen automatisch eine leere Fahrerkarte, damit die
-digitale Fahrerkarte sofort funktioniert. Ohne eingetragene Discord-Nutzer-ID kann sich das Konto nicht
-einloggen — das wird in der Liste farblich hervorgehoben.
+Anzeige), Name, Abteilung sowie eine **feste Rolle** (Geschäftsführer, Betriebsleiter, Chefdisponent, Disponent,
+Lager, Fuhrpark & Werkstatt, Buchhaltung oder Fahrer), die automatisch dieselben Modul-Berechtigungen wie oben
+vergibt (`src/lib/roles.ts`). Ein neues Fahrer-Konto bekommt beim Anlegen automatisch eine leere Fahrerkarte,
+damit die digitale Fahrerkarte sofort funktioniert. Ohne eingetragene Discord-Nutzer-ID kann sich das Konto
+nicht einloggen — das wird in der Liste farblich hervorgehoben.
 
 Konten liegen serverseitig im Store (`employees`-Collection in `.data/db.json`), die Verwaltung läuft über
 `src/app/api/employees/*`.
 
-### Personalakten (nur Geschäftsführung)
+### Personalakten (nur Geschäftsführer)
 
-Unter Website-Verwaltung → **„Personalakten"** legt jedes Mitarbeiter-Konto automatisch eine eigene Akte an
-(1:1, `personnelFiles`-Collection) — sowohl neu angelegte Konten als auch die Seed-Konten beim ersten Start.
+Eigenes Sidebar-Modul **„Personalakten"** (`/mitarbeiter/personalakten`, `src/lib/employee-nav.ts`) — bewusst
+kein Reiter unter Website-Verwaltung, sondern ein eigenständiges, über `roleModuleAccess` geschütztes Modul, das
+nur die Rolle Geschäftsführer in der Sidebar sieht und öffnen kann (Route-Guard in `DashboardShell` leitet bei
+direktem Aufruf durch andere Rollen zur Übersicht um). Jedes Mitarbeiter-Konto legt automatisch eine eigene Akte
+an (1:1, `personnelFiles`-Collection) — sowohl neu angelegte Konten als auch die Seed-Konten beim ersten Start.
 Eine Akte enthält persönliche Daten (Geburtsdatum/-ort, Staatsangehörigkeit, Adresse, private
 Telefonnummer/E-Mail), Beschäftigungsdaten (Eintrittsdatum, Beschäftigungsart), Steuer-ID,
 Sozialversicherungsnummer, Krankenkasse, IBAN sowie einen Notfallkontakt und ein freies Notizfeld — alles
@@ -104,7 +123,7 @@ werden seine Personalakte und alle zugehörigen Dateien mit gelöscht (`src/app/
 **Wichtig**: Personalakten enthalten besonders sensible Daten (Geburtsdatum, IBAN, Steuer-ID,
 Sozialversicherungsnummer). Es gilt dieselbe Einschränkung wie für den Rest der Seite — siehe „Wichtige
 Hinweise vor dem produktiven Einsatz" unten: Es gibt **keine** serverseitige Zugriffsprüfung auf die
-`/api/personnel-files/*`-Routen, nur der clientseitig verlinkte Reiter ist an die Rolle Geschäftsführung
+`/api/personnel-files/*`-Routen, nur das clientseitig verlinkte Modul ist an die Rolle Geschäftsführer
 gebunden.
 
 ### Fahrer-Login → Fahrzeug → Disposition (echt, geräteübergreifend)
@@ -118,9 +137,10 @@ Fahrzeuge" und können neue Aufträge anlegen sowie live angemeldeten Fahrzeugen
 ### Digitale Fahrerkarte
 
 Fahrer aktivieren ihre eigene Fahrerkarte und erfassen Pausen (Start/Ende) selbst; Lenkzeiten heute/Woche werden
-gegen die gesetzlichen Grenzwerte (9 h/Tag, 56 h/Woche) angezeigt. Disposition und Geschäftsführung sehen **alle**
-Fahrerkarten auf einen Blick, farblich markiert bei Überschreitung, und können pro Fahrer eine Erinnerung senden —
-die dem Fahrer als Banner auf seiner Fahrerkarte erscheint, bis er sie bestätigt (`src/app/api/driver-cards/route.ts`).
+gegen die gesetzlichen Grenzwerte (9 h/Tag, 56 h/Woche) angezeigt. Chefdisponent, Betriebsleiter und
+Geschäftsführer sehen **alle** Fahrerkarten auf einen Blick, farblich markiert bei Überschreitung, und können pro
+Fahrer eine Erinnerung senden — die dem Fahrer als Banner auf seiner Fahrerkarte erscheint, bis er sie bestätigt
+(`src/app/api/driver-cards/route.ts`).
 
 ### Auftragsanfragen von der Website
 
@@ -135,7 +155,7 @@ Fahrer sehen unter „Aktuelle Aufträge" nur die ihnen zugewiesenen Aufträge m
 Hinweise) und einen Chat-Thread je Auftrag. Die Disposition kann denselben Thread pro Zeile in der
 Auftragstabelle aufklappen und antworten (`src/components/employee/order-chat.tsx`).
 
-### Website-Verwaltung (nur Geschäftsführung)
+### Website-Verwaltung (nur Geschäftsführer)
 
 Eigener Reiter zur Pflege **aller** öffentlichen Inhalte — News, Stellenangebote, Leistungen, Geschäftsführung,
 Wichtige Positionen, Fuhrpark-Kategorien, Rezensionen, Partner sowie Unternehmensdaten (Adresse, Telefon,
