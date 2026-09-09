@@ -84,6 +84,29 @@ einloggen — das wird in der Liste farblich hervorgehoben.
 Konten liegen serverseitig im Store (`employees`-Collection in `.data/db.json`), die Verwaltung läuft über
 `src/app/api/employees/*`.
 
+### Personalakten (nur Geschäftsführung)
+
+Unter Website-Verwaltung → **„Personalakten"** legt jedes Mitarbeiter-Konto automatisch eine eigene Akte an
+(1:1, `personnelFiles`-Collection) — sowohl neu angelegte Konten als auch die Seed-Konten beim ersten Start.
+Eine Akte enthält persönliche Daten (Geburtsdatum/-ort, Staatsangehörigkeit, Adresse, private
+Telefonnummer/E-Mail), Beschäftigungsdaten (Eintrittsdatum, Beschäftigungsart), Steuer-ID,
+Sozialversicherungsnummer, Krankenkasse, IBAN sowie einen Notfallkontakt und ein freies Notizfeld — alles
+direkt in der Akte editierbar. Zusätzlich lassen sich beliebige Dateien hochladen (z. B. Arbeitsvertrag,
+Ausweiskopie) und einzeln wieder löschen.
+
+Die Datei-Metadaten (Name, Typ, Größe, Zeitpunkt) liegen in `.data/db.json`, die hochgeladenen Bytes selbst
+liegen separat unter `.data/uploads/` (ebenfalls git-ignoriert), referenziert über eine zufällige Datei-ID —
+nie über den vom Nutzer angegebenen Dateinamen, damit ein präparierter Dateiname keinen Zugriff auf andere
+Pfade auf dem Server bekommt. Uploads sind auf 20 MB pro Datei begrenzt. Wird ein Mitarbeiter-Konto gelöscht,
+werden seine Personalakte und alle zugehörigen Dateien mit gelöscht (`src/app/api/personnel-files/*`,
+`src/lib/server/store.ts`).
+
+**Wichtig**: Personalakten enthalten besonders sensible Daten (Geburtsdatum, IBAN, Steuer-ID,
+Sozialversicherungsnummer). Es gilt dieselbe Einschränkung wie für den Rest der Seite — siehe „Wichtige
+Hinweise vor dem produktiven Einsatz" unten: Es gibt **keine** serverseitige Zugriffsprüfung auf die
+`/api/personnel-files/*`-Routen, nur der clientseitig verlinkte Reiter ist an die Rolle Geschäftsführung
+gebunden.
+
 ### Fahrer-Login → Fahrzeug → Disposition (echt, geräteübergreifend)
 
 Ein `fahrerX`-Konto muss sich nach dem Login zunächst auf ein freies, einsatzbereites Fahrzeug anmelden
@@ -164,14 +187,15 @@ Dies ist eine funktionale Demo mit einem schlanken eigenen Backend. Vor einem ec
   clientseitig in der UI — die API-Routen unter `/api/*` prüfen aktuell **nicht**, ob der aufrufende Nutzer
   überhaupt eingeloggt ist oder die passende Rolle hat, und sind technisch offen erreichbar (insbesondere
   `/api/employees`, `/api/admin/*`, `/api/stock`, `/api/trips`, `/api/invoices`, `/api/vehicles` POST/DELETE,
-  `/api/driver-cards`, `/api/orders`). Für den Produktivbetrieb braucht es serverseitig durchgesetzte
-  Rollen/Rechte auf jeder API-Route (z. B. Session-Cookie in jeder Route Handler prüfen, bevor Daten
-  gelesen/geändert werden).
-- **Datenpersistenz**: Disposition, Fahrzeuge, Fahrerkarten, Aufträge/Chat, Lagerbestände, Fahrtenbuch, Rechnungen
-  und alle Website-Inhalte laufen über einen dateibasierten Store (eine JSON-Datei auf dem Server,
+  `/api/driver-cards`, `/api/orders`, `/api/personnel-files/*`). Das betrifft **besonders** die Personalakten,
+  die sensible personenbezogene Daten enthalten (siehe oben). Für den Produktivbetrieb braucht es serverseitig
+  durchgesetzte Rollen/Rechte auf jeder API-Route (z. B. Session-Cookie in jeder Route Handler prüfen, bevor
+  Daten gelesen/geändert werden) — bei den Personalakten idealerweise als Erstes.
+- **Datenpersistenz**: Disposition, Fahrzeuge, Fahrerkarten, Aufträge/Chat, Lagerbestände, Fahrtenbuch, Rechnungen,
+  Personalakten und alle Website-Inhalte laufen über einen dateibasierten Store (eine JSON-Datei auf dem Server,
   `src/lib/server/store.ts`) — funktional korrekt für eine Einzelserver-Demo, aber nicht nebenläufigkeitssicher und
-  kein Ersatz für eine echte Datenbank. Regelmäßige Backups von `.data/db.json` sind empfehlenswert (siehe
-  Hosting-Anleitungen).
+  kein Ersatz für eine echte Datenbank. Regelmäßige Backups von `.data/db.json` **und** `.data/uploads/`
+  (Personalakten-Dokumente) sind empfehlenswert (siehe Hosting-Anleitungen).
 - **Formulare**: Das Kontaktformular und das Bewerbungsportal zeigen aktuell nur eine Erfolgsmeldung an; es wird
   noch keine E-Mail versendet oder Datei gespeichert. Hierfür wird ein Backend (API-Route + E-Mail-Versand bzw.
   Dateispeicher) benötigt.

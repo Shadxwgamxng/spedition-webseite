@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { EmployeePageHeader } from "@/components/employee/page-header";
 import { CollectionManager, type FieldConfig } from "@/components/employee/collection-manager";
 import { EmployeeManager } from "@/components/employee/employee-manager";
+import { PersonnelFilesManager } from "@/components/employee/personnel-files-manager";
 import { CompanyForm } from "./company-form";
 
 const teamFields: FieldConfig[] = [
@@ -26,6 +27,7 @@ const tabs = [
   { key: "partners", label: "Partner" },
   { key: "unternehmen", label: "Unternehmensdaten" },
   { key: "mitarbeiter", label: "Mitarbeiter-Konten" },
+  { key: "personalakten", label: "Personalakten" },
 ] as const;
 
 type TabKey = (typeof tabs)[number]["key"];
@@ -42,7 +44,7 @@ export default function VerwaltungPage() {
     <div>
       <EmployeePageHeader
         title="Website-Verwaltung"
-        description="Inhalte der öffentlichen Website sowie Mitarbeiter-Konten pflegen. Änderungen erscheinen sofort live."
+        description="Inhalte der öffentlichen Website, Mitarbeiter-Konten und Personalakten pflegen. Änderungen erscheinen sofort live."
       />
 
       <div className="flex flex-wrap gap-2 border-b border-navy-900/8 pb-4">
@@ -201,6 +203,8 @@ export default function VerwaltungPage() {
         {tab === "unternehmen" ? <CompanyForm /> : null}
 
         {tab === "mitarbeiter" ? <EmployeeManager /> : null}
+
+        {tab === "personalakten" ? <PersonnelFilesManager /> : null}
       </div>
     </div>
   );

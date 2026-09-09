@@ -68,6 +68,68 @@ export type EmployeeRecord = {
 
 export type PublicEmployee = EmployeeRecord;
 
+export type PersonnelDocumentRecord = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+};
+
+/**
+ * A Mitarbeiter's Personalakte — created automatically alongside their
+ * EmployeeRecord (`id` matches the employee's `id`, 1:1) and never through the
+ * generic CMS routes. `documents` only holds metadata; the uploaded bytes
+ * themselves live on disk under `.data/uploads/` (see server/store.ts).
+ */
+export type PersonnelFileRecord = {
+  id: string;
+  employeeId: string;
+  birthDate: string;
+  birthPlace: string;
+  nationality: string;
+  street: string;
+  zip: string;
+  city: string;
+  phonePrivate: string;
+  emailPrivate: string;
+  hireDate: string;
+  employmentType: string;
+  taxId: string;
+  socialSecurityNumber: string;
+  healthInsurance: string;
+  iban: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  notes: string;
+  documents: PersonnelDocumentRecord[];
+};
+
+export function makeEmptyPersonnelFile(employeeId: string): PersonnelFileRecord {
+  return {
+    id: employeeId,
+    employeeId,
+    birthDate: "",
+    birthPlace: "",
+    nationality: "",
+    street: "",
+    zip: "",
+    city: "",
+    phonePrivate: "",
+    emailPrivate: "",
+    hireDate: "",
+    employmentType: "",
+    taxId: "",
+    socialSecurityNumber: "",
+    healthInsurance: "",
+    iban: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    notes: "",
+    documents: [],
+  };
+}
+
 export type StockItemRecord = {
   id: string;
   sku: string;
@@ -137,6 +199,7 @@ export type Db = {
   orders: OrderRecord[];
   driverCards: DriverCardRecord[];
   employees: EmployeeRecord[];
+  personnelFiles: PersonnelFileRecord[];
   stockItems: StockItemRecord[];
   lastInventoryAt: string | null;
   trips: TripRecord[];
@@ -222,6 +285,7 @@ function seedEmployees(): EmployeeRecord[] {
 }
 
 export function seedDb(): Db {
+  const employees = seedEmployees();
   return {
     vehicles: initialVehicles,
     orders: initialOrders.map((o) => ({ ...o, messages: [] })),
@@ -235,7 +299,8 @@ export function seedDb(): Db {
       breakTakenTodayMinutes: 0,
       reminders: [],
     })),
-    employees: seedEmployees(),
+    employees,
+    personnelFiles: employees.map((e) => makeEmptyPersonnelFile(e.id)),
     stockItems: [],
     lastInventoryAt: null,
     trips: [],

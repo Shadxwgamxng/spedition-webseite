@@ -179,12 +179,14 @@ pm2 restart baltic-freight
 
 ## 11. Wichtig zu wissen
 
-- **Inhaltsdaten (`.data/db.json`)**: News, Stellenangebote, Fuhrpark-Kategorien, Team, Rezensionen, Partner und
-  Unternehmensdaten liegen in einer einzelnen JSON-Datei auf dem Server (siehe README). Sie wird beim ersten
-  Start automatisch angelegt. **Regelmäßig sichern** (z. B. `scp root@server:.../.data/db.json ./backup/`) –
-  zusätzlich bietet das Living-Bots-Webinterface eigene Server-Backups an, die sich dafür einrichten lassen.
-  Geht die Datei verloren, sind alle über die Website-Verwaltung gepflegten Inhalte weg (der Code/die Struktur
-  der Website ist davon nicht betroffen, nur die Inhalte).
+- **Inhaltsdaten (`.data/db.json`)**: News, Stellenangebote, Fuhrpark-Kategorien, Team, Rezensionen, Partner,
+  Personalakten und Unternehmensdaten liegen in einer einzelnen JSON-Datei auf dem Server (siehe README). Sie
+  wird beim ersten Start automatisch angelegt. Hochgeladene Personalakten-Dokumente (z. B. Arbeitsverträge)
+  liegen separat unter `.data/uploads/`. **Beides regelmäßig sichern** (z. B.
+  `scp -r root@server:.../.data ./backup/`) – zusätzlich bietet das Living-Bots-Webinterface eigene
+  Server-Backups an, die sich dafür einrichten lassen. Gehen diese Ordner verloren, sind alle über die
+  Website-Verwaltung gepflegten Inhalte und hochgeladenen Dokumente weg (der Code/die Struktur der Website ist
+  davon nicht betroffen, nur die Daten).
 - **Kein serverseitiger Zugriffsschutz auf API-Routen**: Die `/api/*`-Routen prüfen aktuell keine Berechtigung
   (nur der Mitarbeiterbereich selbst ist per Discord-Login geschützt, das Frontend). Für die aktuelle Nutzung
   ausreichend, aber kein produktionsreifer Sicherheitsstandard für sensible Daten.

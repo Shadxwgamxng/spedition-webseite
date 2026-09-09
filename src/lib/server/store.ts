@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   COLLECTION_ID_FIELD,
+  makeEmptyPersonnelFile,
   makeId,
   seedDb,
   type CollectionName,
@@ -15,6 +16,8 @@ import {
   type JobRecord,
   type NewsRecord,
   type PartnerRecord,
+  type PersonnelDocumentRecord,
+  type PersonnelFileRecord,
   type PublicEmployee,
   type ReminderEntry,
   type ReviewRecord,
@@ -73,8 +76,23 @@ async function readDb(): Promise<Db> {
   const seed = seedDb();
   let changed = false;
   for (const key of Object.keys(seed) as (keyof Db)[]) {
+    // personnelFiles is handled separately below: it must be derived from this
+    // db's own (already-existing) employees, not from a freshly re-seeded
+    // employee list with unrelated ids.
+    if (key === "personnelFiles") continue;
     if (db[key] === undefined) {
       (db as Db)[key] = seed[key] as never;
+      changed = true;
+    }
+  }
+
+  // Every employee gets a Personalakte — backfill one for any employee that
+  // doesn't have one yet (a missing `personnelFiles` key entirely, or an
+  // employee added since the last time this ran).
+  db.personnelFiles ??= [];
+  for (const employee of db.employees ?? []) {
+    if (!db.personnelFiles.some((f) => f.employeeId === employee.id)) {
+      db.personnelFiles.push(makeEmptyPersonnelFile(employee.id));
       changed = true;
     }
   }
@@ -123,6 +141,25 @@ async function readDb(): Promise<Db> {
 async function writeDb(db: Db): Promise<void> {
   await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
   await fs.writeFile(DB_PATH, JSON.stringify(db, null, 2), "utf-8");
+}
+
+// ---------------------------------------------------------------------------
+// Personalakte document storage: uploaded bytes live on disk under
+// .data/uploads/, keyed by the document's own id — never by the original
+// filename, so a crafted filename can't be used for path traversal. Metadata
+// (original name, mime type, size) lives in personnelFiles[].documents in
+// db.json; the two are kept in sync by addPersonnelDocument/deletePersonnelDocument.
+// ---------------------------------------------------------------------------
+
+const UPLOADS_DIR = path.join(process.cwd(), ".data", "uploads");
+
+async function writeDocumentFile(id: string, bytes: Uint8Array): Promise<void> {
+  await fs.mkdir(UPLOADS_DIR, { recursive: true });
+  await fs.writeFile(path.join(UPLOADS_DIR, id), bytes);
+}
+
+async function deleteDocumentFile(id: string): Promise<void> {
+  await fs.rm(path.join(UPLOADS_DIR, id), { force: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -495,6 +532,7 @@ export async function createEmployee(input: {
     department: input.department.trim(),
   };
   db.employees.push(employee);
+  db.personnelFiles.push(makeEmptyPersonnelFile(employee.id));
 
   // Fahrer-Konten brauchen eine Fahrerkarte, damit die digitale Fahrerkarte
   // sofort funktioniert (sonst "keine Karte gefunden" bei erstem Login).
@@ -573,6 +611,13 @@ export async function deleteEmployee(id: string): Promise<boolean> {
   const index = db.employees.findIndex((e) => e.id === id);
   if (index === -1) return false;
   db.employees.splice(index, 1);
+
+  const fileIndex = db.personnelFiles.findIndex((f) => f.employeeId === id);
+  if (fileIndex !== -1) {
+    const [file] = db.personnelFiles.splice(fileIndex, 1);
+    await Promise.all(file.documents.map((doc) => deleteDocumentFile(doc.id)));
+  }
+
   await writeDb(db);
   return true;
 }
@@ -722,4 +767,79 @@ export async function deleteInvoice(number: string): Promise<boolean> {
   db.invoices.splice(index, 1);
   await writeDb(db);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Personalakten
+// ---------------------------------------------------------------------------
+
+const MAX_DOCUMENT_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
+
+export async function getPersonnelFiles(): Promise<PersonnelFileRecord[]> {
+  const db = await readDb();
+  return db.personnelFiles;
+}
+
+export async function getPersonnelFile(employeeId: string): Promise<PersonnelFileRecord | null> {
+  const db = await readDb();
+  return db.personnelFiles.find((f) => f.employeeId === employeeId) ?? null;
+}
+
+export async function updatePersonnelFile(
+  employeeId: string,
+  patch: Partial<Omit<PersonnelFileRecord, "id" | "employeeId" | "documents">>,
+): Promise<PersonnelFileRecord | null> {
+  const db = await readDb();
+  const file = db.personnelFiles.find((f) => f.employeeId === employeeId);
+  if (!file) return null;
+  Object.assign(file, patch);
+  await writeDb(db);
+  return file;
+}
+
+export async function addPersonnelDocument(
+  employeeId: string,
+  input: { fileName: string; mimeType: string; bytes: Uint8Array },
+): Promise<PersonnelDocumentRecord> {
+  if (input.bytes.byteLength > MAX_DOCUMENT_SIZE_BYTES) {
+    throw new Error("Datei ist zu groß (maximal 20 MB).");
+  }
+  const db = await readDb();
+  const file = db.personnelFiles.find((f) => f.employeeId === employeeId);
+  if (!file) throw new Error("Personalakte nicht gefunden.");
+
+  const document: PersonnelDocumentRecord = {
+    id: makeId(input.fileName),
+    fileName: input.fileName.slice(0, 200) || "Datei",
+    mimeType: input.mimeType || "application/octet-stream",
+    size: input.bytes.byteLength,
+    uploadedAt: new Date().toISOString(),
+  };
+  await writeDocumentFile(document.id, input.bytes);
+  file.documents.push(document);
+  await writeDb(db);
+  return document;
+}
+
+export async function deletePersonnelDocument(employeeId: string, documentId: string): Promise<boolean> {
+  const db = await readDb();
+  const file = db.personnelFiles.find((f) => f.employeeId === employeeId);
+  if (!file) return false;
+  const index = file.documents.findIndex((d) => d.id === documentId);
+  if (index === -1) return false;
+  file.documents.splice(index, 1);
+  await deleteDocumentFile(documentId);
+  await writeDb(db);
+  return true;
+}
+
+export async function getPersonnelDocument(
+  employeeId: string,
+  documentId: string,
+): Promise<{ record: PersonnelDocumentRecord; filePath: string } | null> {
+  const db = await readDb();
+  const file = db.personnelFiles.find((f) => f.employeeId === employeeId);
+  const record = file?.documents.find((d) => d.id === documentId);
+  if (!record) return null;
+  return { record, filePath: path.join(UPLOADS_DIR, documentId) };
 }
