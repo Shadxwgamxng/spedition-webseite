@@ -30,7 +30,7 @@ export default function FahrtenbuchPage() {
   const [error, setError] = useState<string | null>(null);
 
   const trips = tripData?.trips ?? [];
-  const drivers = (employeeData?.employees ?? []).filter((e) => e.roleKey === "fahrer").map((e) => e.name);
+  const drivers = (employeeData?.employees ?? []).map((e) => e.name);
   const vehicles = (vehicleData?.vehicles ?? []).map((v) => v.plate);
 
   const totalKm = trips.reduce((sum, t) => sum + (t.kmEnd - t.kmStart), 0);

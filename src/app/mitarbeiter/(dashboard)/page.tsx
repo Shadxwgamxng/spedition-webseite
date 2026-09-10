@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { employeeModules } from "@/lib/employee-nav";
 import { canAccessModule } from "@/lib/roles";
 import { StatCard } from "@/components/employee/page-header";
+import { VehicleLoginWidget } from "@/components/employee/vehicle-login-widget";
 import { usePolling } from "@/lib/use-polling";
 import { ArrowRightIcon } from "@/components/ui/icons";
 import type { OrderRecord, VehicleRecord } from "@/lib/fleet-data";
@@ -38,18 +39,21 @@ export default function EmployeeDashboardPage() {
       </div>
 
       {!isFahrer ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <StatCard
-            label="Offene Aufträge"
-            value={orderData ? String(openOrders.length) : "…"}
-            hint={requestedOrders.length > 0 ? `${requestedOrders.length} neue Anfrage(n)` : undefined}
-          />
-          <StatCard
-            label="Fahrzeuge einsatzbereit"
-            value={vehicleData ? `${readyVehicles.length} / ${vehicles.length}` : "…"}
-            hint={inServiceVehicles.length > 0 ? `${inServiceVehicles.length} in Werkstatt/TÜV fällig` : undefined}
-          />
-        </div>
+        <>
+          <VehicleLoginWidget driverName={user.name} />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <StatCard
+              label="Offene Aufträge"
+              value={orderData ? String(openOrders.length) : "…"}
+              hint={requestedOrders.length > 0 ? `${requestedOrders.length} neue Anfrage(n)` : undefined}
+            />
+            <StatCard
+              label="Fahrzeuge einsatzbereit"
+              value={vehicleData ? `${readyVehicles.length} / ${vehicles.length}` : "…"}
+              hint={inServiceVehicles.length > 0 ? `${inServiceVehicles.length} in Werkstatt/TÜV fällig` : undefined}
+            />
+          </div>
+        </>
       ) : null}
 
       <h2 className="mb-4 mt-10 text-lg font-semibold text-navy-900">

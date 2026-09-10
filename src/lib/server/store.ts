@@ -341,6 +341,23 @@ export async function loginVehicle(
 
   vehicle.activeDriver = driverName;
   vehicle.activeSince = new Date().toISOString();
+
+  // Any employee can log into a vehicle and act as a driver, not just the
+  // "Fahrer" role (e.g. Geschäftsführung covering a shift) — make sure a
+  // Fahrerkarte exists for them so driving-time tracking works right away.
+  if (!db.driverCards.some((c) => c.driverName === driverName)) {
+    db.driverCards.push({
+      driverName,
+      active: false,
+      drivingTodayMinutes: 0,
+      drivingWeekMinutes: 0,
+      onBreak: false,
+      breakStartedAt: null,
+      breakTakenTodayMinutes: 0,
+      reminders: [],
+    });
+  }
+
   await writeDb(db);
   return { ok: true, vehicle };
 }
