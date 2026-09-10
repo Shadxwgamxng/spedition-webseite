@@ -16,6 +16,7 @@ export function EmployeeManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const employees = data?.employees ?? [];
@@ -25,6 +26,7 @@ export function EmployeeManager() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setNotice(null);
     setSaving(true);
     const form = new FormData(event.currentTarget);
     const payload: Record<string, unknown> = {
@@ -46,6 +48,13 @@ export function EmployeeManager() {
       if (!res.ok || json.ok === false) {
         setError(json.error ?? "Speichern fehlgeschlagen.");
         return;
+      }
+      if (isNew) {
+        setNotice(
+          json.discordDm?.ok
+            ? "Konto angelegt — Discord-DM mit Login-Link wurde verschickt."
+            : `Konto angelegt, aber Discord-DM konnte nicht verschickt werden: ${json.discordDm?.error ?? "unbekannter Fehler"}`,
+        );
       }
       await refetch();
       setEditingId(null);
@@ -74,6 +83,12 @@ export function EmployeeManager() {
           {editingId ? "Formular schließen" : "Konto anlegen"}
         </Button>
       </div>
+
+      {notice ? (
+        <p className="mt-3 rounded-xl border border-navy-900/8 bg-mist-50 px-4 py-2.5 text-sm text-navy-700">
+          {notice}
+        </p>
+      ) : null}
 
       {editingId ? (
         <form

@@ -63,6 +63,7 @@ DISCORD_CLIENT_SECRET=dein-discord-client-secret
 DISCORD_REDIRECT_URI=https://deine-domain.de/api/auth/discord/callback
 SESSION_SECRET=eine-lange-zufaellige-zeichenkette
 OWNER_DISCORD_ID=deine-eigene-discord-nutzer-id
+DISCORD_BOT_TOKEN=dein-discord-bot-token
 EOF
 ```
 
@@ -70,7 +71,9 @@ Woher diese Werte kommen und wie du eine Discord-Anwendung dafür anlegst, steht
 [`README.md`](./README.md) unter „Login: ausschließlich über Discord (OAuth2)". Wichtig:
 `DISCORD_REDIRECT_URI` muss **exakt** der Redirect-URI entsprechen, die du im Discord Developer Portal
 hinterlegst (mit `https://` und der echten Domain, nicht `localhost`). `OWNER_DISCORD_ID` wird nur beim
-allerersten Start ausgelesen, um dein eigenes Geschäftsführungs-Konto zu verknüpfen.
+allerersten Start ausgelesen, um dein eigenes Geschäftsführungs-Konto zu verknüpfen. `DISCORD_BOT_TOKEN` ist
+optional und wird nur für die automatische Willkommens-DM bei neu angelegten Mitarbeiter-Konten gebraucht (siehe
+README) — ohne diese Variable funktioniert alles andere ganz normal weiter.
 
 ## 5. Installieren & bauen
 

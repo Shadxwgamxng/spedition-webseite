@@ -73,6 +73,7 @@ Cookie. Der OAuth-Callback ist zusätzlich per signiertem `state`-Cookie gegen C
 | `DISCORD_REDIRECT_URI` | Muss exakt der in Discord hinterlegten Redirect-URI entsprechen, z. B. `https://deine-domain.de/api/auth/discord/callback` |
 | `SESSION_SECRET` | Beliebige lange Zufallszeichenkette zum Signieren der Session-/State-Cookies |
 | `OWNER_DISCORD_ID` | Deine eigene Discord-Nutzer-ID — wird beim allerersten Start automatisch als `discordId` des `admin`-Kontos gesetzt (löst das „Henne-Ei-Problem": ohne bestehendes Geschäftsführungs-Konto könnte sonst niemand ein erstes Konto verknüpfen) |
+| `DISCORD_BOT_TOKEN` | Bot-Token derselben Discord-Anwendung — wird genutzt, um neu angelegten Mitarbeitenden automatisch eine Willkommens-DM mit Login-Link zu schicken (siehe unten). Optional: Ohne diese Variable werden Konten weiterhin ganz normal angelegt, nur die DM entfällt. |
 
 **Discord-Anwendung einrichten:**
 
@@ -83,9 +84,23 @@ Cookie. Der OAuth-Callback ist zusätzlich per signiertem `state`-Cookie gegen C
    `DISCORD_REDIRECT_URI` setzen.
 4. Eigene Discord-Nutzer-ID ermitteln: Discord-Einstellungen → „Erweitert" → „Entwicklermodus" aktivieren, dann
    Rechtsklick auf den eigenen Namen → „Nutzer-ID kopieren" → als `OWNER_DISCORD_ID` setzen.
+5. Für die Willkommens-DM (optional): Reiter „Bot" → „Add Bot" → Token kopieren (→ `DISCORD_BOT_TOKEN`). Den Bot
+   anschließend über den OAuth2-URL-Generator (Scope `bot`, keine besonderen Berechtigungen nötig) auf euren
+   Discord-Server einladen — **der Bot muss mit dem jeweiligen Mitarbeiter mindestens einen Server gemeinsam
+   haben**, sonst lehnt Discord die DM ab (Plattform-Limitierung, keine Einstellung dieser App).
 
-Ohne diese Variablen zeigt `/api/auth/discord/login` einen sprechenden Konfigurationsfehler statt eines
-Redirects — der Mitarbeiterbereich bleibt dann für alle, inklusive der Geschäftsführung, unzugänglich.
+Ohne `DISCORD_CLIENT_ID`/`DISCORD_CLIENT_SECRET`/`DISCORD_REDIRECT_URI` zeigt `/api/auth/discord/login` einen
+sprechenden Konfigurationsfehler statt eines Redirects — der Mitarbeiterbereich bleibt dann für alle, inklusive
+der Geschäftsführung, unzugänglich.
+
+### Willkommens-DM bei Kontoerstellung
+
+Sobald die Geschäftsführung ein neues Mitarbeiter-Konto anlegt, verschickt der Server automatisch eine
+Discord-Direktnachricht an die hinterlegte Discord-Nutzer-ID mit Name, Rolle und einem direkten Link zum Login
+(`https://baltic-freight.de/mitarbeiter/login`, `src/lib/server/discord-bot.ts`). Schlägt der Versand fehl (z. B.
+`DISCORD_BOT_TOKEN` fehlt, oder der Bot teilt keinen Server mit der Person), wird das Konto trotzdem ganz normal
+angelegt — die Geschäftsführung bekommt in der Liste lediglich einen Hinweis, dass die DM nicht zugestellt werden
+konnte, und kann den Link bei Bedarf manuell weitergeben.
 
 ### Mitarbeiter-Konten anlegen (nur Geschäftsführer)
 

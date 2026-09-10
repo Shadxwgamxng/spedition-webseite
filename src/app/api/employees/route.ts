@@ -1,5 +1,6 @@
 import { isRoleKey } from "@/lib/roles";
 import { createEmployee, getEmployees } from "@/lib/server/store";
+import { buildWelcomeDm, sendDiscordDm } from "@/lib/server/discord-bot";
 
 export async function GET() {
   const employees = await getEmployees();
@@ -27,7 +28,8 @@ export async function POST(request: Request) {
 
   try {
     const employee = await createEmployee({ username, discordId, discordUsername, name, roleKey, department });
-    return Response.json({ ok: true, employee }, { status: 201 });
+    const discordDm = await sendDiscordDm(employee.discordId, buildWelcomeDm(employee.name, employee.role));
+    return Response.json({ ok: true, employee, discordDm }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Konto konnte nicht erstellt werden.";
     return Response.json({ ok: false, error: message }, { status: 400 });
