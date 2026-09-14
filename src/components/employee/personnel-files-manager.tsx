@@ -2,7 +2,7 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { usePolling } from "@/lib/use-polling";
-import { CheckIcon, FolderIcon, TrashIcon, UploadIcon } from "@/components/ui/icons";
+import { CheckIcon, FolderIcon, InvoiceIcon, TrashIcon, UploadIcon } from "@/components/ui/icons";
 import type { EmployeeUser } from "@/lib/auth";
 import { parseJsonResponse } from "@/lib/parse-json-response";
 
@@ -147,17 +147,20 @@ function PersonnelFileForm({ file, onSaved }: { file: PersonnelFile; onSaved: ()
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {file.contractGeneratedAt ? (
-        <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-700 sm:col-span-2 lg:col-span-3">
-          Arbeitsvertrag wurde am {formatDateTime(file.contractGeneratedAt)} automatisch erstellt (siehe Dokumente
-          unten).
-        </p>
-      ) : (
-        <p className="text-xs text-navy-700/50 sm:col-span-2 lg:col-span-3">
-          Sobald alle Felder unten ausgefüllt sind, wird beim Speichern automatisch ein Arbeitsvertrag erstellt, in
-          der Akte abgelegt und per Discord an die Person verschickt.
-        </p>
-      )}
+      <div className="flex flex-col gap-2.5 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between lg:col-span-3">
+        {file.contractGeneratedAt ? (
+          <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-700">
+            Arbeitsvertrag wurde am {formatDateTime(file.contractGeneratedAt)} zuletzt erstellt (siehe Dokumente
+            unten).
+          </p>
+        ) : (
+          <p className="text-xs text-navy-700/50">
+            Sobald alle Felder unten ausgefüllt sind, wird beim Speichern automatisch ein Arbeitsvertrag erstellt, in
+            der Akte abgelegt und per Discord an die Person verschickt.
+          </p>
+        )}
+        <RegenerateContractButton file={file} onSaved={onSaved} />
+      </div>
       <Field label="Geburtsdatum" name="birthDate" type="date" defaultValue={file.birthDate} />
       <Field label="Geburtsort" name="birthPlace" defaultValue={file.birthPlace} />
       <Field label="Staatsangehörigkeit" name="nationality" defaultValue={file.nationality} />
@@ -196,6 +199,63 @@ function PersonnelFileForm({ file, onSaved }: { file: PersonnelFile; onSaved: ()
         </button>
       </div>
     </form>
+  );
+}
+
+function RegenerateContractButton({ file, onSaved }: { file: PersonnelFile; onSaved: () => Promise<void> }) {
+  const [regenerating, setRegenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  async function handleClick() {
+    if (
+      !window.confirm(
+        "Neuen Arbeitsvertrag mit den aktuellen Daten (z. B. nach einer Beförderung) erstellen? Er wird zusätzlich in der Akte abgelegt.",
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setNotice(null);
+    setRegenerating(true);
+    try {
+      const res = await fetch(`/api/personnel-files/${file.employeeId}/contract`, { method: "POST" });
+      const json = (await parseJsonResponse(res)) as {
+        ok: boolean;
+        error?: string;
+        contract?: { discordDm?: { ok: boolean; error?: string } };
+      };
+      if (!res.ok || json.ok === false) {
+        setError(json.error ?? "Arbeitsvertrag konnte nicht erstellt werden.");
+        return;
+      }
+      setNotice(
+        json.contract?.discordDm?.ok
+          ? "Neuer Arbeitsvertrag wurde erstellt, in der Akte abgelegt und per Discord-DM verschickt."
+          : `Neuer Arbeitsvertrag wurde erstellt und in der Akte abgelegt, aber die Discord-DM konnte nicht verschickt werden: ${json.contract?.discordDm?.error ?? "unbekannter Fehler"}`,
+      );
+      await onSaved();
+    } catch {
+      setError("Verbindung zum Server fehlgeschlagen.");
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  return (
+    <div className="shrink-0 text-right">
+      <button
+        type="button"
+        disabled={regenerating}
+        onClick={handleClick}
+        className="inline-flex items-center gap-1.5 rounded-full border border-navy-900/15 px-3.5 py-1.5 text-xs font-semibold text-navy-800 hover:bg-mist-100 disabled:opacity-50"
+      >
+        <InvoiceIcon className="h-3.5 w-3.5" />
+        {regenerating ? "Erstellt…" : "Arbeitsvertrag neu erstellen"}
+      </button>
+      {error ? <p className="mt-1.5 text-xs text-red-600">{error}</p> : null}
+      {notice ? <p className="mt-1.5 text-xs text-navy-700">{notice}</p> : null}
+    </div>
   );
 }
 

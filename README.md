@@ -150,6 +150,14 @@ fehl, bleibt das erzeugte PDF trotzdem in der Akte hinterlegt und kann manuell h
 Vertragslayout ist ein generisches Template für eine fiktive Spedition (kein rechtsgeprüftes Dokument); Firmenname,
 -adresse und -logo dafür pflegt die Geschäftsführung unter Verwaltung → Unternehmensdaten.
 
+Über den Button **„Arbeitsvertrag neu erstellen"** in der jeweiligen Akte lässt sich jederzeit manuell ein neuer
+Arbeitsvertrag mit den aktuellen Daten erzeugen — z. B. nach einer Beförderung, wenn sich Rolle oder Abteilung
+geändert haben. Anders als die automatische Erstellung ist dieser Button nicht an Vollständigkeit oder
+`contractGeneratedAt` gebunden und kann beliebig oft ausgelöst werden; jeder neue Vertrag wird zusätzlich (nicht
+überschreibend) als eigenes Dokument in der Akte abgelegt und per Discord-DM verschickt (`POST
+/api/personnel-files/[employeeId]/contract`, gemeinsame Logik mit der Automatik in
+`src/lib/server/contract-generation.ts`).
+
 ### Fahrer-Login → Fahrzeug → Disposition (echt, geräteübergreifend)
 
 Ein `fahrerX`-Konto muss sich nach dem Login zunächst auf ein freies, einsatzbereites Fahrzeug anmelden

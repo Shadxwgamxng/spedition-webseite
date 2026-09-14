@@ -1,14 +1,6 @@
 import { isPersonnelFileComplete, type PersonnelFileRecord } from "@/lib/server/db-types";
-import {
-  addPersonnelDocument,
-  getCompany,
-  getCompanyLogo,
-  getEmployeeById,
-  getPersonnelFile,
-  updatePersonnelFile,
-} from "@/lib/server/store";
-import { buildContractDm, sendDiscordDmWithFile } from "@/lib/server/discord-bot";
-import { generateContractPdf } from "@/lib/server/contract-pdf";
+import { getPersonnelFile, updatePersonnelFile } from "@/lib/server/store";
+import { generateAndDistributeContract, type ContractGenerationResult } from "@/lib/server/contract-generation";
 
 const TEXT_FIELDS: (keyof Omit<PersonnelFileRecord, "id" | "employeeId" | "documents" | "contractGeneratedAt">)[] = [
   "birthDate",
@@ -48,35 +40,13 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/personnel-
   let personnelFile = await updatePersonnelFile(employeeId, patch);
   if (!personnelFile) return Response.json({ ok: false, error: "Personalakte nicht gefunden." }, { status: 404 });
 
-  let contract: { generated: boolean; discordDm?: Awaited<ReturnType<typeof sendDiscordDmWithFile>> } | undefined;
+  let contract: ContractGenerationResult | { generated: false; error: string } | undefined;
 
   if (!personnelFile.contractGeneratedAt && isPersonnelFileComplete(personnelFile)) {
-    const employee = await getEmployeeById(employeeId);
-    if (employee) {
-      const [company, logo] = await Promise.all([getCompany(), getCompanyLogo()]);
-      const pdfBytes = generateContractPdf({
-        company,
-        employeeName: employee.name,
-        roleLabel: employee.role,
-        department: employee.department,
-        file: personnelFile,
-        logo,
-      });
-      const fileName = `Arbeitsvertrag_${employee.name.replace(/\s+/g, "_")}.pdf`;
-
-      await addPersonnelDocument(employeeId, { fileName, mimeType: "application/pdf", bytes: pdfBytes });
-      await updatePersonnelFile(employeeId, { contractGeneratedAt: new Date().toISOString() });
-
-      const discordDm = employee.discordId
-        ? await sendDiscordDmWithFile(employee.discordId, buildContractDm(employee.name), {
-            fileName,
-            mimeType: "application/pdf",
-            bytes: pdfBytes,
-          })
-        : { ok: false as const, error: "Kein Discord-Account verknüpft." };
-
-      contract = { generated: true, discordDm };
-      personnelFile = (await getPersonnelFile(employeeId)) ?? personnelFile;
+    const result = await generateAndDistributeContract(employeeId);
+    contract = result;
+    if (result.generated) {
+      personnelFile = result.personnelFile;
     }
   }
 
