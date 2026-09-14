@@ -36,7 +36,7 @@ durchgesetzt in `DashboardShell`).
 
 | Rolle | Sichtbare Module |
 | --- | --- |
-| Geschäftsführer | **Alles**, inkl. Verwaltung und Personalakten; einzige Rolle mit Fahrzeuge anlegen/löschen |
+| Geschäftsführer | **Alles**, inkl. Verwaltung, Personalakten und Bewerbungen; einzige Rolle mit Fahrzeuge anlegen/löschen |
 | Prokurist | **Identisch zum Geschäftsführer** — beide Rollen teilen sich dieselbe Berechtigungsliste (`src/lib/roles.ts`) |
 | Betriebsleiter | Disposition, Lagerverwaltung, Fahrzeugverwaltung, Fahrtenbuch, Fahrerkarte (aller Fahrer), Kundenstammbaum, Stempeluhr (inkl. Team-Übersicht) |
 | Chefdisponent | Disposition, Fahrzeugverwaltung, Fahrerkarte (aller Fahrer, inkl. Erinnerungen senden), Kundenstammbaum, Stempeluhr |
@@ -51,7 +51,8 @@ die Team-Übersicht über alle Mitarbeiter zeigt die Seite aber nur Geschäftsf�
 (siehe „Stempeluhr" unten). Kundenstammbaum ist wie Personalakten nach Aufgabenbereich beschränkt: Geschäftsführung,
 Prokurist, Betriebsleitung und Disposition (Chefdisponent + Disponent) — alle anderen Rollen mit
 Rechnungserstellung wählen einen Kunden trotzdem ganz normal in der Rechnung aus, ohne diesen eigenen Menüpunkt zu
-sehen.
+sehen. Bewerbungen ist wie Personalakten auf Geschäftsführer und Prokurist beschränkt — dieselbe Begründung
+(Personalentscheidungen, besonders sensible Daten) gilt hier genauso.
 
 Personalakten sind bewusst auf Geschäftsführer und Prokurist beschränkt — von allen Rollen sind das die
 einzigen, zu deren Aufgaben laut Rollenbeschreibung explizit Personalentscheidungen gehören, und die Daten
@@ -167,6 +168,23 @@ geändert haben. Anders als die automatische Erstellung ist dieser Button nicht 
 überschreibend) als eigenes Dokument in der Akte abgelegt und per Discord-DM verschickt (`POST
 /api/personnel-files/[employeeId]/contract`, gemeinsame Logik mit der Automatik in
 `src/lib/server/contract-generation.ts`).
+
+### Bewerbungen (nur Geschäftsführer/Prokurist)
+
+Das öffentliche Bewerbungsportal (`/bewerbung`) hat jetzt ein echtes Backend: eingehende Bewerbungen landen
+serverseitig gespeichert (`applications`-Collection) im gleichnamigen Dashboard-Reiter. Die Liste zeigt zu jeder
+Bewerbung Name, Position, Discord-ID, Eingangsdatum und Status; ein **„Anzeigen"**-Button öffnet die vollständige
+Bewerbung (Kontakt, Nachricht, Lebenslauf-Download, Status) in einem eigenen Browser-Tab
+(`src/app/mitarbeiter/(dashboard)/bewerbungen/[id]/`).
+
+Das Formular selbst verlangt jetzt zusätzlich eine **Discord-Nutzer-ID** (Pflichtfeld) und zeigt einen großen,
+nicht zu übersehenden Hinweis, dass Bewerber:innen auf unserem Discord-Server sein müssen
+(https://discord.gg/eUyQtdRbWm) — ohne das kann der Bot ihnen später keine Nachrichten schicken. Ändert
+Geschäftsführung/Prokurist den Status einer Bewerbung (Neu/In Prüfung/Eingeladen/Angenommen/Abgelehnt), verschickt
+der Bot automatisch eine Discord-DM mit einem zum neuen Status passenden Text (`buildApplicationStatusDm` in
+`src/lib/server/discord-bot.ts`) — genau wie bei der Willkommens-DM setzt das `DISCORD_BOT_TOKEN` voraus; ohne
+Token schlägt nur der DM-Versand fehl, die Statusänderung selbst wird trotzdem gespeichert. Ein hochgeladener
+Lebenslauf liegt wie Personalakten-Dokumente als eigene Datei unter `.data/uploads/` (max. 10 MB, PDF).
 
 ### Fahrer-Login → Fahrzeug → Disposition (echt, geräteübergreifend)
 
@@ -299,13 +317,14 @@ Dies ist eine funktionale Demo mit einem schlanken eigenen Backend. Vor einem ec
   durchgesetzte Rollen/Rechte auf jeder API-Route (z. B. Session-Cookie in jeder Route Handler prüfen, bevor
   Daten gelesen/geändert werden) — bei den Personalakten idealerweise als Erstes.
 - **Datenpersistenz**: Disposition, Fahrzeuge, Fahrerkarten, Aufträge/Chat, Lagerbestände, Fahrtenbuch, Rechnungen,
-  Kundenstammbaum, Stempeluhr, Personalakten und alle Website-Inhalte laufen über einen dateibasierten Store (eine JSON-Datei auf dem Server,
+  Kundenstammbaum, Stempeluhr, Personalakten, Bewerbungen und alle Website-Inhalte laufen über einen dateibasierten Store (eine JSON-Datei auf dem Server,
   `src/lib/server/store.ts`) — funktional korrekt für eine Einzelserver-Demo, aber nicht nebenläufigkeitssicher und
   kein Ersatz für eine echte Datenbank. Regelmäßige Backups von `.data/db.json` **und** `.data/uploads/`
   (Personalakten-Dokumente) sind empfehlenswert (siehe Hosting-Anleitungen).
-- **Formulare**: Das Kontaktformular und das Bewerbungsportal zeigen aktuell nur eine Erfolgsmeldung an; es wird
-  noch keine E-Mail versendet oder Datei gespeichert. Hierfür wird ein Backend (API-Route + E-Mail-Versand bzw.
-  Dateispeicher) benötigt.
+- **Kontaktformular**: zeigt aktuell nur eine Erfolgsmeldung an; es wird noch keine E-Mail versendet oder Anfrage
+  gespeichert. Hierfür wird ein Backend (API-Route + E-Mail-Versand bzw. Datenspeicher) benötigt — „Auftrag
+  einreichen" und das Bewerbungsportal haben dagegen beide ein echtes Backend (siehe „Bewerbungen" unten bzw.
+  „Auftragsanfragen von der Website" oben).
 - **Rechtliche Angaben**: Handelsregisternummer/USt-ID sind bewusst nicht angegeben (siehe Hinweis auf der
   Impressum-Seite). Sollte sich das ändern, `src/lib/data.ts` (`legalContact`) sowie die Impressum-Seite
   entsprechend ergänzen und rechtlich prüfen lassen.

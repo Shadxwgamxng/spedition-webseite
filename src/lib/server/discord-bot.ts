@@ -95,3 +95,24 @@ export function buildContractDm(name: string): string {
     `Bitte prüfe die Angaben und wende dich bei Rückfragen an die Geschäftsführung.`
   );
 }
+
+const APPLICATION_STATUS_TEXT: Record<string, string> = {
+  Neu: "Deine Bewerbung ist bei uns eingegangen und wird in Kürze gesichtet.",
+  "In Prüfung": "Deine Bewerbung wird aktuell von unserem Recruiting-Team geprüft. Wir melden uns zeitnah bei dir.",
+  Eingeladen:
+    "Wir möchten dich gerne zu einem persönlichen Kennenlernen einladen! Wir melden uns in Kürze bei dir, um einen Termin zu vereinbaren.",
+  Angenommen:
+    "Herzlichen Glückwunsch — deine Bewerbung wurde angenommen! Wir freuen uns, dich bald im Team der Baltic Freight GmbH begrüßen zu dürfen.",
+  Abgelehnt:
+    "Leider können wir dir aktuell keine Zusage geben. Wir bedanken uns für dein Interesse an der Baltic Freight GmbH und wünschen dir für deine Zukunft alles Gute.",
+};
+
+export function buildApplicationStatusDm(input: { name: string; position: string; status: string }): string {
+  const positionText = input.position ? `für die Position „${input.position}"` : "als Initiativbewerbung";
+  const statusText = APPLICATION_STATUS_TEXT[input.status] ?? `Neuer Status: ${input.status}.`;
+  return (
+    `Hallo ${input.name},\n\n` +
+    `deine Bewerbung bei der Baltic Freight GmbH ${positionText} hat ein Update erhalten:\n\n` +
+    `${statusText}`
+  );
+}

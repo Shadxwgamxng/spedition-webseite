@@ -5,6 +5,7 @@ import {
   makeEmptyPersonnelFile,
   makeId,
   seedDb,
+  type ApplicationStatus,
   type CollectionName,
   type CompanyInfo,
   type CustomerRecord,
@@ -14,6 +15,7 @@ import {
   type FleetCategoryRecord,
   type InvoiceRecord,
   type InvoiceStatus,
+  type JobApplicationRecord,
   type JobRecord,
   type NewsRecord,
   type PartnerRecord,
@@ -1234,4 +1236,90 @@ export async function getPersonnelDocument(
   const record = file?.documents.find((d) => d.id === documentId);
   if (!record) return null;
   return { record, filePath: path.join(UPLOADS_DIR, documentId) };
+}
+
+// ---------------------------------------------------------------------------
+// Bewerbungen (Bewerbungsportal)
+// ---------------------------------------------------------------------------
+
+export async function getApplications(): Promise<JobApplicationRecord[]> {
+  const db = await readDb();
+  return db.applications;
+}
+
+export async function getApplication(id: string): Promise<JobApplicationRecord | null> {
+  const db = await readDb();
+  return db.applications.find((a) => a.id === id) ?? null;
+}
+
+export async function createApplication(input: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  discordId: string;
+  position: string;
+  message: string;
+  cv?: { fileName: string; mimeType: string; bytes: Uint8Array } | null;
+}): Promise<JobApplicationRecord> {
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim();
+  const email = input.email.trim();
+  const discordId = input.discordId.trim();
+  if (!firstName || !lastName) throw new Error("Vor- und Nachname sind erforderlich.");
+  if (!email) throw new Error("E-Mail ist erforderlich.");
+  if (!discordId) throw new Error("Discord-Nutzer-ID ist erforderlich.");
+  if (input.cv && input.cv.bytes.byteLength > MAX_DOCUMENT_SIZE_BYTES) {
+    throw new Error("Datei ist zu groß (maximal 20 MB).");
+  }
+
+  const db = await readDb();
+  const id = makeId(`${firstName}-${lastName}`);
+  const now = new Date().toISOString();
+  const application: JobApplicationRecord = {
+    id,
+    firstName,
+    lastName,
+    email,
+    phone: input.phone.trim(),
+    discordId,
+    position: input.position.trim(),
+    message: input.message,
+    cvFileName: input.cv ? input.cv.fileName.slice(0, 200) || "Lebenslauf.pdf" : null,
+    cvMimeType: input.cv ? input.cv.mimeType || "application/octet-stream" : null,
+    cvSize: input.cv ? input.cv.bytes.byteLength : null,
+    status: "Neu",
+    createdAt: now,
+    statusUpdatedAt: now,
+  };
+  if (input.cv) {
+    await writeDocumentFile(id, input.cv.bytes);
+  }
+  db.applications.unshift(application);
+  await writeDb(db);
+  return application;
+}
+
+export async function updateApplicationStatus(id: string, status: ApplicationStatus): Promise<JobApplicationRecord | null> {
+  const db = await readDb();
+  const application = db.applications.find((a) => a.id === id);
+  if (!application) return null;
+  application.status = status;
+  application.statusUpdatedAt = new Date().toISOString();
+  await writeDb(db);
+  return application;
+}
+
+export async function getApplicationCv(
+  id: string,
+): Promise<{ fileName: string; mimeType: string; size: number; filePath: string } | null> {
+  const db = await readDb();
+  const application = db.applications.find((a) => a.id === id);
+  if (!application || !application.cvFileName || !application.cvMimeType || application.cvSize === null) return null;
+  return {
+    fileName: application.cvFileName,
+    mimeType: application.cvMimeType,
+    size: application.cvSize,
+    filePath: path.join(UPLOADS_DIR, id),
+  };
 }

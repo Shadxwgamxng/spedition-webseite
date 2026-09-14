@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/primitives";
 import { CheckIcon } from "@/components/ui/icons";
 import type { JobRecord } from "@/lib/server/db-types";
+
+const DISCORD_INVITE_URL = "https://discord.gg/eUyQtdRbWm";
 
 export function ApplicationForm({
   initialPosition = "",
@@ -13,11 +15,28 @@ export function ApplicationForm({
   jobs: JobRecord[];
 }) {
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSubmitted(true);
+    setError(null);
+    setSubmitting(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      const res = await fetch("/api/applications", { method: "POST", body: form });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        setError(json.error ?? "Bewerbung konnte nicht übermittelt werden.");
+        return;
+      }
+      setSubmitted(true);
+    } catch {
+      setError("Verbindung zum Server fehlgeschlagen. Bitte versuche es erneut.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (submitted) {
@@ -37,11 +56,41 @@ export function ApplicationForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-navy-900/8 bg-white p-6 shadow-sm shadow-navy-950/5 sm:p-8">
+      <div className="flex flex-col gap-4 rounded-2xl border-2 border-[#5865F2]/30 bg-[#5865F2]/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-bold uppercase tracking-wide text-[#5865F2]">Wichtiger Hinweis</div>
+          <p className="mt-1.5 text-sm font-medium text-navy-900">
+            Du musst auf unserem Discord-Server sein, damit wir dich zu deiner Bewerbung kontaktieren können — ohne
+            Mitgliedschaft können wir dir dort keine Nachrichten schicken.
+          </p>
+        </div>
+        <a
+          href={DISCORD_INVITE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#5865F2] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#4752c4]"
+        >
+          Discord beitreten
+        </a>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Vorname" name="firstName" required />
         <Field label="Nachname" name="lastName" required />
         <Field label="E-Mail" name="email" type="email" required />
         <Field label="Telefon" name="phone" type="tel" required />
+        <Field
+          label="Discord-Nutzer-ID"
+          name="discordId"
+          required
+          placeholder="z. B. 123456789012345678"
+          hint={
+            <>
+              Einstellungen → Erweitert → Entwicklermodus aktivieren, dann Rechtsklick auf den eigenen Namen →
+              &bdquo;Nutzer-ID kopieren&ldquo;.
+            </>
+          }
+        />
       </div>
 
       <div>
@@ -99,8 +148,10 @@ export function ApplicationForm({
         </label>
       </div>
 
-      <Button type="submit" icon={false} className="w-full justify-center sm:w-auto">
-        Bewerbung absenden
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      <Button type="submit" icon={false} disabled={submitting} className="w-full justify-center sm:w-auto">
+        {submitting ? "Wird gesendet…" : "Bewerbung absenden"}
       </Button>
     </form>
   );
@@ -111,11 +162,15 @@ function Field({
   name,
   type = "text",
   required = false,
+  placeholder,
+  hint,
 }: {
   label: string;
   name: string;
   type?: string;
   required?: boolean;
+  placeholder?: string;
+  hint?: ReactNode;
 }) {
   return (
     <div>
@@ -128,8 +183,10 @@ function Field({
         name={name}
         type={type}
         required={required}
+        placeholder={placeholder}
         className="w-full rounded-xl border border-navy-900/15 bg-white px-3.5 py-2.5 text-sm text-navy-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
       />
+      {hint ? <p className="mt-1 text-xs text-navy-700/50">{hint}</p> : null}
     </div>
   );
 }

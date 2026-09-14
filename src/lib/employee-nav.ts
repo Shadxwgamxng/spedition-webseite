@@ -5,6 +5,7 @@ import {
   FolderIcon,
   IdCardIcon,
   InvoiceIcon,
+  MailIcon,
   MessageIcon,
   RouteIcon,
   SettingsIcon,
@@ -90,6 +91,13 @@ export const employeeModules = [
     label: "Personalakten",
     description: "Persönliche Daten und Dokumente der Mitarbeiter verwalten.",
     icon: FolderIcon,
+  },
+  {
+    key: "bewerbungen",
+    href: "/mitarbeiter/bewerbungen",
+    label: "Bewerbungen",
+    description: "Eingehende Bewerbungen sichten und den Status je Bewerbung ändern.",
+    icon: MailIcon,
   },
   {
     key: "verwaltung",

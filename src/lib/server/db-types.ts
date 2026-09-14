@@ -238,6 +238,35 @@ export type TimeClockSummary = {
   monthMinutes: number;
 };
 
+export const APPLICATION_STATUSES = ["Neu", "In Prüfung", "Eingeladen", "Angenommen", "Abgelehnt"] as const;
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+
+/**
+ * A Bewerbung submitted through the public /bewerbung form. `cvFileName` /
+ * `cvMimeType` / `cvSize` are all null when no Lebenslauf was attached (the
+ * upload is optional); the bytes themselves live on disk under
+ * `.data/uploads/`, keyed by this record's own `id` — same pattern as the
+ * company logo and Personalakte documents (see server/store.ts).
+ */
+export type JobApplicationRecord = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  /** Required — status-change DMs and the "must be on our Discord" gate both depend on it. */
+  discordId: string;
+  /** Job title applied for, or "" for an Initiativbewerbung. */
+  position: string;
+  message: string;
+  cvFileName: string | null;
+  cvMimeType: string | null;
+  cvSize: number | null;
+  status: ApplicationStatus;
+  createdAt: string;
+  statusUpdatedAt: string;
+};
+
 function slugify(input: string): string {
   return input
     .toLowerCase()
@@ -278,6 +307,7 @@ export type Db = {
   invoices: InvoiceRecord[];
   customers: CustomerRecord[];
   timeClockEntries: TimeClockEntry[];
+  applications: JobApplicationRecord[];
   news: NewsRecord[];
   jobs: JobRecord[];
   services: ServiceRecord[];
@@ -373,6 +403,7 @@ export function seedDb(): Db {
     invoices: [],
     customers: [],
     timeClockEntries: [],
+    applications: [],
     news: newsSeed,
     jobs: jobsSeed,
     services: servicesSeed,

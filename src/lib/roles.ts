@@ -37,6 +37,8 @@ export function isRoleKey(value: string): value is RoleKey {
  * the company, they're the only ones whose responsibilities explicitly
  * include Personalentscheidungen, and the data behind it (Geburtsdatum,
  * Adresse, IBAN, …) is far more sensitive than anything else in the app.
+ * `bewerbungen` (Bewerbungsportal) is limited the same way — Personal- und
+ * Recruiting-Entscheidungen liegen bei denselben zwei Rollen.
  */
 const GESCHAEFTSFUEHRUNG_MODULES = [
   "disposition",
@@ -50,6 +52,7 @@ const GESCHAEFTSFUEHRUNG_MODULES = [
   "stempeluhr",
   "auftraege",
   "personalakten",
+  "bewerbungen",
   "verwaltung",
 ];
 
