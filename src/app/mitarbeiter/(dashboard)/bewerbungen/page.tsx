@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { EmployeePageHeader, StatCard } from "@/components/employee/page-header";
+import { ApplicationScheduleDialog } from "@/components/employee/application-schedule-dialog";
 import { usePolling } from "@/lib/use-polling";
-import type { ApplicationStatus, JobApplicationRecord } from "@/lib/server/db-types";
+import { APPLICATION_STATUSES_REQUIRING_SCHEDULE, type ApplicationStatus, type JobApplicationRecord } from "@/lib/server/db-types";
 
 const STATUS_OPTIONS: ApplicationStatus[] = ["Neu", "In Prüfung", "Eingeladen", "Angenommen", "Abgelehnt"];
 
@@ -24,19 +25,20 @@ export default function BewerbungenPage() {
   const applications = useMemo(() => data?.applications ?? [], [data]);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ id: string; status: ApplicationStatus } | null>(null);
 
   const neuCount = applications.filter((a) => a.status === "Neu").length;
   const eingeladenCount = applications.filter((a) => a.status === "Eingeladen").length;
   const angenommenCount = applications.filter((a) => a.status === "Angenommen").length;
 
-  async function changeStatus(id: string, status: ApplicationStatus) {
+  async function changeStatus(id: string, status: ApplicationStatus, scheduledAt?: string) {
     setUpdatingId(id);
     setNotice(null);
     try {
       const res = await fetch(`/api/applications/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, ...(scheduledAt ? { scheduledAt } : {}) }),
       });
       const json = await res.json();
       if (json.ok) {
@@ -49,6 +51,14 @@ export default function BewerbungenPage() {
       await refetch();
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  function handleStatusSelect(id: string, status: ApplicationStatus) {
+    if ((APPLICATION_STATUSES_REQUIRING_SCHEDULE as readonly ApplicationStatus[]).includes(status)) {
+      setPending({ id, status });
+    } else {
+      changeStatus(id, status);
     }
   }
 
@@ -105,7 +115,7 @@ export default function BewerbungenPage() {
                     <select
                       value={app.status}
                       disabled={updatingId === app.id}
-                      onChange={(e) => changeStatus(app.id, e.target.value as ApplicationStatus)}
+                      onChange={(e) => handleStatusSelect(app.id, e.target.value as ApplicationStatus)}
                       className={`rounded-full border-0 px-2.5 py-1 text-xs font-semibold outline-none disabled:opacity-50 ${statusClass[app.status]}`}
                     >
                       {STATUS_OPTIONS.map((s) => (
@@ -131,6 +141,17 @@ export default function BewerbungenPage() {
           </tbody>
         </table>
       </div>
+
+      {pending ? (
+        <ApplicationScheduleDialog
+          status={pending.status}
+          saving={updatingId === pending.id}
+          onCancel={() => setPending(null)}
+          onConfirm={(scheduledAtIso) => {
+            changeStatus(pending.id, pending.status, scheduledAtIso).then(() => setPending(null));
+          }}
+        />
+      ) : null}
     </div>
   );
 }

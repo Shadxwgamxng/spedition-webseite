@@ -242,6 +242,15 @@ export const APPLICATION_STATUSES = ["Neu", "In Prüfung", "Eingeladen", "Angeno
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 
 /**
+ * Statuses where the admin must pick a date/time before it's applied — that
+ * date/time is both stored on the record and woven into the status-change
+ * Discord DM (interview appointment for "Eingeladen", start date for
+ * "Angenommen"). See usage in server/store.ts and the "Bewerbungen"
+ * dashboard pages.
+ */
+export const APPLICATION_STATUSES_REQUIRING_SCHEDULE = ["Eingeladen", "Angenommen"] as const satisfies readonly ApplicationStatus[];
+
+/**
  * A Bewerbung submitted through the public /bewerbung form. `cvFileName` /
  * `cvMimeType` / `cvSize` are all null when no Lebenslauf was attached (the
  * upload is optional); the bytes themselves live on disk under
@@ -263,6 +272,8 @@ export type JobApplicationRecord = {
   cvMimeType: string | null;
   cvSize: number | null;
   status: ApplicationStatus;
+  /** Interview appointment ("Eingeladen") or start date ("Angenommen") — null unless the current status requires one. */
+  scheduledAt: string | null;
   createdAt: string;
   statusUpdatedAt: string;
 };

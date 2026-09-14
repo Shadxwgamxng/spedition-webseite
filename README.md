@@ -186,6 +186,13 @@ der Bot automatisch eine Discord-DM mit einem zum neuen Status passenden Text (`
 Token schlägt nur der DM-Versand fehl, die Statusänderung selbst wird trotzdem gespeichert. Ein hochgeladener
 Lebenslauf liegt wie Personalakten-Dokumente als eigene Datei unter `.data/uploads/` (max. 10 MB, PDF).
 
+Wird der Status auf **„Eingeladen"** oder **„Angenommen"** gesetzt, öffnet sich vorher ein Dialog zur Eingabe von
+Datum und Uhrzeit (`src/components/employee/application-schedule-dialog.tsx`) — ohne Angabe lässt sich der Status
+nicht setzen (serverseitig erzwungen in `PATCH /api/applications/[id]`, nicht nur im UI). Termin und Uhrzeit
+werden direkt in den DM-Text übernommen („Termin: …" bei Eingeladen, „Dein Starttermin: …" bei Angenommen) und
+zusätzlich auf der Bewerbung gespeichert (`scheduledAt`) — sichtbar in der Detailansicht unter „Termin" bzw.
+„Starttermin". Wechselt der Status später auf etwas anderes, wird `scheduledAt` wieder geleert.
+
 ### Fahrer-Login → Fahrzeug → Disposition (echt, geräteübergreifend)
 
 Ein `fahrerX`-Konto muss sich nach dem Login zunächst auf ein freies, einsatzbereites Fahrzeug anmelden

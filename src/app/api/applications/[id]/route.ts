@@ -1,4 +1,4 @@
-import { APPLICATION_STATUSES } from "@/lib/server/db-types";
+import { APPLICATION_STATUSES, APPLICATION_STATUSES_REQUIRING_SCHEDULE } from "@/lib/server/db-types";
 import { getApplication, updateApplicationStatus } from "@/lib/server/store";
 import { buildApplicationStatusDm, sendDiscordDm } from "@/lib/server/discord-bot";
 
@@ -17,7 +17,20 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/applicatio
     return Response.json({ ok: false, error: "Ungültiger Status." }, { status: 400 });
   }
 
-  const application = await updateApplicationStatus(id, status);
+  let scheduledAt: string | null = null;
+  if ((APPLICATION_STATUSES_REQUIRING_SCHEDULE as readonly string[]).includes(status)) {
+    const raw = typeof body?.scheduledAt === "string" ? body.scheduledAt : "";
+    const parsed = raw ? new Date(raw) : null;
+    if (!parsed || Number.isNaN(parsed.getTime())) {
+      return Response.json(
+        { ok: false, error: "Datum und Uhrzeit sind für diesen Status erforderlich." },
+        { status: 400 },
+      );
+    }
+    scheduledAt = parsed.toISOString();
+  }
+
+  const application = await updateApplicationStatus(id, status, scheduledAt);
   if (!application) return Response.json({ ok: false, error: "Bewerbung nicht gefunden." }, { status: 404 });
 
   const discordDm = await sendDiscordDm(
@@ -26,6 +39,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/applicatio
       name: `${application.firstName} ${application.lastName}`,
       position: application.position,
       status: application.status,
+      scheduledAt: application.scheduledAt,
     }),
   );
 

@@ -314,6 +314,16 @@ async function readDb(): Promise<Db> {
     }
   }
 
+  // Backfill scheduledAt onto applications created before the
+  // Eingeladen/Angenommen appointment-date feature existed.
+  for (const application of db.applications ?? []) {
+    const record = application as JobApplicationRecord & { scheduledAt?: string | null };
+    if (record.scheduledAt === undefined) {
+      record.scheduledAt = null;
+      changed = true;
+    }
+  }
+
   if (changed) await writeDb(db as Db);
   return db as Db;
 }
@@ -1289,6 +1299,7 @@ export async function createApplication(input: {
     cvMimeType: input.cv ? input.cv.mimeType || "application/octet-stream" : null,
     cvSize: input.cv ? input.cv.bytes.byteLength : null,
     status: "Neu",
+    scheduledAt: null,
     createdAt: now,
     statusUpdatedAt: now,
   };
@@ -1300,11 +1311,16 @@ export async function createApplication(input: {
   return application;
 }
 
-export async function updateApplicationStatus(id: string, status: ApplicationStatus): Promise<JobApplicationRecord | null> {
+export async function updateApplicationStatus(
+  id: string,
+  status: ApplicationStatus,
+  scheduledAt: string | null,
+): Promise<JobApplicationRecord | null> {
   const db = await readDb();
   const application = db.applications.find((a) => a.id === id);
   if (!application) return null;
   application.status = status;
+  application.scheduledAt = scheduledAt;
   application.statusUpdatedAt = new Date().toISOString();
   await writeDb(db);
   return application;

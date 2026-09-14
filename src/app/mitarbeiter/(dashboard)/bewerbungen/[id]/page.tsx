@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { EmployeePageHeader } from "@/components/employee/page-header";
+import { ApplicationScheduleDialog } from "@/components/employee/application-schedule-dialog";
 import { usePolling } from "@/lib/use-polling";
-import type { ApplicationStatus, JobApplicationRecord } from "@/lib/server/db-types";
+import { APPLICATION_STATUSES_REQUIRING_SCHEDULE, type ApplicationStatus, type JobApplicationRecord } from "@/lib/server/db-types";
 
 const STATUS_OPTIONS: ApplicationStatus[] = ["Neu", "In Prüfung", "Eingeladen", "Angenommen", "Abgelehnt"];
 
@@ -24,15 +25,16 @@ export default function BewerbungDetailPage() {
   const application = data?.application ?? null;
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<ApplicationStatus | null>(null);
 
-  async function changeStatus(status: ApplicationStatus) {
+  async function changeStatus(status: ApplicationStatus, scheduledAt?: string) {
     setSaving(true);
     setNotice(null);
     try {
       const res = await fetch(`/api/applications/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, ...(scheduledAt ? { scheduledAt } : {}) }),
       });
       const json = await res.json();
       if (json.ok) {
@@ -45,6 +47,14 @@ export default function BewerbungDetailPage() {
       await refetch();
     } finally {
       setSaving(false);
+    }
+  }
+
+  function handleStatusSelect(status: ApplicationStatus) {
+    if ((APPLICATION_STATUSES_REQUIRING_SCHEDULE as readonly ApplicationStatus[]).includes(status)) {
+      setPendingStatus(status);
+    } else {
+      changeStatus(status);
     }
   }
 
@@ -116,6 +126,14 @@ export default function BewerbungDetailPage() {
                 <dt className="text-navy-700/60">Letztes Update</dt>
                 <dd className="text-right text-navy-900">{formatDateTime(application.statusUpdatedAt)}</dd>
               </div>
+              {application.scheduledAt ? (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-navy-700/60">
+                    {application.status === "Angenommen" ? "Starttermin" : "Termin"}
+                  </dt>
+                  <dd className="text-right font-semibold text-navy-900">{formatDateTime(application.scheduledAt)}</dd>
+                </div>
+              ) : null}
             </dl>
           </div>
 
@@ -124,7 +142,7 @@ export default function BewerbungDetailPage() {
             <select
               value={application.status}
               disabled={saving}
-              onChange={(e) => changeStatus(e.target.value as ApplicationStatus)}
+              onChange={(e) => handleStatusSelect(e.target.value as ApplicationStatus)}
               className="mt-3 w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm font-semibold text-navy-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 disabled:opacity-50"
             >
               {STATUS_OPTIONS.map((s) => (
@@ -140,6 +158,17 @@ export default function BewerbungDetailPage() {
           </div>
         </div>
       </div>
+
+      {pendingStatus ? (
+        <ApplicationScheduleDialog
+          status={pendingStatus}
+          saving={saving}
+          onCancel={() => setPendingStatus(null)}
+          onConfirm={(scheduledAtIso) => {
+            changeStatus(pendingStatus, scheduledAtIso).then(() => setPendingStatus(null));
+          }}
+        />
+      ) : null}
     </div>
   );
 }

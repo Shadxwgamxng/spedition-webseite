@@ -107,9 +107,40 @@ const APPLICATION_STATUS_TEXT: Record<string, string> = {
     "Leider können wir dir aktuell keine Zusage geben. Wir bedanken uns für dein Interesse an der Baltic Freight GmbH und wünschen dir für deine Zukunft alles Gute.",
 };
 
-export function buildApplicationStatusDm(input: { name: string; position: string; status: string }): string {
+function formatGermanDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function buildApplicationStatusDm(input: {
+  name: string;
+  position: string;
+  status: string;
+  scheduledAt?: string | null;
+}): string {
   const positionText = input.position ? `für die Position „${input.position}"` : "als Initiativbewerbung";
-  const statusText = APPLICATION_STATUS_TEXT[input.status] ?? `Neuer Status: ${input.status}.`;
+  const when = input.scheduledAt ? `${formatGermanDateTime(input.scheduledAt)} Uhr` : null;
+
+  let statusText: string;
+  if (input.status === "Eingeladen" && when) {
+    statusText =
+      `Wir möchten dich gerne zu einem persönlichen Kennenlernen einladen!\n\n` +
+      `Termin: ${when}\n\n` +
+      `Wir freuen uns auf das Gespräch mit dir. Solltest du an diesem Termin verhindert sein, melde dich bitte kurz bei uns.`;
+  } else if (input.status === "Angenommen" && when) {
+    statusText =
+      `Herzlichen Glückwunsch — deine Bewerbung wurde angenommen!\n\n` +
+      `Dein Starttermin: ${when}\n\n` +
+      `Wir freuen uns, dich dann im Team der Baltic Freight GmbH begrüßen zu dürfen.`;
+  } else {
+    statusText = APPLICATION_STATUS_TEXT[input.status] ?? `Neuer Status: ${input.status}.`;
+  }
+
   return (
     `Hallo ${input.name},\n\n` +
     `deine Bewerbung bei der Baltic Freight GmbH ${positionText} hat ein Update erhalten:\n\n` +
