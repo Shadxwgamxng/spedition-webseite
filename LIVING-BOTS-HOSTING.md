@@ -188,13 +188,13 @@ pm2 restart baltic-freight
   liegen separat unter `.data/uploads/`. **Beides regelmäßig sichern** (z. B.
   `scp -r root@server:.../.data ./backup/`) – zusätzlich bietet das Living-Bots-Webinterface eigene
   Server-Backups an, die sich dafür einrichten lassen. Gehen diese Ordner verloren, sind alle über die
-  Website-Verwaltung gepflegten Inhalte und hochgeladenen Dokumente weg (der Code/die Struktur der Website ist
+  Verwaltung gepflegten Inhalte und hochgeladenen Dokumente weg (der Code/die Struktur der Website ist
   davon nicht betroffen, nur die Daten).
 - **Kein serverseitiger Zugriffsschutz auf API-Routen**: Die `/api/*`-Routen prüfen aktuell keine Berechtigung
   (nur der Mitarbeiterbereich selbst ist per Discord-Login geschützt, das Frontend). Für die aktuelle Nutzung
   ausreichend, aber kein produktionsreifer Sicherheitsstandard für sensible Daten.
 - **Discord-Login statt Passwort**: Wer sich einloggen darf, verwaltest du nicht mehr im Code, sondern in der
-  Website-Verwaltung unter „Mitarbeiter-Konten" (dort trägst du je Mitarbeiter die Discord-Nutzer-ID ein). Die
+  Verwaltung unter „Mitarbeiter-Konten" (dort trägst du je Mitarbeiter die Discord-Nutzer-ID ein). Die
   Umgebungsvariablen aus Schritt 4 (`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`,
   `SESSION_SECRET`, `OWNER_DISCORD_ID`) müssen in `.env.local` auf dem Server gesetzt sein, **bevor** `pm2 start`
   bzw. `pm2 restart` läuft, sonst bleibt der Mitarbeiterbereich für alle unzugänglich. Nach einer Änderung an

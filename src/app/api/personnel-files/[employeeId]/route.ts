@@ -1,7 +1,9 @@
-import { getPersonnelFile, updatePersonnelFile } from "@/lib/server/store";
-import type { PersonnelFileRecord } from "@/lib/server/db-types";
+import { isPersonnelFileComplete, type PersonnelFileRecord } from "@/lib/server/db-types";
+import { addPersonnelDocument, getCompany, getEmployeeById, getPersonnelFile, updatePersonnelFile } from "@/lib/server/store";
+import { buildContractDm, sendDiscordDmWithFile } from "@/lib/server/discord-bot";
+import { generateContractPdf } from "@/lib/server/contract-pdf";
 
-const TEXT_FIELDS: (keyof Omit<PersonnelFileRecord, "id" | "employeeId" | "documents">)[] = [
+const TEXT_FIELDS: (keyof Omit<PersonnelFileRecord, "id" | "employeeId" | "documents" | "contractGeneratedAt">)[] = [
   "birthDate",
   "birthPlace",
   "nationality",
@@ -12,8 +14,6 @@ const TEXT_FIELDS: (keyof Omit<PersonnelFileRecord, "id" | "employeeId" | "docum
   "emailPrivate",
   "hireDate",
   "employmentType",
-  "taxId",
-  "socialSecurityNumber",
   "healthInsurance",
   "iban",
   "emergencyContactName",
@@ -40,7 +40,39 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/personnel-
     if (typeof body[key] === "string") patch[key] = body[key];
   }
 
-  const personnelFile = await updatePersonnelFile(employeeId, patch);
+  let personnelFile = await updatePersonnelFile(employeeId, patch);
   if (!personnelFile) return Response.json({ ok: false, error: "Personalakte nicht gefunden." }, { status: 404 });
-  return Response.json({ ok: true, personnelFile });
+
+  let contract: { generated: boolean; discordDm?: Awaited<ReturnType<typeof sendDiscordDmWithFile>> } | undefined;
+
+  if (!personnelFile.contractGeneratedAt && isPersonnelFileComplete(personnelFile)) {
+    const employee = await getEmployeeById(employeeId);
+    if (employee) {
+      const company = await getCompany();
+      const pdfBytes = generateContractPdf({
+        company,
+        employeeName: employee.name,
+        roleLabel: employee.role,
+        department: employee.department,
+        file: personnelFile,
+      });
+      const fileName = `Arbeitsvertrag_${employee.name.replace(/\s+/g, "_")}.pdf`;
+
+      await addPersonnelDocument(employeeId, { fileName, mimeType: "application/pdf", bytes: pdfBytes });
+      await updatePersonnelFile(employeeId, { contractGeneratedAt: new Date().toISOString() });
+
+      const discordDm = employee.discordId
+        ? await sendDiscordDmWithFile(employee.discordId, buildContractDm(employee.name), {
+            fileName,
+            mimeType: "application/pdf",
+            bytes: pdfBytes,
+          })
+        : { ok: false as const, error: "Kein Discord-Account verknüpft." };
+
+      contract = { generated: true, discordDm };
+      personnelFile = (await getPersonnelFile(employeeId)) ?? personnelFile;
+    }
+  }
+
+  return Response.json({ ok: true, personnelFile, contract });
 }

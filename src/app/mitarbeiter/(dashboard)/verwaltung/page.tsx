@@ -41,7 +41,7 @@ export default function VerwaltungPage() {
   return (
     <div>
       <EmployeePageHeader
-        title="Website-Verwaltung"
+        title="Verwaltung"
         description="Inhalte der öffentlichen Website und Mitarbeiter-Konten pflegen. Änderungen erscheinen sofort live."
       />
 

@@ -20,13 +20,12 @@ type PersonnelFile = {
   emailPrivate: string;
   hireDate: string;
   employmentType: string;
-  taxId: string;
-  socialSecurityNumber: string;
   healthInsurance: string;
   iban: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
   notes: string;
+  contractGeneratedAt: string | null;
   documents: PersonnelDocument[];
 };
 
@@ -107,11 +106,13 @@ function PersonnelFileForm({ file, onSaved }: { file: PersonnelFile; onSaved: ()
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setSaved(false);
+    setNotice(null);
     setSaving(true);
     const form = new FormData(event.currentTarget);
     const payload: Record<string, string> = {};
@@ -129,6 +130,13 @@ function PersonnelFileForm({ file, onSaved }: { file: PersonnelFile; onSaved: ()
         setError(json.error ?? "Speichern fehlgeschlagen.");
         return;
       }
+      if (json.contract?.generated) {
+        setNotice(
+          json.contract.discordDm?.ok
+            ? "Akte vollständig — Arbeitsvertrag wurde erstellt, in der Akte abgelegt und per Discord-DM verschickt."
+            : `Akte vollständig — Arbeitsvertrag wurde erstellt und in der Akte abgelegt, aber die Discord-DM konnte nicht verschickt werden: ${json.contract.discordDm?.error ?? "unbekannter Fehler"}`,
+        );
+      }
       await onSaved();
       setSaved(true);
     } catch {
@@ -140,6 +148,17 @@ function PersonnelFileForm({ file, onSaved }: { file: PersonnelFile; onSaved: ()
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {file.contractGeneratedAt ? (
+        <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-700 sm:col-span-2 lg:col-span-3">
+          Arbeitsvertrag wurde am {formatDateTime(file.contractGeneratedAt)} automatisch erstellt (siehe Dokumente
+          unten).
+        </p>
+      ) : (
+        <p className="text-xs text-navy-700/50 sm:col-span-2 lg:col-span-3">
+          Sobald alle Felder unten ausgefüllt sind, wird beim Speichern automatisch ein Arbeitsvertrag erstellt, in
+          der Akte abgelegt und per Discord an die Person verschickt.
+        </p>
+      )}
       <Field label="Geburtsdatum" name="birthDate" type="date" defaultValue={file.birthDate} />
       <Field label="Geburtsort" name="birthPlace" defaultValue={file.birthPlace} />
       <Field label="Staatsangehörigkeit" name="nationality" defaultValue={file.nationality} />
@@ -150,8 +169,6 @@ function PersonnelFileForm({ file, onSaved }: { file: PersonnelFile; onSaved: ()
       <Field label="Private E-Mail" name="emailPrivate" type="email" defaultValue={file.emailPrivate} />
       <Field label="Eintrittsdatum" name="hireDate" type="date" defaultValue={file.hireDate} />
       <Field label="Beschäftigungsart" name="employmentType" placeholder="z. B. Vollzeit" defaultValue={file.employmentType} />
-      <Field label="Steuer-ID" name="taxId" defaultValue={file.taxId} />
-      <Field label="Sozialversicherungsnummer" name="socialSecurityNumber" defaultValue={file.socialSecurityNumber} />
       <Field label="Krankenkasse" name="healthInsurance" defaultValue={file.healthInsurance} />
       <Field label="IBAN" name="iban" defaultValue={file.iban} />
       <Field label="Notfallkontakt: Name" name="emergencyContactName" defaultValue={file.emergencyContactName} />
@@ -170,6 +187,7 @@ function PersonnelFileForm({ file, onSaved }: { file: PersonnelFile; onSaved: ()
       </div>
 
       {error ? <p className="text-sm text-red-600 sm:col-span-2 lg:col-span-3">{error}</p> : null}
+      {notice ? <p className="text-sm text-navy-700 sm:col-span-2 lg:col-span-3">{notice}</p> : null}
       <div className="sm:col-span-2 lg:col-span-3">
         <button
           type="submit"

@@ -78,7 +78,7 @@ export const employeeModules = [
   {
     key: "verwaltung",
     href: "/mitarbeiter/verwaltung",
-    label: "Website-Verwaltung",
+    label: "Verwaltung",
     description: "Inhalte der öffentlichen Website pflegen (News, Stellen, Team, u. v. m.).",
     icon: SettingsIcon,
   },

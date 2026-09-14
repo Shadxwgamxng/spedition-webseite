@@ -52,7 +52,7 @@ export type DriverCardRecord = {
  * via Discord OAuth (src/app/api/auth/discord/*) — the callback matches the
  * signed-in Discord user's ID against this field. A fixed role (RoleKey)
  * determines module access via `roleModuleAccess` (src/lib/roles.ts).
- * Managed by Geschäftsführung under Website-Verwaltung → Mitarbeiter-Konten.
+ * Managed by Geschäftsführung under Verwaltung → Mitarbeiter-Konten.
  * `discordId` empty ("") means the account isn't linked yet and can't log in.
  */
 export type EmployeeRecord = {
@@ -95,15 +95,41 @@ export type PersonnelFileRecord = {
   emailPrivate: string;
   hireDate: string;
   employmentType: string;
-  taxId: string;
-  socialSecurityNumber: string;
   healthInsurance: string;
   iban: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
   notes: string;
+  /** ISO timestamp once the Arbeitsvertrag has been auto-generated for this file, or null. Set once, never re-triggered. */
+  contractGeneratedAt: string | null;
   documents: PersonnelDocumentRecord[];
 };
+
+/**
+ * Fields that must all be filled in before the Arbeitsvertrag is generated
+ * automatically. Deliberately excludes `notes` (free-text, not part of a
+ * contract) and `contractGeneratedAt`/`documents` (not user-editable data).
+ */
+export const CONTRACT_REQUIRED_FIELDS = [
+  "birthDate",
+  "birthPlace",
+  "nationality",
+  "street",
+  "zip",
+  "city",
+  "phonePrivate",
+  "emailPrivate",
+  "hireDate",
+  "employmentType",
+  "healthInsurance",
+  "iban",
+  "emergencyContactName",
+  "emergencyContactPhone",
+] as const satisfies readonly (keyof PersonnelFileRecord)[];
+
+export function isPersonnelFileComplete(file: PersonnelFileRecord): boolean {
+  return CONTRACT_REQUIRED_FIELDS.every((key) => String(file[key] ?? "").trim() !== "");
+}
 
 export function makeEmptyPersonnelFile(employeeId: string): PersonnelFileRecord {
   return {
@@ -119,13 +145,12 @@ export function makeEmptyPersonnelFile(employeeId: string): PersonnelFileRecord 
     emailPrivate: "",
     hireDate: "",
     employmentType: "",
-    taxId: "",
-    socialSecurityNumber: "",
     healthInsurance: "",
     iban: "",
     emergencyContactName: "",
     emergencyContactPhone: "",
     notes: "",
+    contractGeneratedAt: null,
     documents: [],
   };
 }
@@ -263,10 +288,11 @@ function seedEmployees(): EmployeeRecord[] {
   // link its Discord account for it, so it's seeded from an env var the site
   // operator sets once (see README). Every other seed account starts
   // unlinked (discordId: "") until Geschäftsführung links a real employee to
-  // it under Website-Verwaltung → Mitarbeiter-Konten.
+  // it under Verwaltung → Mitarbeiter-Konten.
   const ownerDiscordId = process.env.OWNER_DISCORD_ID ?? "";
   const base: Array<Omit<EmployeeRecord, "id">> = [
     { username: "admin", discordId: ownerDiscordId, discordUsername: "", name: "Torsten Wegner", role: roleLabels.geschaeftsfuehrung, roleKey: "geschaeftsfuehrung", department: "Geschäftsleitung" },
+    { username: "prokurist", discordId: "", discordUsername: "", name: "Britta Sommer", role: roleLabels.prokurist, roleKey: "prokurist", department: "Geschäftsleitung" },
     { username: "betriebsleiter", discordId: "", discordUsername: "", name: "Nadine Brandt", role: roleLabels.betriebsleiter, roleKey: "betriebsleiter", department: "Betriebsleitung" },
     { username: "chefdisponent", discordId: "", discordUsername: "", name: "Marek Nowicki", role: roleLabels.chefdisponent, roleKey: "chefdisponent", department: "Disposition" },
     { username: "disponent", discordId: "", discordUsername: "", name: "Kevin Albrecht", role: roleLabels.disponent, roleKey: "disponent", department: "Disposition" },

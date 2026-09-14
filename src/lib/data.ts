@@ -10,6 +10,8 @@ export const company = {
   disposition_email: "",
   karriere_email: "",
   mapsQuery: "Industriestraße 7-12, Falkenwalde, Vorpommern-Greifswald",
+  /** Firmenlogo als data: URL (base64), z. B. fürs Briefkopf-Layout des Arbeitsvertrags. null = kein Logo hinterlegt. */
+  logoDataUrl: null as string | null,
 };
 
 /**

@@ -97,6 +97,25 @@ async function readDb(): Promise<Db> {
     }
   }
 
+  // Steuer-ID and Sozialversicherungsnummer were removed from Personalakten —
+  // actually erase any values already on disk, not just hide the fields in
+  // the UI, and backfill the new contractGeneratedAt tracking field.
+  for (const file of db.personnelFiles) {
+    const record = file as PersonnelFileRecord & { taxId?: string; socialSecurityNumber?: string };
+    if ("taxId" in record) {
+      delete record.taxId;
+      changed = true;
+    }
+    if ("socialSecurityNumber" in record) {
+      delete record.socialSecurityNumber;
+      changed = true;
+    }
+    if (record.contractGeneratedAt === undefined) {
+      record.contractGeneratedAt = null;
+      changed = true;
+    }
+  }
+
   // One-time rename: the "disposition" role was split into "chefdisponent"
   // (leadership) and "disponent" (day-to-day) — existing accounts keep their
   // access by moving to "chefdisponent", the closer match of the two. Runs
@@ -533,13 +552,18 @@ export async function acknowledgeDriverReminder(driverName: string, reminderId: 
 
 // ---------------------------------------------------------------------------
 // Mitarbeiter-Konten (employee accounts) — managed by Geschäftsführung under
-// Website-Verwaltung. Fixed role per account, enforced client-side via
+// Verwaltung. Fixed role per account, enforced client-side via
 // roleModuleAccess (src/lib/roles.ts) same as the seeded demo accounts.
 // ---------------------------------------------------------------------------
 
 export async function getEmployees(): Promise<PublicEmployee[]> {
   const db = await readDb();
   return db.employees;
+}
+
+export async function getEmployeeById(id: string): Promise<PublicEmployee | null> {
+  const db = await readDb();
+  return db.employees.find((e) => e.id === id) ?? null;
 }
 
 export async function createEmployee(input: {

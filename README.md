@@ -24,7 +24,7 @@ Startseite, Unsere Leistungen, Über uns, Geschäftsführung, News, Fuhrpark, St
 Bewerbungsportal, Auftrag einreichen, Rezensionen, Partner sowie Impressum/Datenschutz.
 
 Alle diese Inhalte kommen live aus dem Server-Store (`src/lib/server/store.ts`, Daten in `.data/db.json`,
-git-ignoriert) und lassen sich über die „Website-Verwaltung" (siehe unten) bearbeiten. Aktuell leere Bereiche
+git-ignoriert) und lassen sich über die „Verwaltung" (siehe unten) bearbeiten. Aktuell leere Bereiche
 (News, Rezensionen, Fuhrpark-Kategorien) zeigen automatisch einen Platzhaltertext, bis dort echte Inhalte
 eingetragen werden.
 
@@ -36,7 +36,8 @@ durchgesetzt in `DashboardShell`).
 
 | Rolle | Sichtbare Module |
 | --- | --- |
-| Geschäftsführer | **Alles**, inkl. Website-Verwaltung und Personalakten; einzige Rolle mit Fahrzeuge anlegen/löschen |
+| Geschäftsführer | **Alles**, inkl. Verwaltung und Personalakten; einzige Rolle mit Fahrzeuge anlegen/löschen |
+| Prokurist | **Identisch zum Geschäftsführer** — beide Rollen teilen sich dieselbe Berechtigungsliste (`src/lib/roles.ts`) |
 | Betriebsleiter | Disposition, Lagerverwaltung, Fahrzeugverwaltung, Fahrtenbuch, Fahrerkarte (aller Fahrer) |
 | Chefdisponent | Disposition, Fahrzeugverwaltung, Fahrerkarte (aller Fahrer, inkl. Erinnerungen senden) |
 | Disponent | Disposition |
@@ -45,10 +46,10 @@ durchgesetzt in `DashboardShell`).
 | Buchhaltung | Rechnungserstellung (inkl. PDF-Export), Finanzbuchhaltung |
 | Fahrer | Nur eigene Fahrerkarte + „Aktuelle Aufträge" (Chat mit der Disposition) |
 
-Personalakten sind bewusst auf die Rolle Geschäftsführer beschränkt — von allen Rollen ist das die einzige, zu
-deren Aufgaben laut Rollenbeschreibung explizit Personalentscheidungen gehören, und die Daten dahinter
-(Geburtsdatum, IBAN, Steuer-ID, Sozialversicherungsnummer, …) sind deutlich sensibler als alles andere in der
-App (siehe Abschnitt „Personalakten" unten).
+Personalakten sind bewusst auf Geschäftsführer und Prokurist beschränkt — von allen Rollen sind das die
+einzigen, zu deren Aufgaben laut Rollenbeschreibung explizit Personalentscheidungen gehören, und die Daten
+dahinter (Geburtsdatum, Adresse, IBAN, …) sind deutlich sensibler als alles andere in der App (siehe Abschnitt
+„Personalakten" unten).
 
 ### Login: ausschließlich über Discord (OAuth2)
 
@@ -102,31 +103,30 @@ Discord-Direktnachricht an die hinterlegte Discord-Nutzer-ID mit Name, Rolle und
 angelegt — die Geschäftsführung bekommt in der Liste lediglich einen Hinweis, dass die DM nicht zugestellt werden
 konnte, und kann den Link bei Bedarf manuell weitergeben.
 
-### Mitarbeiter-Konten anlegen (nur Geschäftsführer)
+### Mitarbeiter-Konten anlegen (nur Geschäftsführer/Prokurist)
 
-Unter Website-Verwaltung → **„Mitarbeiter-Konten"** kann die Geschäftsführung neue Konten für Mitarbeitende
+Unter Verwaltung → **„Mitarbeiter-Konten"** kann die Geschäftsführung neue Konten für Mitarbeitende
 anlegen, bearbeiten und löschen — Benutzername (intern), Discord-Nutzer-ID, Discord-Benutzername (nur zur
-Anzeige), Name, Abteilung sowie eine **feste Rolle** (Geschäftsführer, Betriebsleiter, Chefdisponent, Disponent,
-Lager, Fuhrpark & Werkstatt, Buchhaltung oder Fahrer), die automatisch dieselben Modul-Berechtigungen wie oben
-vergibt (`src/lib/roles.ts`). Ein neues Fahrer-Konto bekommt beim Anlegen automatisch eine leere Fahrerkarte,
-damit die digitale Fahrerkarte sofort funktioniert. Ohne eingetragene Discord-Nutzer-ID kann sich das Konto
-nicht einloggen — das wird in der Liste farblich hervorgehoben.
+Anzeige), Name, Abteilung sowie eine **feste Rolle** (Geschäftsführer, Prokurist, Betriebsleiter, Chefdisponent,
+Disponent, Lager, Fuhrpark & Werkstatt, Buchhaltung oder Fahrer), die automatisch dieselben Modul-Berechtigungen
+wie oben vergibt (`src/lib/roles.ts`). Ein neues Fahrer-Konto bekommt beim Anlegen automatisch eine leere
+Fahrerkarte, damit die digitale Fahrerkarte sofort funktioniert. Ohne eingetragene Discord-Nutzer-ID kann sich
+das Konto nicht einloggen — das wird in der Liste farblich hervorgehoben.
 
 Konten liegen serverseitig im Store (`employees`-Collection in `.data/db.json`), die Verwaltung läuft über
 `src/app/api/employees/*`.
 
-### Personalakten (nur Geschäftsführer)
+### Personalakten (nur Geschäftsführer/Prokurist)
 
 Eigenes Sidebar-Modul **„Personalakten"** (`/mitarbeiter/personalakten`, `src/lib/employee-nav.ts`) — bewusst
-kein Reiter unter Website-Verwaltung, sondern ein eigenständiges, über `roleModuleAccess` geschütztes Modul, das
-nur die Rolle Geschäftsführer in der Sidebar sieht und öffnen kann (Route-Guard in `DashboardShell` leitet bei
-direktem Aufruf durch andere Rollen zur Übersicht um). Jedes Mitarbeiter-Konto legt automatisch eine eigene Akte
-an (1:1, `personnelFiles`-Collection) — sowohl neu angelegte Konten als auch die Seed-Konten beim ersten Start.
-Eine Akte enthält persönliche Daten (Geburtsdatum/-ort, Staatsangehörigkeit, Adresse, private
-Telefonnummer/E-Mail), Beschäftigungsdaten (Eintrittsdatum, Beschäftigungsart), Steuer-ID,
-Sozialversicherungsnummer, Krankenkasse, IBAN sowie einen Notfallkontakt und ein freies Notizfeld — alles
-direkt in der Akte editierbar. Zusätzlich lassen sich beliebige Dateien hochladen (z. B. Arbeitsvertrag,
-Ausweiskopie) und einzeln wieder löschen.
+kein Reiter unter Verwaltung, sondern ein eigenständiges, über `roleModuleAccess` geschütztes Modul, das
+nur Geschäftsführer und Prokurist in der Sidebar sehen und öffnen können (Route-Guard in `DashboardShell`
+leitet bei direktem Aufruf durch andere Rollen zur Übersicht um). Jedes Mitarbeiter-Konto legt automatisch eine
+eigene Akte an (1:1, `personnelFiles`-Collection) — sowohl neu angelegte Konten als auch die Seed-Konten beim
+ersten Start. Eine Akte enthält persönliche Daten (Geburtsdatum/-ort, Staatsangehörigkeit, Adresse, private
+Telefonnummer/E-Mail), Beschäftigungsdaten (Eintrittsdatum, Beschäftigungsart), Krankenkasse, IBAN sowie einen
+Notfallkontakt und ein freies Notizfeld — alles direkt in der Akte editierbar. Zusätzlich lassen sich beliebige
+Dateien hochladen (z. B. Ausweiskopie) und einzeln wieder löschen.
 
 Die Datei-Metadaten (Name, Typ, Größe, Zeitpunkt) liegen in `.data/db.json`, die hochgeladenen Bytes selbst
 liegen separat unter `.data/uploads/` (ebenfalls git-ignoriert), referenziert über eine zufällige Datei-ID —
@@ -135,11 +135,20 @@ Pfade auf dem Server bekommt. Uploads sind auf 20 MB pro Datei begrenzt. Wird ei
 werden seine Personalakte und alle zugehörigen Dateien mit gelöscht (`src/app/api/personnel-files/*`,
 `src/lib/server/store.ts`).
 
-**Wichtig**: Personalakten enthalten besonders sensible Daten (Geburtsdatum, IBAN, Steuer-ID,
-Sozialversicherungsnummer). Es gilt dieselbe Einschränkung wie für den Rest der Seite — siehe „Wichtige
-Hinweise vor dem produktiven Einsatz" unten: Es gibt **keine** serverseitige Zugriffsprüfung auf die
-`/api/personnel-files/*`-Routen, nur das clientseitig verlinkte Modul ist an die Rolle Geschäftsführer
-gebunden.
+**Wichtig**: Personalakten enthalten weiterhin sensible Daten (Geburtsdatum, Adresse, IBAN). Es gilt dieselbe
+Einschränkung wie für den Rest der Seite — siehe „Wichtige Hinweise vor dem produktiven Einsatz" unten: Es gibt
+**keine** serverseitige Zugriffsprüfung auf die `/api/personnel-files/*`-Routen, nur das clientseitig verlinkte
+Modul ist an die Rollen Geschäftsführer/Prokurist gebunden.
+
+**Automatischer Arbeitsvertrag**: Sobald alle Felder einer Akte (außer dem freien Notizfeld) ausgefüllt sind,
+erzeugt der Server beim nächsten Speichern automatisch ein Arbeitsvertrag-PDF (`src/lib/server/contract-pdf.ts`,
+Briefkopf mit Firmenname/-adresse/-logo aus den Unternehmensdaten), legt es als Dokument in der Akte ab und
+schickt es dem Mitarbeitenden per Discord-DM als Anhang (`sendDiscordDmWithFile` in
+`src/lib/server/discord-bot.ts`). Das passiert nur **einmal** pro Akte (`contractGeneratedAt`-Zeitstempel) —
+spätere Änderungen an bereits vollständigen Akten lösen keine erneute Erstellung aus. Schlägt der DM-Versand
+fehl, bleibt das erzeugte PDF trotzdem in der Akte hinterlegt und kann manuell heruntergeladen werden. Das
+Vertragslayout ist ein generisches Template für eine fiktive Spedition (kein rechtsgeprüftes Dokument); Firmenname,
+-adresse und -logo dafür pflegt die Geschäftsführung unter Verwaltung → Unternehmensdaten.
 
 ### Fahrer-Login → Fahrzeug → Disposition (echt, geräteübergreifend)
 
@@ -170,17 +179,20 @@ Fahrer sehen unter „Aktuelle Aufträge" nur die ihnen zugewiesenen Aufträge m
 Hinweise) und einen Chat-Thread je Auftrag. Die Disposition kann denselben Thread pro Zeile in der
 Auftragstabelle aufklappen und antworten (`src/components/employee/order-chat.tsx`).
 
-### Website-Verwaltung (nur Geschäftsführer)
+### Verwaltung (nur Geschäftsführer/Prokurist)
 
 Eigener Reiter zur Pflege **aller** öffentlichen Inhalte — News, Stellenangebote, Leistungen, Geschäftsführung,
 Wichtige Positionen, Fuhrpark-Kategorien, Rezensionen, Partner sowie Unternehmensdaten (Adresse, Telefon,
-E-Mail …). Änderungen erscheinen sofort auf der öffentlichen Website, ganz ohne Neustart/Deploy
+E-Mail, **Firmenlogo** …). Änderungen erscheinen sofort auf der öffentlichen Website, ganz ohne Neustart/Deploy
 (`src/app/mitarbeiter/(dashboard)/verwaltung/`, generische CRUD-API unter `src/app/api/admin/[collection]/*`).
+Das Firmenlogo unter „Unternehmensdaten" (als Bild hochgeladen, max. 1,5 MB, base64 in `.data/db.json`
+hinterlegt) erscheint automatisch im Briefkopf generierter Dokumente wie dem Arbeitsvertrag (siehe
+„Personalakten" oben).
 
 **Hinweis zum Impressum**: Die Angaben unter „Rechtliches" (Impressum, Datenschutz) sind bewusst **nicht** über
-die Website-Verwaltung editierbar, sondern fest in `src/lib/data.ts` (`legalContact`) hinterlegt. Sie zeigen die
+die Verwaltung editierbar, sondern fest in `src/lib/data.ts` (`legalContact`) hinterlegt. Sie zeigen die
 real verantwortliche Person, unabhängig vom fiktiven Firmennamen „Baltic Freight GmbH", der über die
-Website-Verwaltung gepflegt wird (§5 TMG verlangt eine echte, identifizierbare verantwortliche Person/Adresse).
+Verwaltung gepflegt wird (§5 TMG verlangt eine echte, identifizierbare verantwortliche Person/Adresse).
 
 ### Lagerverwaltung & Inventuren
 
