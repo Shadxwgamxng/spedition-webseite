@@ -10,8 +10,14 @@ export const company = {
   disposition_email: "",
   karriere_email: "",
   mapsQuery: "Industriestraße 7-12, Falkenwalde, Vorpommern-Greifswald",
-  /** Firmenlogo als data: URL (base64), z. B. fürs Briefkopf-Layout des Arbeitsvertrags. null = kein Logo hinterlegt. */
-  logoDataUrl: null as string | null,
+  /**
+   * MIME-Typ des hochgeladenen Firmenlogos (z. B. fürs Briefkopf-Layout des
+   * Arbeitsvertrags), null = kein Logo hinterlegt. Die Bilddaten selbst liegen
+   * NICHT hier (würde jeden Lese-/Schreibzugriff auf die gesamte .data/db.json
+   * verlangsamen), sondern als eigene Datei unter .data/uploads/, siehe
+   * setCompanyLogo() in server/store.ts.
+   */
+  logoMimeType: null as string | null,
 };
 
 /**

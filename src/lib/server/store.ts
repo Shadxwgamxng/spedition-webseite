@@ -116,6 +116,24 @@ async function readDb(): Promise<Db> {
     }
   }
 
+  // One-time migration: the company logo used to be stored inline as a
+  // base64 data: URL in db.company.logoDataUrl — that bloated the single
+  // db.json file that's read/written whole on every request across the app,
+  // slowing everything down just because a logo was uploaded once. Move any
+  // already-persisted logo out to disk (same place Personalakte documents
+  // live) and drop the inline field.
+  const legacyCompany = db.company as (Db["company"] & { logoDataUrl?: string | null }) | undefined;
+  if (legacyCompany?.logoDataUrl) {
+    const match = /^data:([^;]+);base64,(.+)$/.exec(legacyCompany.logoDataUrl);
+    if (match) {
+      const [, mimeType, base64] = match;
+      await writeDocumentFile(COMPANY_LOGO_ID, new Uint8Array(Buffer.from(base64, "base64")));
+      legacyCompany.logoMimeType = mimeType;
+    }
+    delete legacyCompany.logoDataUrl;
+    changed = true;
+  }
+
   // One-time rename: the "disposition" role was split into "chefdisponent"
   // (leadership) and "disponent" (day-to-day) — existing accounts keep their
   // access by moving to "chefdisponent", the closer match of the two. Runs
@@ -309,6 +327,45 @@ export async function updateCompany(patch: Partial<CompanyInfo>): Promise<Compan
   db.company = { ...db.company, ...patch };
   await writeDb(db);
   return db.company;
+}
+
+const COMPANY_LOGO_ID = "company-logo";
+const MAX_LOGO_BYTES = 1.5 * 1024 * 1024;
+
+/**
+ * The logo's bytes live on disk (like Personalakte documents), not inline in
+ * db.json — db.json is read/written whole on every request across the app,
+ * so embedding a multi-hundred-KB base64 image there slows everything down,
+ * not just the company form. Only a small `logoMimeType` marker is stored.
+ */
+export async function setCompanyLogo(bytes: Uint8Array, mimeType: string): Promise<CompanyInfo> {
+  if (bytes.byteLength > MAX_LOGO_BYTES) {
+    throw new Error("Logo ist zu groß (maximal 1,5 MB).");
+  }
+  await writeDocumentFile(COMPANY_LOGO_ID, bytes);
+  const db = await readDb();
+  db.company.logoMimeType = mimeType;
+  await writeDb(db);
+  return db.company;
+}
+
+export async function removeCompanyLogo(): Promise<CompanyInfo> {
+  await deleteDocumentFile(COMPANY_LOGO_ID);
+  const db = await readDb();
+  db.company.logoMimeType = null;
+  await writeDb(db);
+  return db.company;
+}
+
+export async function getCompanyLogo(): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
+  const db = await readDb();
+  if (!db.company.logoMimeType) return null;
+  try {
+    const bytes = await fs.readFile(path.join(UPLOADS_DIR, COMPANY_LOGO_ID));
+    return { bytes, mimeType: db.company.logoMimeType };
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------

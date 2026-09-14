@@ -1,8 +1,8 @@
 import { jsPDF } from "jspdf";
 import type { CompanyInfo, PersonnelFileRecord } from "@/lib/server/db-types";
 
-function logoFormat(dataUrl: string): "PNG" | "JPEG" | "WEBP" | null {
-  const match = /^data:image\/(png|jpe?g|webp);base64,/i.exec(dataUrl);
+function logoFormat(mimeType: string): "PNG" | "JPEG" | "WEBP" | null {
+  const match = /^image\/(png|jpe?g|webp)$/i.exec(mimeType);
   if (!match) return null;
   const ext = match[1].toLowerCase();
   if (ext === "png") return "PNG";
@@ -28,17 +28,19 @@ export function generateContractPdf(input: {
   roleLabel: string;
   department: string;
   file: PersonnelFileRecord;
+  logo?: { bytes: Uint8Array; mimeType: string } | null;
 }): Uint8Array {
-  const { company, employeeName, roleLabel, department, file } = input;
+  const { company, employeeName, roleLabel, department, file, logo } = input;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const marginX = 20;
   const rightX = 190;
   let y = 20;
 
-  const format = company.logoDataUrl ? logoFormat(company.logoDataUrl) : null;
-  if (company.logoDataUrl && format) {
+  const format = logo ? logoFormat(logo.mimeType) : null;
+  if (logo && format) {
     try {
-      doc.addImage(company.logoDataUrl, format, rightX - 25, y - 5, 25, 25, undefined, "FAST");
+      const logoDataUrl = `data:${logo.mimeType};base64,${Buffer.from(logo.bytes).toString("base64")}`;
+      doc.addImage(logoDataUrl, format, rightX - 25, y - 5, 25, 25, undefined, "FAST");
     } catch {
       // A malformed/unsupported logo image should never block contract generation.
     }

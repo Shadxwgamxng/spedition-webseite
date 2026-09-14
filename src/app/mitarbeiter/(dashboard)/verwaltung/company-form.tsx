@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import type { CompanyInfo } from "@/lib/server/db-types";
 import { CheckIcon } from "@/components/ui/icons";
 
@@ -22,7 +22,10 @@ const fields: Array<{ key: keyof CompanyInfo; label: string; type?: string }> = 
 
 export function CompanyForm() {
   const [company, setCompany] = useState<CompanyInfo | null>(null);
-  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+  const [hasLogo, setHasLogo] = useState(false);
+  const [logoVersion, setLogoVersion] = useState(0);
+  const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
+  const [removeLogoOnSave, setRemoveLogoOnSave] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -33,9 +36,18 @@ export function CompanyForm() {
       .then((res) => res.json())
       .then((json) => {
         setCompany(json.company);
-        setLogoDataUrl(json.company.logoDataUrl ?? null);
+        setHasLogo(Boolean(json.company.logoMimeType));
       });
   }, []);
+
+  // Object URLs for a freshly picked (not-yet-uploaded) file must be revoked
+  // again, or the browser keeps that image data alive for the page's lifetime.
+  const logoPreviewUrl = useMemo(() => (pendingLogoFile ? URL.createObjectURL(pendingLogoFile) : null), [pendingLogoFile]);
+  useEffect(() => {
+    return () => {
+      if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
+    };
+  }, [logoPreviewUrl]);
 
   function handleLogoSelect(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0];
@@ -45,14 +57,13 @@ export function CompanyForm() {
       setLogoError("Logo ist zu groß (maximal 1,5 MB).");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => setLogoDataUrl(String(reader.result));
-    reader.onerror = () => setLogoError("Datei konnte nicht gelesen werden.");
-    reader.readAsDataURL(selected);
+    setRemoveLogoOnSave(false);
+    setPendingLogoFile(selected);
   }
 
   function removeLogo() {
-    setLogoDataUrl(null);
+    setPendingLogoFile(null);
+    setRemoveLogoOnSave(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -60,25 +71,49 @@ export function CompanyForm() {
     event.preventDefault();
     setSaving(true);
     setSaved(false);
+    setLogoError(null);
     const form = new FormData(event.currentTarget);
-    const payload: Record<string, unknown> = { logoDataUrl };
+    const payload: Record<string, unknown> = {};
     for (const field of fields) {
       const raw = form.get(field.key);
       payload[field.key] = field.type === "number" ? Number(raw) : String(raw ?? "");
     }
-    const res = await fetch("/api/company", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const json = await res.json();
-    setCompany(json.company);
-    setLogoDataUrl(json.company.logoDataUrl ?? null);
-    setSaving(false);
-    setSaved(true);
+
+    try {
+      if (pendingLogoFile) {
+        const logoForm = new FormData();
+        logoForm.append("file", pendingLogoFile);
+        const logoRes = await fetch("/api/company/logo", { method: "POST", body: logoForm });
+        const logoJson = await logoRes.json();
+        if (!logoRes.ok || logoJson.ok === false) {
+          setLogoError(logoJson.error ?? "Logo konnte nicht hochgeladen werden.");
+          return;
+        }
+        setHasLogo(true);
+        setPendingLogoFile(null);
+        setLogoVersion((v) => v + 1);
+      } else if (removeLogoOnSave) {
+        await fetch("/api/company/logo", { method: "DELETE" });
+        setHasLogo(false);
+      }
+      setRemoveLogoOnSave(false);
+
+      const res = await fetch("/api/company", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      setCompany(json.company);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!company) return <p className="text-sm text-navy-700/60">Wird geladen…</p>;
+
+  const showLogo = logoPreviewUrl ?? (hasLogo && !removeLogoOnSave ? `/api/company/logo?v=${logoVersion}` : null);
 
   return (
     <form
@@ -91,9 +126,9 @@ export function CompanyForm() {
           Erscheint u. a. im Briefkopf automatisch erstellter Dokumente (z. B. Arbeitsverträge).
         </p>
         <div className="flex items-center gap-4">
-          {logoDataUrl ? (
+          {showLogo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoDataUrl} alt="Firmenlogo" className="h-16 w-16 rounded-lg border border-navy-900/10 object-contain" />
+            <img src={showLogo} alt="Firmenlogo" className="h-16 w-16 rounded-lg border border-navy-900/10 object-contain" />
           ) : (
             <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-navy-900/15 text-[10px] text-navy-700/40">
               Kein Logo
@@ -107,7 +142,7 @@ export function CompanyForm() {
               onChange={handleLogoSelect}
               className="text-xs text-navy-700/70 file:mr-3 file:rounded-full file:border-0 file:bg-navy-900/5 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-navy-800 hover:file:bg-navy-900/10"
             />
-            {logoDataUrl ? (
+            {showLogo ? (
               <button
                 type="button"
                 onClick={removeLogo}

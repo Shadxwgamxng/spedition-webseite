@@ -1,5 +1,12 @@
 import { isPersonnelFileComplete, type PersonnelFileRecord } from "@/lib/server/db-types";
-import { addPersonnelDocument, getCompany, getEmployeeById, getPersonnelFile, updatePersonnelFile } from "@/lib/server/store";
+import {
+  addPersonnelDocument,
+  getCompany,
+  getCompanyLogo,
+  getEmployeeById,
+  getPersonnelFile,
+  updatePersonnelFile,
+} from "@/lib/server/store";
 import { buildContractDm, sendDiscordDmWithFile } from "@/lib/server/discord-bot";
 import { generateContractPdf } from "@/lib/server/contract-pdf";
 
@@ -48,13 +55,14 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/personnel-
   if (!personnelFile.contractGeneratedAt && isPersonnelFileComplete(personnelFile)) {
     const employee = await getEmployeeById(employeeId);
     if (employee) {
-      const company = await getCompany();
+      const [company, logo] = await Promise.all([getCompany(), getCompanyLogo()]);
       const pdfBytes = generateContractPdf({
         company,
         employeeName: employee.name,
         roleLabel: employee.role,
         department: employee.department,
         file: personnelFile,
+        logo,
       });
       const fileName = `Arbeitsvertrag_${employee.name.replace(/\s+/g, "_")}.pdf`;
 
