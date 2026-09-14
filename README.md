@@ -185,9 +185,17 @@ Eigener Reiter zur Pflege **aller** öffentlichen Inhalte — News, Stellenangeb
 Wichtige Positionen, Fuhrpark-Kategorien, Rezensionen, Partner sowie Unternehmensdaten (Adresse, Telefon,
 E-Mail, **Firmenlogo** …). Änderungen erscheinen sofort auf der öffentlichen Website, ganz ohne Neustart/Deploy
 (`src/app/mitarbeiter/(dashboard)/verwaltung/`, generische CRUD-API unter `src/app/api/admin/[collection]/*`).
-Das Firmenlogo unter „Unternehmensdaten" (als Bild hochgeladen, max. 1,5 MB, base64 in `.data/db.json`
-hinterlegt) erscheint automatisch im Briefkopf generierter Dokumente wie dem Arbeitsvertrag (siehe
-„Personalakten" oben).
+Das Firmenlogo unter „Unternehmensdaten" (als Bild hochgeladen, max. 1,5 MB, als eigene Datei unter
+`.data/uploads/company-logo` hinterlegt — nur ein kleiner Verweis `logoMimeType` steht in `.data/db.json`, siehe
+„Firmenlogo"-Hinweis unten) erscheint automatisch im Briefkopf generierter Dokumente wie dem Arbeitsvertrag
+(siehe „Personalakten" oben).
+
+**Wichtig für eigenes Hosting hinter nginx**: nginx blockt standardmäßig alle Uploads über 1 MB mit „413 Request
+Entity Too Large", **bevor** die Anfrage überhaupt bei dieser App ankommt (betrifft Logo-Upload und
+Personalakten-Dokumente). Die nginx-Konfiguration in beiden Hosting-Anleitungen (`STRATO-HOSTING.md`,
+`LIVING-BOTS-HOSTING.md`) enthält dafür `client_max_body_size 25M;` — falls dein Server schon vor dieser
+Änderung eingerichtet wurde, musst du diese Zeile manuell in deine bestehende nginx-Config eintragen (üblicherweise
+`/etc/nginx/sites-available/baltic-freight`) und danach `nginx -t && systemctl reload nginx` ausführen.
 
 **Hinweis zum Impressum**: Die Angaben unter „Rechtliches" (Impressum, Datenschutz) sind bewusst **nicht** über
 die Verwaltung editierbar, sondern fest in `src/lib/data.ts` (`legalContact`) hinterlegt. Sie zeigen die

@@ -4,6 +4,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { usePolling } from "@/lib/use-polling";
 import { CheckIcon, FolderIcon, TrashIcon, UploadIcon } from "@/components/ui/icons";
 import type { EmployeeUser } from "@/lib/auth";
+import { parseJsonResponse } from "@/lib/parse-json-response";
 
 type Employee = EmployeeUser & { id: string };
 type PersonnelDocument = { id: string; fileName: string; mimeType: string; size: number; uploadedAt: string };
@@ -247,7 +248,7 @@ function PersonnelDocuments({ file, onChanged }: { file: PersonnelFile; onChange
       const body = new FormData();
       body.append("file", selected);
       const res = await fetch(`/api/personnel-files/${file.employeeId}/documents`, { method: "POST", body });
-      const json = await res.json();
+      const json = await parseJsonResponse(res);
       if (!res.ok || json.ok === false) {
         setUploadError(json.error ?? "Hochladen fehlgeschlagen.");
         return;

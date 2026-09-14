@@ -132,6 +132,11 @@ server {
     listen 80;
     server_name deine-domain.de www.deine-domain.de;
 
+    # nginx blockt standardmäßig Uploads über 1 MB (z. B. Firmenlogo,
+    # Personalakten-Dokumente) mit "413 Request Entity Too Large" — ohne
+    # diese Zeile kommen solche Uploads nie bei der App an.
+    client_max_body_size 25M;
+
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;

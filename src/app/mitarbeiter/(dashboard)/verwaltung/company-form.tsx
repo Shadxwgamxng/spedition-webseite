@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import type { CompanyInfo } from "@/lib/server/db-types";
 import { CheckIcon } from "@/components/ui/icons";
+import { parseJsonResponse } from "@/lib/parse-json-response";
 
 const MAX_LOGO_BYTES = 1.5 * 1024 * 1024;
 
@@ -84,7 +85,7 @@ export function CompanyForm() {
         const logoForm = new FormData();
         logoForm.append("file", pendingLogoFile);
         const logoRes = await fetch("/api/company/logo", { method: "POST", body: logoForm });
-        const logoJson = await logoRes.json();
+        const logoJson = await parseJsonResponse(logoRes);
         if (!logoRes.ok || logoJson.ok === false) {
           setLogoError(logoJson.error ?? "Logo konnte nicht hochgeladen werden.");
           return;
@@ -103,8 +104,12 @@ export function CompanyForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      setCompany(json.company);
+      const json = await parseJsonResponse(res);
+      if (!res.ok || json.ok === false) {
+        setLogoError(json.error ?? "Speichern fehlgeschlagen.");
+        return;
+      }
+      setCompany(json.company as CompanyInfo);
       setSaved(true);
     } finally {
       setSaving(false);
