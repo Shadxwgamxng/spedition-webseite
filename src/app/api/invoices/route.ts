@@ -7,7 +7,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
-  const customer = typeof body?.customer === "string" ? body.customer.trim() : "";
+  const customerId = typeof body?.customerId === "string" ? body.customerId.trim() : "";
+  const sachbearbeiter = typeof body?.sachbearbeiter === "string" ? body.sachbearbeiter.trim() : "";
   const items = Array.isArray(body?.items) ? body.items : [];
   const total = Number(body?.total);
 
@@ -20,13 +21,18 @@ export async function POST(request: Request) {
       Number.isFinite(Number((item as Record<string, unknown>).price)),
   );
 
-  if (!customer || items.length === 0 || !validItems || !Number.isFinite(total) || total <= 0) {
+  if (!customerId || !sachbearbeiter || items.length === 0 || !validItems || !Number.isFinite(total) || total <= 0) {
     return Response.json(
-      { ok: false, error: "Kunde und mindestens eine gültige Position sind erforderlich." },
+      { ok: false, error: "Kunde, Sachbearbeiter und mindestens eine gültige Position sind erforderlich." },
       { status: 400 },
     );
   }
 
-  const invoice = await createInvoice({ customer, items, total });
-  return Response.json({ ok: true, invoice }, { status: 201 });
+  try {
+    const invoice = await createInvoice({ customerId, sachbearbeiter, items, total });
+    return Response.json({ ok: true, invoice }, { status: 201 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Rechnung konnte nicht erstellt werden.";
+    return Response.json({ ok: false, error: message }, { status: 400 });
+  }
 }

@@ -7,6 +7,7 @@ import {
   seedDb,
   type CollectionName,
   type CompanyInfo,
+  type CustomerRecord,
   type Db,
   type DriverCardRecord,
   type EmployeeRecord,
@@ -24,6 +25,8 @@ import {
   type ServiceRecord,
   type StockItemRecord,
   type TeamMemberRecord,
+  type TimeClockEntry,
+  type TimeClockSummary,
   type TripRecord,
 } from "@/lib/server/db-types";
 import type { OrderMessage, OrderRecord, VehicleRecord } from "@/lib/fleet-data";
@@ -82,6 +85,29 @@ async function readDb(): Promise<Db> {
     if (key === "personnelFiles") continue;
     if (db[key] === undefined) {
       (db as Db)[key] = seed[key] as never;
+      changed = true;
+    }
+  }
+
+  // The original demo/placeholder driver accounts ("Lukas Schmidt" & co.,
+  // usernames fahrer1..fahrer5) are retired — Digitale Fahrerkarte should
+  // only ever reflect real "Fahrer" Mitarbeiter-Konten added under
+  // Verwaltung, not a fixed fictional roster. Only removes accounts that
+  // were never linked to a Discord user (definitely still untouched seed
+  // data); an account the operator already linked to a real person is left
+  // alone even if it still carries the old placeholder name.
+  const LEGACY_PLACEHOLDER_FAHRER_USERNAMES = new Set(["fahrer1", "fahrer2", "fahrer3", "fahrer4", "fahrer5"]);
+  if (db.employees) {
+    const toRemove = db.employees.filter(
+      (e) => LEGACY_PLACEHOLDER_FAHRER_USERNAMES.has(e.username) && e.roleKey === "fahrer" && !e.discordId,
+    );
+    for (const employee of toRemove) {
+      db.employees = db.employees.filter((e) => e.id !== employee.id);
+      const fileIndex = (db.personnelFiles ?? []).findIndex((f) => f.employeeId === employee.id);
+      if (fileIndex !== -1) {
+        const [file] = db.personnelFiles!.splice(fileIndex, 1);
+        await Promise.all(file.documents.map((doc) => deleteDocumentFile(doc.id)));
+      }
       changed = true;
     }
   }
@@ -208,6 +234,80 @@ async function readDb(): Promise<Db> {
       card.drivingTodayMinutes = 0;
       card.drivingWeekMinutes = 0;
       card.breakTakenTodayMinutes = 0;
+      changed = true;
+    }
+  }
+
+  // Driver cards must reflect real employees, not a fixed fictional roster.
+  // Every "fahrer" employee gets one automatically; a card for anyone else
+  // (e.g. Geschäftsführung covering a shift — see loginVehicle) is left
+  // alone as long as that employee still exists, so their recorded
+  // driving/break history is never silently dropped just because their role
+  // isn't "fahrer". Only a card whose employee was deleted entirely gets
+  // pruned. Runs on every read (not just once) so cards stay in sync as
+  // Fahrer accounts are added, removed or renamed under Verwaltung.
+  // Backfills `employeeId` onto any pre-existing card (schema predates this
+  // field) by matching its driverName to a current employee.
+  {
+    db.driverCards ??= [];
+    const employeesById = new Map((db.employees ?? []).map((e) => [e.id, e]));
+
+    for (const card of db.driverCards) {
+      const withId = card as DriverCardRecord & { employeeId?: string };
+      if (!withId.employeeId) {
+        const match = (db.employees ?? []).find((e) => e.name === card.driverName);
+        if (match) {
+          withId.employeeId = match.id;
+          changed = true;
+        }
+      }
+    }
+
+    const beforeCount = db.driverCards.length;
+    db.driverCards = db.driverCards.filter((c) => c.employeeId && employeesById.has(c.employeeId));
+    if (db.driverCards.length !== beforeCount) changed = true;
+
+    for (const card of db.driverCards) {
+      const employee = employeesById.get(card.employeeId)!;
+      if (card.driverName !== employee.name) {
+        card.driverName = employee.name;
+        changed = true;
+      }
+    }
+
+    for (const employee of (db.employees ?? []).filter((e) => e.roleKey === "fahrer")) {
+      if (!db.driverCards.some((c) => c.employeeId === employee.id)) {
+        db.driverCards.push({
+          employeeId: employee.id,
+          driverName: employee.name,
+          active: false,
+          drivingTodayMinutes: 0,
+          drivingWeekMinutes: 0,
+          onBreak: false,
+          breakStartedAt: null,
+          breakTakenTodayMinutes: 0,
+          reminders: [],
+        });
+        changed = true;
+      }
+    }
+  }
+
+  // Backfill customer linkage fields onto invoices created before
+  // Kundenstammbaum existed, so old invoices stay readable instead of
+  // crashing on the now-required fields.
+  for (const invoice of db.invoices ?? []) {
+    const record = invoice as InvoiceRecord & { customerId?: string; customerNumber?: string; sachbearbeiter?: string };
+    if (record.customerId === undefined) {
+      record.customerId = "";
+      changed = true;
+    }
+    if (record.customerNumber === undefined) {
+      record.customerNumber = "";
+      changed = true;
+    }
+    if (record.sachbearbeiter === undefined) {
+      record.sachbearbeiter = "—";
       changed = true;
     }
   }
@@ -438,17 +538,23 @@ export async function loginVehicle(
   // Any employee can log into a vehicle and act as a driver, not just the
   // "Fahrer" role (e.g. Geschäftsführung covering a shift) — make sure a
   // Fahrerkarte exists for them so driving-time tracking works right away.
+  // (roleKey "fahrer" employees already get one automatically — see the
+  // driver-cards sync in readDb() — this only covers everyone else.)
   if (!db.driverCards.some((c) => c.driverName === driverName)) {
-    db.driverCards.push({
-      driverName,
-      active: false,
-      drivingTodayMinutes: 0,
-      drivingWeekMinutes: 0,
-      onBreak: false,
-      breakStartedAt: null,
-      breakTakenTodayMinutes: 0,
-      reminders: [],
-    });
+    const employee = db.employees.find((e) => e.name === driverName);
+    if (employee) {
+      db.driverCards.push({
+        employeeId: employee.id,
+        driverName,
+        active: false,
+        drivingTodayMinutes: 0,
+        drivingWeekMinutes: 0,
+        onBreak: false,
+        breakStartedAt: null,
+        breakTakenTodayMinutes: 0,
+        reminders: [],
+      });
+    }
   }
 
   await writeDb(db);
@@ -563,13 +669,13 @@ export async function getDriverCards(): Promise<DriverCardRecord[]> {
   return db.driverCards;
 }
 
-function findCard(db: Db, driverName: string): DriverCardRecord | undefined {
-  return db.driverCards.find((c) => c.driverName === driverName);
+function findCard(db: Db, employeeId: string): DriverCardRecord | undefined {
+  return db.driverCards.find((c) => c.employeeId === employeeId);
 }
 
-export async function setDriverCardActive(driverName: string, active: boolean): Promise<DriverCardRecord | null> {
+export async function setDriverCardActive(employeeId: string, active: boolean): Promise<DriverCardRecord | null> {
   const db = await readDb();
-  const card = findCard(db, driverName);
+  const card = findCard(db, employeeId);
   if (!card) return null;
   card.active = active;
   if (!active && card.onBreak) {
@@ -580,9 +686,9 @@ export async function setDriverCardActive(driverName: string, active: boolean): 
   return card;
 }
 
-export async function startDriverBreak(driverName: string): Promise<DriverCardRecord | null> {
+export async function startDriverBreak(employeeId: string): Promise<DriverCardRecord | null> {
   const db = await readDb();
-  const card = findCard(db, driverName);
+  const card = findCard(db, employeeId);
   if (!card) return null;
   card.onBreak = true;
   card.breakStartedAt = new Date().toISOString();
@@ -590,9 +696,9 @@ export async function startDriverBreak(driverName: string): Promise<DriverCardRe
   return card;
 }
 
-export async function endDriverBreak(driverName: string): Promise<DriverCardRecord | null> {
+export async function endDriverBreak(employeeId: string): Promise<DriverCardRecord | null> {
   const db = await readDb();
-  const card = findCard(db, driverName);
+  const card = findCard(db, employeeId);
   if (!card) return null;
   if (card.onBreak && card.breakStartedAt) {
     const elapsedMinutes = Math.round((Date.now() - new Date(card.breakStartedAt).getTime()) / 60000);
@@ -604,9 +710,9 @@ export async function endDriverBreak(driverName: string): Promise<DriverCardReco
   return card;
 }
 
-export async function sendDriverReminder(driverName: string, text: string): Promise<DriverCardRecord | null> {
+export async function sendDriverReminder(employeeId: string, text: string): Promise<DriverCardRecord | null> {
   const db = await readDb();
-  const card = findCard(db, driverName);
+  const card = findCard(db, employeeId);
   if (!card) return null;
   const reminder: ReminderEntry = { id: makeId(text), text, at: new Date().toISOString(), read: false };
   card.reminders.unshift(reminder);
@@ -614,9 +720,9 @@ export async function sendDriverReminder(driverName: string, text: string): Prom
   return card;
 }
 
-export async function acknowledgeDriverReminder(driverName: string, reminderId: string): Promise<DriverCardRecord | null> {
+export async function acknowledgeDriverReminder(employeeId: string, reminderId: string): Promise<DriverCardRecord | null> {
   const db = await readDb();
-  const card = findCard(db, driverName);
+  const card = findCard(db, employeeId);
   if (!card) return null;
   const reminder = card.reminders.find((r) => r.id === reminderId);
   if (reminder) reminder.read = true;
@@ -673,21 +779,9 @@ export async function createEmployee(input: {
   db.employees.push(employee);
   db.personnelFiles.push(makeEmptyPersonnelFile(employee.id));
 
-  // Fahrer-Konten brauchen eine Fahrerkarte, damit die digitale Fahrerkarte
-  // sofort funktioniert (sonst "keine Karte gefunden" bei erstem Login).
-  if (input.roleKey === "fahrer" && !db.driverCards.some((c) => c.driverName === employee.name)) {
-    db.driverCards.push({
-      driverName: employee.name,
-      active: false,
-      drivingTodayMinutes: 0,
-      drivingWeekMinutes: 0,
-      onBreak: false,
-      breakStartedAt: null,
-      breakTakenTodayMinutes: 0,
-      reminders: [],
-    });
-  }
-
+  // A "Fahrer" account's Fahrerkarte is created automatically by the
+  // driver-cards sync in readDb() — it runs on every read, so it's already
+  // in place by the time anything reads this employee back.
   await writeDb(db);
   return employee;
 }
@@ -727,18 +821,8 @@ export async function updateEmployee(
   if (patch.roleKey !== undefined) {
     employee.roleKey = patch.roleKey;
     employee.role = roleLabels[patch.roleKey];
-    if (patch.roleKey === "fahrer" && !db.driverCards.some((c) => c.driverName === employee.name)) {
-      db.driverCards.push({
-        driverName: employee.name,
-        active: false,
-        drivingTodayMinutes: 0,
-        drivingWeekMinutes: 0,
-        onBreak: false,
-        breakStartedAt: null,
-        breakTakenTodayMinutes: 0,
-        reminders: [],
-      });
-    }
+    // Fahrerkarte creation for a newly-"fahrer" employee is handled by the
+    // driver-cards sync in readDb(), which runs on every read.
   }
 
   await writeDb(db);
@@ -867,11 +951,14 @@ export async function getInvoices(): Promise<InvoiceRecord[]> {
 }
 
 export async function createInvoice(input: {
-  customer: string;
+  customerId: string;
+  sachbearbeiter: string;
   items: InvoiceRecord["items"];
   total: number;
 }): Promise<InvoiceRecord> {
   const db = await readDb();
+  const customer = db.customers.find((c) => c.id === input.customerId);
+  if (!customer) throw new Error("Kunde nicht gefunden.");
   const year = new Date().getFullYear();
   const maxNumber = db.invoices.reduce((max, i) => {
     const n = Number(i.number.split("-").pop());
@@ -879,7 +966,10 @@ export async function createInvoice(input: {
   }, 340);
   const invoice: InvoiceRecord = {
     number: `RE-${year}-${String(maxNumber + 1).padStart(4, "0")}`,
-    customer: input.customer,
+    customerId: customer.id,
+    customer: customer.companyName,
+    customerNumber: customer.customerNumber,
+    sachbearbeiter: input.sachbearbeiter,
     date: new Date().toISOString().slice(0, 10),
     total: input.total,
     status: "Offen",
@@ -906,6 +996,169 @@ export async function deleteInvoice(number: string): Promise<boolean> {
   db.invoices.splice(index, 1);
   await writeDb(db);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Kundenstammbaum
+// ---------------------------------------------------------------------------
+
+export async function getCustomers(): Promise<CustomerRecord[]> {
+  const db = await readDb();
+  return db.customers;
+}
+
+export async function createCustomer(input: {
+  companyName: string;
+  contactName: string;
+  street: string;
+  zip: string;
+  city: string;
+  email: string;
+  phone: string;
+  notes: string;
+}): Promise<CustomerRecord> {
+  const companyName = input.companyName.trim();
+  if (!companyName) throw new Error("Firmenname ist erforderlich.");
+  const db = await readDb();
+  const maxNumber = db.customers.reduce((max, c) => {
+    const n = Number(c.customerNumber.split("-").pop());
+    return Number.isFinite(n) ? Math.max(max, n) : max;
+  }, 0);
+  const customer: CustomerRecord = {
+    id: makeId(companyName),
+    customerNumber: `K-${String(maxNumber + 1).padStart(4, "0")}`,
+    companyName,
+    contactName: input.contactName.trim(),
+    street: input.street.trim(),
+    zip: input.zip.trim(),
+    city: input.city.trim(),
+    email: input.email.trim(),
+    phone: input.phone.trim(),
+    notes: input.notes,
+    createdAt: new Date().toISOString(),
+  };
+  db.customers.push(customer);
+  await writeDb(db);
+  return customer;
+}
+
+export async function updateCustomer(
+  id: string,
+  patch: Partial<Omit<CustomerRecord, "id" | "customerNumber" | "createdAt">>,
+): Promise<CustomerRecord | null> {
+  const db = await readDb();
+  const customer = db.customers.find((c) => c.id === id);
+  if (!customer) return null;
+  if (patch.companyName !== undefined && !patch.companyName.trim()) {
+    throw new Error("Firmenname ist erforderlich.");
+  }
+  Object.assign(customer, patch);
+  await writeDb(db);
+  return customer;
+}
+
+export async function deleteCustomer(id: string): Promise<boolean> {
+  const db = await readDb();
+  const index = db.customers.findIndex((c) => c.id === id);
+  if (index === -1) return false;
+  db.customers.splice(index, 1);
+  await writeDb(db);
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Stempeluhr
+// ---------------------------------------------------------------------------
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function startOfIsoWeek(d: Date): Date {
+  const x = startOfDay(d);
+  const mondayOffset = (x.getDay() + 6) % 7; // Mon=0 .. Sun=6
+  x.setDate(x.getDate() - mondayOffset);
+  return x;
+}
+
+function startOfMonth(d: Date): Date {
+  const x = new Date(d);
+  x.setDate(1);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function entryMinutes(entry: TimeClockEntry, now: number): number {
+  const start = new Date(entry.clockIn).getTime();
+  const end = entry.clockOut ? new Date(entry.clockOut).getTime() : now;
+  return Math.max(0, Math.round((end - start) / 60000));
+}
+
+export async function getTimeClockSummaries(): Promise<TimeClockSummary[]> {
+  const db = await readDb();
+  const now = Date.now();
+  const dayStart = startOfDay(new Date(now)).getTime();
+  const weekStart = startOfIsoWeek(new Date(now)).getTime();
+  const monthStart = startOfMonth(new Date(now)).getTime();
+
+  return db.employees.map((employee) => {
+    const entries = db.timeClockEntries.filter((e) => e.employeeId === employee.id);
+    let today = 0;
+    let week = 0;
+    let month = 0;
+    let clockedIn = false;
+    let clockedInSince: string | null = null;
+    for (const entry of entries) {
+      const start = new Date(entry.clockIn).getTime();
+      const minutes = entryMinutes(entry, now);
+      if (start >= monthStart) month += minutes;
+      if (start >= weekStart) week += minutes;
+      if (start >= dayStart) today += minutes;
+      if (entry.clockOut === null) {
+        clockedIn = true;
+        clockedInSince = entry.clockIn;
+      }
+    }
+    return {
+      employeeId: employee.id,
+      employeeName: employee.name,
+      role: employee.role,
+      department: employee.department,
+      clockedIn,
+      clockedInSince,
+      todayMinutes: today,
+      weekMinutes: week,
+      monthMinutes: month,
+    };
+  });
+}
+
+export async function clockIn(employeeId: string): Promise<TimeClockEntry> {
+  const db = await readDb();
+  if (!db.employees.some((e) => e.id === employeeId)) throw new Error("Mitarbeiter nicht gefunden.");
+  if (db.timeClockEntries.some((e) => e.employeeId === employeeId && e.clockOut === null)) {
+    throw new Error("Bereits eingestempelt.");
+  }
+  const entry: TimeClockEntry = {
+    id: makeId(employeeId),
+    employeeId,
+    clockIn: new Date().toISOString(),
+    clockOut: null,
+  };
+  db.timeClockEntries.push(entry);
+  await writeDb(db);
+  return entry;
+}
+
+export async function clockOut(employeeId: string): Promise<TimeClockEntry> {
+  const db = await readDb();
+  const entry = db.timeClockEntries.find((e) => e.employeeId === employeeId && e.clockOut === null);
+  if (!entry) throw new Error("Nicht eingestempelt.");
+  entry.clockOut = new Date().toISOString();
+  await writeDb(db);
+  return entry;
 }
 
 // ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@ import {
   type Partner,
 } from "@/lib/data";
 import { fleet as fleetSeed, type FleetVehicle } from "@/lib/data";
-import { initialOrders, initialVehicles, driverRoster, type OrderRecord, type VehicleRecord } from "@/lib/fleet-data";
+import { initialOrders, initialVehicles, type OrderRecord, type VehicleRecord } from "@/lib/fleet-data";
 import { roleLabels, type RoleKey } from "@/lib/roles";
 
 export type { OrderMessage } from "@/lib/fleet-data";
@@ -36,6 +36,7 @@ export type ReminderEntry = { id: string; text: string; at: string; read: boolea
 // circular import between fleet-data.ts and this file.)
 
 export type DriverCardRecord = {
+  employeeId: string;
   driverName: string;
   active: boolean;
   drivingTodayMinutes: number;
@@ -178,11 +179,63 @@ export type InvoiceStatus = "Offen" | "Bezahlt" | "Überfällig";
 
 export type InvoiceRecord = {
   number: string;
+  /** Links to CustomerRecord.id — "" for legacy invoices created before Kundenstammbaum existed. */
+  customerId: string;
+  /** Snapshot of the customer's company name at creation time, so the invoice stays readable even if the customer record is later renamed or deleted. */
   customer: string;
+  /** Snapshot of the customer's Kundennummer at creation time, same reasoning as `customer`. */
+  customerNumber: string;
+  /** Name of the employee who created the invoice, captured at creation time. */
+  sachbearbeiter: string;
   date: string;
   total: number;
   status: InvoiceStatus;
   items: InvoiceLineItem[];
+};
+
+/**
+ * Kundenstammbaum entry — a customer's base data, kept separately so a
+ * Rechnung only needs to reference a customer instead of re-typing their
+ * details every time. Visible only to Geschäftsführung, Prokurist,
+ * Betriebsleitung and Disposition (see roleModuleAccess in roles.ts).
+ */
+export type CustomerRecord = {
+  id: string;
+  /** Sequential, human-facing customer number, e.g. "K-0001". */
+  customerNumber: string;
+  companyName: string;
+  contactName: string;
+  street: string;
+  zip: string;
+  city: string;
+  email: string;
+  phone: string;
+  notes: string;
+  createdAt: string;
+};
+
+/**
+ * A single Stempeluhr clock-in/clock-out punch for one employee.
+ * `clockOut` is null while the employee is still clocked in.
+ */
+export type TimeClockEntry = {
+  id: string;
+  employeeId: string;
+  clockIn: string;
+  clockOut: string | null;
+};
+
+/** Server-computed per-employee Stempeluhr overview, derived from TimeClockEntry[] at read time. */
+export type TimeClockSummary = {
+  employeeId: string;
+  employeeName: string;
+  role: string;
+  department: string;
+  clockedIn: boolean;
+  clockedInSince: string | null;
+  todayMinutes: number;
+  weekMinutes: number;
+  monthMinutes: number;
 };
 
 function slugify(input: string): string {
@@ -223,6 +276,8 @@ export type Db = {
   lastInventoryAt: string | null;
   trips: TripRecord[];
   invoices: InvoiceRecord[];
+  customers: CustomerRecord[];
+  timeClockEntries: TimeClockEntry[];
   news: NewsRecord[];
   jobs: JobRecord[];
   services: ServiceRecord[];
@@ -293,15 +348,11 @@ function seedEmployees(): EmployeeRecord[] {
     { username: "lager", discordId: "", discordUsername: "", name: "Sandra Lehmann", role: "Leiterin Lagerlogistik", roleKey: "lager", department: "Lager" },
     { username: "fuhrpark", discordId: "", discordUsername: "", name: "Jonas Petersen", role: "Leiter Fuhrparkmanagement", roleKey: "fuhrpark", department: "Fuhrpark & Werkstatt" },
     { username: "buchhaltung", discordId: "", discordUsername: "", name: "Dennis Kramer", role: "Leiter Buchhaltung", roleKey: "buchhaltung", department: "Finanzbuchhaltung" },
-    ...driverRoster.map((name, i) => ({
-      username: `fahrer${i + 1}`,
-      discordId: "",
-      discordUsername: "",
-      name,
-      role: roleLabels.fahrer,
-      roleKey: "fahrer" as const,
-      department: "Fahrbetrieb",
-    })),
+    // No demo "Fahrer" accounts are seeded here (unlike the roles above) —
+    // Digitale Fahrerkarte mirrors whichever real employees Geschäftsführung
+    // adds with roleKey "fahrer" under Verwaltung → Mitarbeiter-Konten (see
+    // the driver-cards sync in server/store.ts), so there's nothing fictional
+    // to seed and no placeholder for an operator to forget to replace.
   ];
   return base.map((e) => ({ ...e, id: makeId(e.username) }));
 }
@@ -311,22 +362,17 @@ export function seedDb(): Db {
   return {
     vehicles: initialVehicles,
     orders: initialOrders.map((o) => ({ ...o, messages: [] })),
-    driverCards: driverRoster.map((name) => ({
-      driverName: name,
-      active: false,
-      drivingTodayMinutes: 0,
-      drivingWeekMinutes: 0,
-      onBreak: false,
-      breakStartedAt: null,
-      breakTakenTodayMinutes: 0,
-      reminders: [],
-    })),
+    // Starts empty — driver cards are created automatically (see the sync in
+    // server/store.ts) for whichever real employees have roleKey "fahrer".
+    driverCards: [],
     employees,
     personnelFiles: employees.map((e) => makeEmptyPersonnelFile(e.id)),
     stockItems: [],
     lastInventoryAt: null,
     trips: [],
     invoices: [],
+    customers: [],
+    timeClockEntries: [],
     news: newsSeed,
     jobs: jobsSeed,
     services: servicesSeed,

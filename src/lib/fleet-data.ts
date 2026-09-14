@@ -42,14 +42,6 @@ export type OrderRecord = {
   requestedDeliveryDate: string;
 };
 
-export const driverRoster = [
-  "Lukas Schmidt",
-  "Piotr Nowak",
-  "Timo Fischer",
-  "Anja Krüger",
-  "Rafael Lindt",
-] as const;
-
 export const initialVehicles: VehicleRecord[] = [
   { plate: "SN-BF 101", type: "Sattelzugmaschine Euro 6", year: 2024, mileage: 128450, nextService: "2026-10-02", nextTuv: "2027-03-15", maintenanceStatus: "Einsatzbereit", activeDriver: null, activeSince: null },
   { plate: "SN-BF 102", type: "Sattelzugmaschine Euro 6", year: 2023, mileage: 189320, nextService: "2026-09-18", nextTuv: "2026-11-30", maintenanceStatus: "Einsatzbereit", activeDriver: null, activeSince: null },

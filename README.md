@@ -38,13 +38,20 @@ durchgesetzt in `DashboardShell`).
 | --- | --- |
 | Geschäftsführer | **Alles**, inkl. Verwaltung und Personalakten; einzige Rolle mit Fahrzeuge anlegen/löschen |
 | Prokurist | **Identisch zum Geschäftsführer** — beide Rollen teilen sich dieselbe Berechtigungsliste (`src/lib/roles.ts`) |
-| Betriebsleiter | Disposition, Lagerverwaltung, Fahrzeugverwaltung, Fahrtenbuch, Fahrerkarte (aller Fahrer) |
-| Chefdisponent | Disposition, Fahrzeugverwaltung, Fahrerkarte (aller Fahrer, inkl. Erinnerungen senden) |
-| Disponent | Disposition |
-| Lager | Lagerverwaltung & Inventuren |
-| Fuhrpark & Werkstatt | Fahrzeugverwaltung (nur lesend), Digitales Fahrtenbuch |
-| Buchhaltung | Rechnungserstellung (inkl. PDF-Export), Finanzbuchhaltung |
-| Fahrer | Nur eigene Fahrerkarte + „Aktuelle Aufträge" (Chat mit der Disposition) |
+| Betriebsleiter | Disposition, Lagerverwaltung, Fahrzeugverwaltung, Fahrtenbuch, Fahrerkarte (aller Fahrer), Kundenstammbaum, Stempeluhr (inkl. Team-Übersicht) |
+| Chefdisponent | Disposition, Fahrzeugverwaltung, Fahrerkarte (aller Fahrer, inkl. Erinnerungen senden), Kundenstammbaum, Stempeluhr |
+| Disponent | Disposition, Kundenstammbaum, Stempeluhr |
+| Lager | Lagerverwaltung & Inventuren, Stempeluhr |
+| Fuhrpark & Werkstatt | Fahrzeugverwaltung (nur lesend), Digitales Fahrtenbuch, Stempeluhr |
+| Buchhaltung | Rechnungserstellung (inkl. PDF-Export), Finanzbuchhaltung, Stempeluhr |
+| Fahrer | Nur eigene Fahrerkarte, „Aktuelle Aufträge" (Chat mit der Disposition) und Stempeluhr |
+
+Stempeluhr ist bei **jeder** Rolle in der Sichtbarkeitsliste, weil sich jeder Mitarbeiter ein- und ausstempelt —
+die Team-Übersicht über alle Mitarbeiter zeigt die Seite aber nur Geschäftsführung, Prokurist und Betriebsleitung
+(siehe „Stempeluhr" unten). Kundenstammbaum ist wie Personalakten nach Aufgabenbereich beschränkt: Geschäftsführung,
+Prokurist, Betriebsleitung und Disposition (Chefdisponent + Disponent) — alle anderen Rollen mit
+Rechnungserstellung wählen einen Kunden trotzdem ganz normal in der Rechnung aus, ohne diesen eigenen Menüpunkt zu
+sehen.
 
 Personalakten sind bewusst auf Geschäftsführer und Prokurist beschränkt — von allen Rollen sind das die
 einzigen, zu deren Aufgaben laut Rollenbeschreibung explizit Personalentscheidungen gehören, und die Daten
@@ -177,6 +184,13 @@ Geschäftsführer sehen **alle** Fahrerkarten auf einen Blick, farblich markiert
 Fahrer eine Erinnerung senden — die dem Fahrer als Banner auf seiner Fahrerkarte erscheint, bis er sie bestätigt
 (`src/app/api/driver-cards/route.ts`).
 
+Es gibt **keine** feste Fahrer-Liste mehr: eine Fahrerkarte wird automatisch für jeden echten Mitarbeiter mit
+Rolle „Fahrer" angelegt (und bei Umbenennung/Rollenwechsel/Löschung automatisch nachgeführt bzw. entfernt) — das
+war früher eine fest einprogrammierte Demo-Besetzung („Lukas Schmidt" & Co.), die inzwischen ersatzlos entfernt
+wurde. Meldet sich ausnahmsweise jemand ohne Rolle „Fahrer" an einem Fahrzeug an (z. B. Geschäftsführung, die
+eine Schicht übernimmt), bekommt auch diese Person automatisch eine Fahrerkarte, die dann dauerhaft erhalten
+bleibt (`src/lib/server/store.ts`, Abschnitt „Driver cards must reflect real employees…").
+
 ### Auftragsanfragen von der Website
 
 Über „Auftrag einreichen" eingehende Anfragen landen mit Status „Angefragt" direkt bei der Disposition
@@ -228,9 +242,36 @@ und dem echten Fuhrpark, nicht aus einer festen Liste (`src/app/api/trips/*`).
 ### Rechnungserstellung mit PDF-Export
 
 Rechnungen werden serverseitig gespeichert (`invoices`-Collection, starten leer) und lassen sich mit Positionen
-kalkulieren, deren Zahlungsstatus (Offen/Bezahlt/Überfällig) direkt in der Liste ändern und zusätzlich direkt als
-PDF herunterladen (`src/lib/invoice-pdf.ts`, via `jspdf`) — sowohl beim Erstellen als auch nachträglich aus der
-Liste (`src/app/api/invoices/*`).
+kalkulieren, deren Zahlungsstatus (Offen/Bezahlt/Überfällig) direkt in der Liste ändern, endgültig **löschen**
+und zusätzlich direkt als PDF herunterladen (`src/lib/invoice-pdf.ts`, via `jspdf`) — sowohl beim Erstellen als
+auch nachträglich aus der Liste (`src/app/api/invoices/*`).
+
+Der Kunde wird beim Erstellen nur noch aus dem Kundenstammbaum **ausgewählt** (kein Freitextfeld mehr); Kundenname
+und Kundennummer werden zum Erstellungszeitpunkt in die Rechnung übernommen, sodass sie auch dann noch lesbar
+bleibt, wenn der Kunde später umbenannt oder gelöscht wird. Der Sachbearbeiter wird automatisch aus dem
+angemeldeten Mitarbeiter-Konto übernommen. Sowohl die Rechnungsliste als auch das PDF zeigen mindestens
+Rechnungsnummer, Datum, Sachbearbeiter und Kundennummer. Das PDF-Layout orientiert sich bewusst am
+Arbeitsvertrag (siehe „Personalakten" oben): gebrandete Seitenleiste, getönter Briefkopf und eine
+„Auf einen Blick"-Infokarte mit genau diesen vier Angaben (`src/lib/invoice-pdf.ts`); anders als der serverseitig
+erzeugte Arbeitsvertrag läuft die PDF-Erzeugung hier im Browser, das Firmenlogo wird dafür per Fetch von
+`/api/company/logo` nachgeladen.
+
+### Kundenstammbaum
+
+Eigener Reiter zur zentralen Pflege der Kundendaten (Firmenname, Ansprechpartner, Adresse, Kontakt, Notizen) —
+jeder Kunde bekommt beim Anlegen automatisch eine fortlaufende Kundennummer (`K-0001`, `K-0002`, …). Sichtbar für
+Geschäftsführung, Prokurist, Betriebsleitung und Disposition (Chefdisponent + Disponent), siehe Rollentabelle
+oben (`src/app/mitarbeiter/(dashboard)/kundenstammbaum/`, `src/app/api/customers/*`).
+
+### Stempeluhr
+
+Jeder Mitarbeiter stempelt sich selbst ein und aus; die Seite zeigt die eigene gearbeitete Zeit für heute, diese
+Woche und diesen Monat (Wochenzählung Montag–Sonntag). Geschäftsführung, Prokurist und Betriebsleitung sehen
+zusätzlich eine Team-Übersicht aller Mitarbeiter mit demselben Zeitraster. Die Zeiten werden aus einem einfachen
+Ein-/Ausstempel-Protokoll je Mitarbeiter bei jedem Aufruf neu berechnet, nicht inkrementell mitgezählt
+(`src/app/mitarbeiter/(dashboard)/stempeluhr/`, `src/app/api/timeclock/*`). Wie bei den Lenkzeiten der digitalen
+Fahrerkarte ist das ein einfaches Arbeitszeit-Tool für dieses fiktive Setting, keine rechtssichere
+Zeiterfassung.
 
 ### Finanzbuchhaltung
 
@@ -258,7 +299,7 @@ Dies ist eine funktionale Demo mit einem schlanken eigenen Backend. Vor einem ec
   durchgesetzte Rollen/Rechte auf jeder API-Route (z. B. Session-Cookie in jeder Route Handler prüfen, bevor
   Daten gelesen/geändert werden) — bei den Personalakten idealerweise als Erstes.
 - **Datenpersistenz**: Disposition, Fahrzeuge, Fahrerkarten, Aufträge/Chat, Lagerbestände, Fahrtenbuch, Rechnungen,
-  Personalakten und alle Website-Inhalte laufen über einen dateibasierten Store (eine JSON-Datei auf dem Server,
+  Kundenstammbaum, Stempeluhr, Personalakten und alle Website-Inhalte laufen über einen dateibasierten Store (eine JSON-Datei auf dem Server,
   `src/lib/server/store.ts`) — funktional korrekt für eine Einzelserver-Demo, aber nicht nebenläufigkeitssicher und
   kein Ersatz für eine echte Datenbank. Regelmäßige Backups von `.data/db.json` **und** `.data/uploads/`
   (Personalakten-Dokumente) sind empfehlenswert (siehe Hosting-Anleitungen).

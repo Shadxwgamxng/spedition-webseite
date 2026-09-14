@@ -46,6 +46,8 @@ const GESCHAEFTSFUEHRUNG_MODULES = [
   "fahrerkarte",
   "rechnungen",
   "finanzen",
+  "kundenstammbaum",
+  "stempeluhr",
   "auftraege",
   "personalakten",
   "verwaltung",
@@ -55,18 +57,30 @@ const GESCHAEFTSFUEHRUNG_MODULES = [
  * Which employee module routes (the segment under /mitarbeiter/) each role may
  * open. Enforced both for the sidebar (what's shown) and in DashboardShell
  * (what's actually reachable) — see `docs` note in dashboard-shell.tsx.
+ *
+ * "kundenstammbaum" is deliberately limited to Geschäftsführung, Prokurist,
+ * Betriebsleitung and Disposition (chefdisponent + disponent) — everyone else
+ * only ever needs to reference a customer from within Rechnungen, which reads
+ * the customer list directly rather than through this nav module.
+ *
+ * "stempeluhr" is on every role's list — everyone clocks in/out — but the
+ * page itself only shows the all-employees overview to the same management
+ * roles as Kundenstammbaum (see stempeluhr/page.tsx).
  */
 export const roleModuleAccess: Record<RoleKey, string[]> = {
   geschaeftsfuehrung: GESCHAEFTSFUEHRUNG_MODULES,
   prokurist: GESCHAEFTSFUEHRUNG_MODULES,
-  betriebsleiter: ["disposition", "lager", "fahrzeuge", "fahrtenbuch", "fahrerkarte"],
-  chefdisponent: ["disposition", "fahrzeuge", "fahrerkarte"],
-  disponent: ["disposition"],
-  lager: ["lager"],
-  fuhrpark: ["fahrzeuge", "fahrtenbuch"],
-  buchhaltung: ["rechnungen", "finanzen"],
-  fahrer: ["fahrerkarte", "auftraege"],
+  betriebsleiter: ["disposition", "lager", "fahrzeuge", "fahrtenbuch", "fahrerkarte", "kundenstammbaum", "stempeluhr"],
+  chefdisponent: ["disposition", "fahrzeuge", "fahrerkarte", "kundenstammbaum", "stempeluhr"],
+  disponent: ["disposition", "kundenstammbaum", "stempeluhr"],
+  lager: ["lager", "stempeluhr"],
+  fuhrpark: ["fahrzeuge", "fahrtenbuch", "stempeluhr"],
+  buchhaltung: ["rechnungen", "finanzen", "stempeluhr"],
+  fahrer: ["fahrerkarte", "auftraege", "stempeluhr"],
 };
+
+/** Roles that see the all-employees overview on Stempeluhr and manage Kundenstammbaum. */
+export const MANAGEMENT_ROLES: RoleKey[] = ["geschaeftsfuehrung", "prokurist", "betriebsleiter"];
 
 export function canAccessModule(role: RoleKey, moduleKey: string): boolean {
   return roleModuleAccess[role]?.includes(moduleKey) ?? false;

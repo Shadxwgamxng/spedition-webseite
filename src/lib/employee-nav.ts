@@ -1,6 +1,7 @@
 import {
   ChartIcon,
   ClipboardIcon,
+  ClockIcon,
   FolderIcon,
   IdCardIcon,
   InvoiceIcon,
@@ -8,6 +9,7 @@ import {
   RouteIcon,
   SettingsIcon,
   TruckIcon,
+  UsersIcon,
   WarehouseIcon,
 } from "@/components/ui/icons";
 
@@ -67,6 +69,20 @@ export const employeeModules = [
     label: "Finanzbuchhaltung",
     description: "Buchungen, offene Posten und Reporting.",
     icon: ChartIcon,
+  },
+  {
+    key: "kundenstammbaum",
+    href: "/mitarbeiter/kundenstammbaum",
+    label: "Kundenstammbaum",
+    description: "Kundendaten zentral pflegen und in Rechnungen einfach auswählen.",
+    icon: UsersIcon,
+  },
+  {
+    key: "stempeluhr",
+    href: "/mitarbeiter/stempeluhr",
+    label: "Stempeluhr",
+    description: "Ein- und ausstempeln und Arbeitszeiten je Woche und Monat im Blick.",
+    icon: ClockIcon,
   },
   {
     key: "personalakten",
