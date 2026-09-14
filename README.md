@@ -147,8 +147,11 @@ schickt es dem Mitarbeitenden per Discord-DM als Anhang (`sendDiscordDmWithFile`
 `src/lib/server/discord-bot.ts`). Das passiert nur **einmal** pro Akte (`contractGeneratedAt`-Zeitstempel) —
 spätere Änderungen an bereits vollständigen Akten lösen keine erneute Erstellung aus. Schlägt der DM-Versand
 fehl, bleibt das erzeugte PDF trotzdem in der Akte hinterlegt und kann manuell heruntergeladen werden. Das
-Vertragslayout ist ein generisches Template für eine fiktive Spedition (kein rechtsgeprüftes Dokument); Firmenname,
--adresse und -logo dafür pflegt die Geschäftsführung unter Verwaltung → Unternehmensdaten.
+Vertragslayout ist ein generisches Template für eine fiktive Spedition (kein rechtsgeprüftes Dokument) mit 14
+Vertragsparagraphen (Tätigkeit, Beginn/Probezeit, Arbeitszeit, Vergütung, Urlaub, Krankmeldung, Nebentätigkeiten,
+Pflichten beider Seiten, Verschwiegenheit, Haftung, Kündigung, Schlussbestimmungen) sowie einem gebrandeten
+Deckblatt mit „Auf einen Blick"-Infokarte (Position, Abteilung, Beschäftigung, Beginn); Firmenname, -adresse und
+-logo dafür pflegt die Geschäftsführung unter Verwaltung → Unternehmensdaten.
 
 Über den Button **„Arbeitsvertrag neu erstellen"** in der jeweiligen Akte lässt sich jederzeit manuell ein neuer
 Arbeitsvertrag mit den aktuellen Daten erzeugen — z. B. nach einer Beförderung, wenn sich Rolle oder Abteilung
