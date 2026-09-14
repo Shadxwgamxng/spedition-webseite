@@ -124,9 +124,9 @@ nur Geschäftsführer und Prokurist in der Sidebar sehen und öffnen können (Ro
 leitet bei direktem Aufruf durch andere Rollen zur Übersicht um). Jedes Mitarbeiter-Konto legt automatisch eine
 eigene Akte an (1:1, `personnelFiles`-Collection) — sowohl neu angelegte Konten als auch die Seed-Konten beim
 ersten Start. Eine Akte enthält persönliche Daten (Geburtsdatum/-ort, Staatsangehörigkeit, Adresse, private
-Telefonnummer/E-Mail), Beschäftigungsdaten (Eintrittsdatum, Beschäftigungsart), Krankenkasse, IBAN sowie einen
-Notfallkontakt und ein freies Notizfeld — alles direkt in der Akte editierbar. Zusätzlich lassen sich beliebige
-Dateien hochladen (z. B. Ausweiskopie) und einzeln wieder löschen.
+Telefonnummer/E-Mail), Beschäftigungsdaten (Eintrittsdatum, Beschäftigungsart), Krankenkasse und IBAN sowie ein
+freies Notizfeld — alles direkt in der Akte editierbar. Zusätzlich lassen sich beliebige Dateien hochladen
+(z. B. Ausweiskopie) und einzeln wieder löschen.
 
 Die Datei-Metadaten (Name, Typ, Größe, Zeitpunkt) liegen in `.data/db.json`, die hochgeladenen Bytes selbst
 liegen separat unter `.data/uploads/` (ebenfalls git-ignoriert), referenziert über eine zufällige Datei-ID —

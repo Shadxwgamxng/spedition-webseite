@@ -97,17 +97,34 @@ async function readDb(): Promise<Db> {
     }
   }
 
-  // Steuer-ID and Sozialversicherungsnummer were removed from Personalakten —
-  // actually erase any values already on disk, not just hide the fields in
-  // the UI, and backfill the new contractGeneratedAt tracking field.
+  // Steuer-ID, Sozialversicherungsnummer and Notfallkontakt were removed from
+  // Personalakten — actually erase any values already on disk, not just hide
+  // the fields in the UI, and backfill the new contractGeneratedAt tracking
+  // field. Removing emergencyContactName/-Phone from CONTRACT_REQUIRED_FIELDS
+  // also means an Akte that was already complete except for those two fields
+  // is now complete — the next PATCH to it (e.g. just re-opening and saving)
+  // generates its Arbeitsvertrag automatically.
   for (const file of db.personnelFiles) {
-    const record = file as PersonnelFileRecord & { taxId?: string; socialSecurityNumber?: string };
+    const record = file as PersonnelFileRecord & {
+      taxId?: string;
+      socialSecurityNumber?: string;
+      emergencyContactName?: string;
+      emergencyContactPhone?: string;
+    };
     if ("taxId" in record) {
       delete record.taxId;
       changed = true;
     }
     if ("socialSecurityNumber" in record) {
       delete record.socialSecurityNumber;
+      changed = true;
+    }
+    if ("emergencyContactName" in record) {
+      delete record.emergencyContactName;
+      changed = true;
+    }
+    if ("emergencyContactPhone" in record) {
+      delete record.emergencyContactPhone;
       changed = true;
     }
     if (record.contractGeneratedAt === undefined) {

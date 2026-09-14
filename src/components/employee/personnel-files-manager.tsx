@@ -23,8 +23,6 @@ type PersonnelFile = {
   employmentType: string;
   healthInsurance: string;
   iban: string;
-  emergencyContactName: string;
-  emergencyContactPhone: string;
   notes: string;
   contractGeneratedAt: string | null;
   documents: PersonnelDocument[];
@@ -172,8 +170,6 @@ function PersonnelFileForm({ file, onSaved }: { file: PersonnelFile; onSaved: ()
       <Field label="Beschäftigungsart" name="employmentType" placeholder="z. B. Vollzeit" defaultValue={file.employmentType} />
       <Field label="Krankenkasse" name="healthInsurance" defaultValue={file.healthInsurance} />
       <Field label="IBAN" name="iban" defaultValue={file.iban} />
-      <Field label="Notfallkontakt: Name" name="emergencyContactName" defaultValue={file.emergencyContactName} />
-      <Field label="Notfallkontakt: Telefon" name="emergencyContactPhone" defaultValue={file.emergencyContactPhone} />
       <div className="sm:col-span-2 lg:col-span-3">
         <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor={`notes-${file.employeeId}`}>
           Notizen

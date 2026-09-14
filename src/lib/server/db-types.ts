@@ -97,8 +97,6 @@ export type PersonnelFileRecord = {
   employmentType: string;
   healthInsurance: string;
   iban: string;
-  emergencyContactName: string;
-  emergencyContactPhone: string;
   notes: string;
   /** ISO timestamp once the Arbeitsvertrag has been auto-generated for this file, or null. Set once, never re-triggered. */
   contractGeneratedAt: string | null;
@@ -123,8 +121,6 @@ export const CONTRACT_REQUIRED_FIELDS = [
   "employmentType",
   "healthInsurance",
   "iban",
-  "emergencyContactName",
-  "emergencyContactPhone",
 ] as const satisfies readonly (keyof PersonnelFileRecord)[];
 
 export function isPersonnelFileComplete(file: PersonnelFileRecord): boolean {
@@ -147,8 +143,6 @@ export function makeEmptyPersonnelFile(employeeId: string): PersonnelFileRecord 
     employmentType: "",
     healthInsurance: "",
     iban: "",
-    emergencyContactName: "",
-    emergencyContactPhone: "",
     notes: "",
     contractGeneratedAt: null,
     documents: [],

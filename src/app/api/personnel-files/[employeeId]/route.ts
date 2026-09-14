@@ -23,8 +23,6 @@ const TEXT_FIELDS: (keyof Omit<PersonnelFileRecord, "id" | "employeeId" | "docum
   "employmentType",
   "healthInsurance",
   "iban",
-  "emergencyContactName",
-  "emergencyContactPhone",
   "notes",
 ];
 
