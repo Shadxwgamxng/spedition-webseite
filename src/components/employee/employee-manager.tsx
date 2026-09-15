@@ -7,7 +7,12 @@ import { CheckIcon } from "@/components/ui/icons";
 import { roleKeys, roleLabels, type RoleKey } from "@/lib/roles";
 import type { EmployeeUser } from "@/lib/auth";
 
-type Employee = EmployeeUser & { id: string };
+type Employee = EmployeeUser & {
+  id: string;
+  /** Set when this account is synced from the FiveM Speditions-Tablet (see README "Tablet-Sync") — role changes then come from there, not this form. */
+  tabletEmployeeId?: number | null;
+  status?: "aktiv" | "inaktiv";
+};
 
 const NEW = "__new__";
 
@@ -34,9 +39,16 @@ export function EmployeeManager() {
       discordId: String(form.get("discordId") ?? ""),
       discordUsername: String(form.get("discordUsername") ?? ""),
       name: String(form.get("name") ?? ""),
-      roleKey: String(form.get("roleKey") ?? ""),
       department: String(form.get("department") ?? ""),
     };
+    // roleKey ist bei einem Tablet-verknüpften Konto ausgegraut (die Rolle
+    // wird dort verwaltet) — ein disabled <select> liefert keinen Wert in
+    // FormData, also roleKey hier ganz weglassen statt eine leere Rolle
+    // mitzuschicken (würde die Speicherung sonst mit "Ungültige Rolle."
+    // ablehnen).
+    if (!editingEmployee?.tabletEmployeeId) {
+      payload.roleKey = String(form.get("roleKey") ?? "");
+    }
 
     try {
       const res = await fetch(isNew ? "/api/employees" : `/api/employees/${editingId}`, {
@@ -154,8 +166,9 @@ export function EmployeeManager() {
             <select
               id="roleKey"
               name="roleKey"
+              disabled={Boolean(editingEmployee?.tabletEmployeeId)}
               defaultValue={editingEmployee?.roleKey ?? ("disponent" satisfies RoleKey)}
-              className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+              className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 disabled:bg-mist-100 disabled:text-navy-700/60"
             >
               {roleKeys.map((key) => (
                 <option key={key} value={key}>
@@ -163,6 +176,11 @@ export function EmployeeManager() {
                 </option>
               ))}
             </select>
+            {editingEmployee?.tabletEmployeeId ? (
+              <p className="mt-1 text-xs text-navy-700/50">
+                Verknüpft mit Tablet-Konto #{editingEmployee.tabletEmployeeId} — die Rolle wird dort verwaltet.
+              </p>
+            ) : null}
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor="department">
@@ -211,6 +229,11 @@ export function EmployeeManager() {
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold text-navy-900">
                   {employee.name} <span className="font-mono text-xs font-normal text-navy-700/50">({employee.username})</span>
+                  {employee.status === "inaktiv" ? (
+                    <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700">
+                      Inaktiv
+                    </span>
+                  ) : null}
                 </div>
                 <div className="truncate text-xs text-navy-700/60">
                   {employee.role} · {employee.department}
@@ -222,6 +245,9 @@ export function EmployeeManager() {
                     <span className="text-amber-600">Noch nicht mit Discord verknüpft — Login nicht möglich</span>
                   )}
                 </div>
+                {employee.tabletEmployeeId ? (
+                  <div className="truncate text-xs text-navy-700/50">🎮 Verknüpft mit Tablet-Konto #{employee.tabletEmployeeId}</div>
+                ) : null}
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 <button

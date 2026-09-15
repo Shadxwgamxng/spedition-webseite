@@ -12,6 +12,8 @@ export type VehicleRecord = {
   activeDriver: string | null;
   /** ISO timestamp of when the current driver logged in, or null. */
   activeSince: string | null;
+  /** st_vehicles.id from the FiveM Speditions-Tablet, if this vehicle is synced from there — null for website-only vehicles. See src/app/api/tablet/webhook/route.ts. */
+  tabletVehicleId?: number | null;
 };
 
 export type OrderStatus = "Angefragt" | "Neu" | "Disponiert" | "Unterwegs" | "Zugestellt" | "Abgelehnt";
@@ -31,8 +33,10 @@ export type OrderRecord = {
   vehiclePlate: string | null;
   createdAt: string;
   messages: OrderMessage[];
-  /** "web" = anonymous public "Auftrag einreichen" submission; "kunde" = submitted by a logged-in Bestandskunde via /kunden; "intern" = created directly by Disposition. */
-  origin: "web" | "kunde" | "intern";
+  /** "web" = anonymous public "Auftrag einreichen" submission; "kunde" = submitted by a logged-in Bestandskunde via /kunden; "intern" = created directly by Disposition; "tablet" = synced from the FiveM Speditions-Tablet (see src/app/api/tablet/webhook/route.ts) — Disposition-Aktionen auf solchen Aufträgen laufen über die Befehls-Queue (pendingCommands) statt direktem PATCH, damit sich im Spiel wirklich etwas ändert. */
+  origin: "web" | "kunde" | "intern" | "tablet";
+  /** st_orders.id from the FiveM Speditions-Tablet, if this order originated there — null otherwise. */
+  tabletOrderId?: number | null;
   /** Links to CustomerRecord.id for "kunde" orders (so /kunden can list "my orders"); null otherwise. */
   customerId: string | null;
   contactName: string;
