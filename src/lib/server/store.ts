@@ -8,6 +8,7 @@ import {
   type ApplicationStatus,
   type CollectionName,
   type CompanyInfo,
+  type ContactInquiryRecord,
   type CustomerRecord,
   type Db,
   type DriverCardRecord,
@@ -21,6 +22,7 @@ import {
   type PartnerRecord,
   type PersonnelDocumentRecord,
   type PersonnelFileRecord,
+  type PublicCustomer,
   type PublicEmployee,
   type ReminderEntry,
   type ReviewRecord,
@@ -324,6 +326,32 @@ async function readDb(): Promise<Db> {
     }
   }
 
+  // Backfill Bestandskunden-Dispositionssystem fields onto customers created
+  // before that feature existed — defaults to unlinked/disabled, never
+  // silently enabling portal access for an existing customer.
+  for (const customer of db.customers ?? []) {
+    const record = customer as CustomerRecord & { discordId?: string; portalEnabled?: boolean };
+    if (record.discordId === undefined) {
+      record.discordId = "";
+      changed = true;
+    }
+    if (record.portalEnabled === undefined) {
+      record.portalEnabled = false;
+      changed = true;
+    }
+  }
+
+  // Backfill customerId onto orders created before the Bestandskunden-Portal
+  // existed, so old orders stay readable instead of crashing on the
+  // now-required field.
+  for (const order of db.orders ?? []) {
+    const record = order as OrderRecord & { customerId?: string | null };
+    if (record.customerId === undefined) {
+      record.customerId = null;
+      changed = true;
+    }
+  }
+
   if (changed) await writeDb(db as Db);
   return db as Db;
 }
@@ -592,13 +620,20 @@ export async function getOrders(): Promise<OrderRecord[]> {
   return db.orders;
 }
 
+/** Scoped to one Bestandskunde's own orders — used by /kunden, never returns other customers'/anonymous orders. */
+export async function getOrdersForCustomer(customerId: string): Promise<OrderRecord[]> {
+  const db = await readDb();
+  return db.orders.filter((o) => o.customerId === customerId);
+}
+
 export async function createOrder(input: {
   customer: string;
   pickup: string;
   delivery: string;
   date?: string;
   notes?: string;
-  origin?: "web" | "intern";
+  origin?: "web" | "kunde" | "intern";
+  customerId?: string | null;
   contactName?: string;
   email?: string;
   phone?: string;
@@ -618,7 +653,7 @@ export async function createOrder(input: {
     pickup: input.pickup,
     delivery: input.delivery,
     // Internal orders (Disposition's "Neuer Auftrag") are scheduled immediately;
-    // web submissions get their confirmed date only once Disposition accepts them.
+    // web/kunde submissions get their confirmed date only once Disposition accepts them.
     date: origin === "intern" ? (input.date ?? "") : "",
     notes: input.notes ?? "",
     status: origin === "intern" ? "Neu" : "Angefragt",
@@ -627,6 +662,7 @@ export async function createOrder(input: {
     createdAt: new Date().toISOString(),
     messages: [],
     origin,
+    customerId: input.customerId ?? null,
     contactName: input.contactName ?? "",
     email: input.email ?? "",
     phone: input.phone ?? "",
@@ -1019,6 +1055,11 @@ export async function getCustomers(): Promise<CustomerRecord[]> {
   return db.customers;
 }
 
+export async function getCustomerById(id: string): Promise<CustomerRecord | null> {
+  const db = await readDb();
+  return db.customers.find((c) => c.id === id) ?? null;
+}
+
 export async function createCustomer(input: {
   companyName: string;
   contactName: string;
@@ -1028,10 +1069,20 @@ export async function createCustomer(input: {
   email: string;
   phone: string;
   notes: string;
+  discordId?: string;
+  portalEnabled?: boolean;
 }): Promise<CustomerRecord> {
   const companyName = input.companyName.trim();
   if (!companyName) throw new Error("Firmenname ist erforderlich.");
+  const discordId = input.discordId?.trim() ?? "";
+  const portalEnabled = input.portalEnabled ?? false;
+  if (portalEnabled && !discordId) {
+    throw new Error("Für die Freischaltung des Dispositionssystems ist eine Discord-Nutzer-ID erforderlich.");
+  }
   const db = await readDb();
+  if (discordId && db.customers.some((c) => c.discordId === discordId)) {
+    throw new Error("Diese Discord-Nutzer-ID ist bereits einem anderen Kunden zugeordnet.");
+  }
   const maxNumber = db.customers.reduce((max, c) => {
     const n = Number(c.customerNumber.split("-").pop());
     return Number.isFinite(n) ? Math.max(max, n) : max;
@@ -1047,6 +1098,8 @@ export async function createCustomer(input: {
     email: input.email.trim(),
     phone: input.phone.trim(),
     notes: input.notes,
+    discordId,
+    portalEnabled,
     createdAt: new Date().toISOString(),
   };
   db.customers.push(customer);
@@ -1064,9 +1117,24 @@ export async function updateCustomer(
   if (patch.companyName !== undefined && !patch.companyName.trim()) {
     throw new Error("Firmenname ist erforderlich.");
   }
-  Object.assign(customer, patch);
+  const nextDiscordId = patch.discordId !== undefined ? patch.discordId.trim() : customer.discordId;
+  const nextPortalEnabled = patch.portalEnabled !== undefined ? patch.portalEnabled : customer.portalEnabled;
+  if (nextPortalEnabled && !nextDiscordId) {
+    throw new Error("Für die Freischaltung des Dispositionssystems ist eine Discord-Nutzer-ID erforderlich.");
+  }
+  if (nextDiscordId && db.customers.some((c) => c.id !== id && c.discordId === nextDiscordId)) {
+    throw new Error("Diese Discord-Nutzer-ID ist bereits einem anderen Kunden zugeordnet.");
+  }
+  Object.assign(customer, patch, { discordId: nextDiscordId, portalEnabled: nextPortalEnabled });
   await writeDb(db);
   return customer;
+}
+
+/** Bestandskunden-Login (/kunden) — matches a Discord user against a customer with the portal explicitly enabled. */
+export async function verifyCustomerLogin(discordId: string): Promise<PublicCustomer | null> {
+  const db = await readDb();
+  const customer = db.customers.find((c) => c.portalEnabled && c.discordId && c.discordId === discordId);
+  return customer ?? null;
 }
 
 export async function deleteCustomer(id: string): Promise<boolean> {
@@ -1338,4 +1406,69 @@ export async function getApplicationCv(
     size: application.cvSize,
     filePath: path.join(UPLOADS_DIR, id),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Kontaktanfragen (Kontaktformular auf /standort)
+// ---------------------------------------------------------------------------
+
+export async function getContactInquiries(): Promise<ContactInquiryRecord[]> {
+  const db = await readDb();
+  return db.contactInquiries;
+}
+
+export async function getContactInquiry(id: string): Promise<ContactInquiryRecord | null> {
+  const db = await readDb();
+  return db.contactInquiries.find((i) => i.id === id) ?? null;
+}
+
+export async function createContactInquiry(input: {
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  discordId: string;
+  message: string;
+}): Promise<ContactInquiryRecord> {
+  const name = input.name.trim();
+  const email = input.email.trim();
+  const discordId = input.discordId.trim();
+  if (!name) throw new Error("Name ist erforderlich.");
+  if (!email) throw new Error("E-Mail ist erforderlich.");
+  if (!discordId) throw new Error("Discord-Nutzer-ID ist erforderlich.");
+
+  const db = await readDb();
+  const inquiry: ContactInquiryRecord = {
+    id: makeId(name),
+    name,
+    company: input.company.trim(),
+    email,
+    phone: input.phone.trim(),
+    discordId,
+    message: input.message,
+    createdAt: new Date().toISOString(),
+    replies: [],
+  };
+  db.contactInquiries.unshift(inquiry);
+  await writeDb(db);
+  return inquiry;
+}
+
+export async function addContactReply(
+  id: string,
+  input: { text: string; sentBy: string },
+): Promise<ContactInquiryRecord | null> {
+  const text = input.text.trim();
+  if (!text) throw new Error("Nachricht darf nicht leer sein.");
+  const db = await readDb();
+  const inquiry = db.contactInquiries.find((i) => i.id === id);
+  if (!inquiry) return null;
+  inquiry.replies.push({
+    id: makeId(text),
+    text,
+    sentAt: new Date().toISOString(),
+    sentBy: input.sentBy,
+  });
+  await writeDb(db);
+  return inquiry;
 }

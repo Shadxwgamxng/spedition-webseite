@@ -21,6 +21,8 @@ export async function POST(request: Request) {
       email: String(body.email ?? ""),
       phone: String(body.phone ?? ""),
       notes: String(body.notes ?? ""),
+      discordId: String(body.discordId ?? ""),
+      portalEnabled: Boolean(body.portalEnabled),
     });
     return Response.json({ ok: true, customer }, { status: 201 });
   } catch (error) {

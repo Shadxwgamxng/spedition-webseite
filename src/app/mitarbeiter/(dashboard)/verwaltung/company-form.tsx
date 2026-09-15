@@ -18,8 +18,9 @@ const fields: Array<{ key: keyof CompanyInfo; label: string; type?: string }> = 
   { key: "email", label: "E-Mail (allgemein)", type: "email" },
   { key: "disposition_email", label: "E-Mail Disposition", type: "email" },
   { key: "karriere_email", label: "E-Mail Karriere", type: "email" },
-  { key: "mapsQuery", label: "Standort (für Kartensuche)" },
 ];
+
+type BusinessHour = { day: string; time: string };
 
 export function CompanyForm() {
   const [company, setCompany] = useState<CompanyInfo | null>(null);
@@ -28,6 +29,7 @@ export function CompanyForm() {
   const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
   const [removeLogoOnSave, setRemoveLogoOnSave] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
+  const [hours, setHours] = useState<BusinessHour[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,8 +40,21 @@ export function CompanyForm() {
       .then((json) => {
         setCompany(json.company);
         setHasLogo(Boolean(json.company.logoMimeType));
+        setHours(json.company.businessHours ?? []);
       });
   }, []);
+
+  function updateHour(index: number, patch: Partial<BusinessHour>) {
+    setHours((prev) => prev.map((h, i) => (i === index ? { ...h, ...patch } : h)));
+  }
+
+  function addHourRow() {
+    setHours((prev) => [...prev, { day: "", time: "" }]);
+  }
+
+  function removeHourRow(index: number) {
+    setHours((prev) => prev.filter((_, i) => i !== index));
+  }
 
   // Object URLs for a freshly picked (not-yet-uploaded) file must be revoked
   // again, or the browser keeps that image data alive for the page's lifetime.
@@ -79,6 +94,7 @@ export function CompanyForm() {
       const raw = form.get(field.key);
       payload[field.key] = field.type === "number" ? Number(raw) : String(raw ?? "");
     }
+    payload.businessHours = hours.filter((h) => h.day.trim() || h.time.trim());
 
     try {
       if (pendingLogoFile) {
@@ -175,6 +191,43 @@ export function CompanyForm() {
           />
         </div>
       ))}
+
+      <div className="sm:col-span-2">
+        <label className="mb-1.5 block text-xs font-medium text-navy-800">Erreichbarkeit</label>
+        <p className="mb-2 text-xs text-navy-700/50">
+          Erscheint auf der Seite &bdquo;Standort&ldquo; unter &bdquo;Erreichbarkeit&ldquo;.
+        </p>
+        <div className="space-y-2">
+          {hours.map((hour, index) => (
+            <div key={index} className="grid grid-cols-12 gap-2">
+              <input
+                value={hour.day}
+                onChange={(e) => updateHour(index, { day: e.target.value })}
+                placeholder="z. B. Montag – Freitag"
+                className="col-span-5 rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+              />
+              <input
+                value={hour.time}
+                onChange={(e) => updateHour(index, { time: e.target.value })}
+                placeholder="z. B. 06:00 – 20:00 Uhr"
+                className="col-span-6 rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+              />
+              <button
+                type="button"
+                onClick={() => removeHourRow(index)}
+                className="col-span-1 rounded-lg text-navy-700/40 hover:text-red-600"
+                aria-label="Zeile entfernen"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+        <button type="button" onClick={addHourRow} className="mt-2 text-xs font-semibold text-amber-600 hover:text-amber-700">
+          + Zeile hinzufügen
+        </button>
+      </div>
+
       <div className="sm:col-span-2 flex items-center gap-3">
         <button
           type="submit"

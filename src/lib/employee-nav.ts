@@ -7,6 +7,7 @@ import {
   InvoiceIcon,
   MailIcon,
   MessageIcon,
+  PhoneIcon,
   RouteIcon,
   SettingsIcon,
   TruckIcon,
@@ -98,6 +99,13 @@ export const employeeModules = [
     label: "Bewerbungen",
     description: "Eingehende Bewerbungen sichten und den Status je Bewerbung ändern.",
     icon: MailIcon,
+  },
+  {
+    key: "anfragen",
+    href: "/mitarbeiter/anfragen",
+    label: "Anfragen",
+    description: "Kontaktanfragen von der Website sichten und per Discord beantworten.",
+    icon: PhoneIcon,
   },
   {
     key: "verwaltung",

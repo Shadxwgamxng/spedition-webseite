@@ -7,6 +7,7 @@ import { MailIcon, MapPinIcon, PhoneIcon } from "@/components/ui/icons";
 const serviceLinks = [
   { href: "/leistungen", label: "Unsere Leistungen" },
   { href: "/auftrag", label: "Auftrag einreichen" },
+  { href: "/kunden/login", label: "Kunden-Login (Bestandskunden)" },
   { href: "/karriere", label: "Stellenangebote" },
   { href: "/bewerbung", label: "Bewerbungsportal" },
   { href: "/rezensionen", label: "Rezensionen" },

@@ -147,3 +147,14 @@ export function buildApplicationStatusDm(input: {
     `${statusText}`
   );
 }
+
+/**
+ * Wraps an employee's free-text reply to a Kontaktanfrage (/standort) in a
+ * consistent greeting/sign-off — unlike the Bewerbung status DMs, the body
+ * itself is written by hand each time, not templated. Uses formal "Sie"
+ * address, matching the public contact form's own tone (as opposed to the
+ * informal "du" used in the careers/Bewerbung section).
+ */
+export function buildContactReplyDm(name: string, text: string): string {
+  return `Hallo ${name},\n\n` + `Nachricht von der Baltic Freight GmbH zu Ihrer Anfrage:\n\n` + `${text}`;
+}

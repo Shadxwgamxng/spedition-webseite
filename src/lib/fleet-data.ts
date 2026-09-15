@@ -31,8 +31,10 @@ export type OrderRecord = {
   vehiclePlate: string | null;
   createdAt: string;
   messages: OrderMessage[];
-  /** "web" = submitted via the public "Auftrag einreichen" form and awaiting Disposition's review; "intern" = created directly by Disposition. */
-  origin: "web" | "intern";
+  /** "web" = anonymous public "Auftrag einreichen" submission; "kunde" = submitted by a logged-in Bestandskunde via /kunden; "intern" = created directly by Disposition. */
+  origin: "web" | "kunde" | "intern";
+  /** Links to CustomerRecord.id for "kunde" orders (so /kunden can list "my orders"); null otherwise. */
+  customerId: string | null;
   contactName: string;
   email: string;
   phone: string;
@@ -53,6 +55,7 @@ export const initialVehicles: VehicleRecord[] = [
 
 const internOrderDefaults = {
   origin: "intern" as const,
+  customerId: null,
   contactName: "",
   email: "",
   phone: "",
@@ -94,7 +97,7 @@ export const initialOrders: OrderRecord[] = [
     id: "BF-48218", customer: "Greifswalder Möbelmarkt GmbH", pickup: "Falkenwalde", delivery: "Greifswald", date: "",
     notes: "Anlieferung nur werktags vormittags möglich.", status: "Angefragt", driverName: null, vehiclePlate: null,
     createdAt: "2026-09-01T14:20:00.000Z", messages: [],
-    origin: "web", contactName: "Sabine Holz", email: "s.holz@moebelmarkt-hgw.de", phone: "+49 3834 55 12 30",
+    origin: "web", customerId: null, contactName: "Sabine Holz", email: "s.holz@moebelmarkt-hgw.de", phone: "+49 3834 55 12 30",
     cargoType: "Palettenware (Stückgut)", requestedPickupDate: "2026-09-08", requestedDeliveryDate: "2026-09-09",
   },
 ];

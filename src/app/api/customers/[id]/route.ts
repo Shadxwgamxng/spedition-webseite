@@ -1,6 +1,7 @@
+import type { CustomerRecord } from "@/lib/server/db-types";
 import { deleteCustomer, updateCustomer } from "@/lib/server/store";
 
-const TEXT_FIELDS = ["companyName", "contactName", "street", "zip", "city", "email", "phone", "notes"] as const;
+const TEXT_FIELDS = ["companyName", "contactName", "street", "zip", "city", "email", "phone", "notes", "discordId"] as const;
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/customers/[id]">) {
   const { id } = await ctx.params;
@@ -9,10 +10,11 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/customers/
     return Response.json({ ok: false, error: "Ungültige Daten." }, { status: 400 });
   }
 
-  const patch: Partial<Record<(typeof TEXT_FIELDS)[number], string>> = {};
+  const patch: Partial<Pick<CustomerRecord, (typeof TEXT_FIELDS)[number] | "portalEnabled">> = {};
   for (const key of TEXT_FIELDS) {
     if (typeof body[key] === "string") patch[key] = body[key];
   }
+  if (typeof body.portalEnabled === "boolean") patch.portalEnabled = body.portalEnabled;
 
   try {
     const customer = await updateCustomer(id, patch);

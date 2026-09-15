@@ -51,6 +51,7 @@ const GESCHAEFTSFUEHRUNG_MODULES = [
   "kundenstammbaum",
   "stempeluhr",
   "auftraege",
+  "anfragen",
   "personalakten",
   "bewerbungen",
   "verwaltung",
@@ -61,10 +62,12 @@ const GESCHAEFTSFUEHRUNG_MODULES = [
  * open. Enforced both for the sidebar (what's shown) and in DashboardShell
  * (what's actually reachable) — see `docs` note in dashboard-shell.tsx.
  *
- * "kundenstammbaum" is deliberately limited to Geschäftsführung, Prokurist,
- * Betriebsleitung and Disposition (chefdisponent + disponent) — everyone else
- * only ever needs to reference a customer from within Rechnungen, which reads
- * the customer list directly rather than through this nav module.
+ * "kundenstammbaum" and "anfragen" (Kontaktanfragen von /standort) are
+ * deliberately limited to Geschäftsführung, Prokurist, Betriebsleitung and
+ * Disposition (chefdisponent + disponent) — the customer-facing roles;
+ * everyone else with Rechnungserstellung still just references a customer
+ * from there, which reads the customer list directly rather than through
+ * the Kundenstammbaum nav module.
  *
  * "stempeluhr" is on every role's list — everyone clocks in/out — but the
  * page itself only shows the all-employees overview to the same management
@@ -73,9 +76,18 @@ const GESCHAEFTSFUEHRUNG_MODULES = [
 export const roleModuleAccess: Record<RoleKey, string[]> = {
   geschaeftsfuehrung: GESCHAEFTSFUEHRUNG_MODULES,
   prokurist: GESCHAEFTSFUEHRUNG_MODULES,
-  betriebsleiter: ["disposition", "lager", "fahrzeuge", "fahrtenbuch", "fahrerkarte", "kundenstammbaum", "stempeluhr"],
-  chefdisponent: ["disposition", "fahrzeuge", "fahrerkarte", "kundenstammbaum", "stempeluhr"],
-  disponent: ["disposition", "kundenstammbaum", "stempeluhr"],
+  betriebsleiter: [
+    "disposition",
+    "lager",
+    "fahrzeuge",
+    "fahrtenbuch",
+    "fahrerkarte",
+    "kundenstammbaum",
+    "anfragen",
+    "stempeluhr",
+  ],
+  chefdisponent: ["disposition", "fahrzeuge", "fahrerkarte", "kundenstammbaum", "anfragen", "stempeluhr"],
+  disponent: ["disposition", "kundenstammbaum", "anfragen", "stempeluhr"],
   lager: ["lager", "stempeluhr"],
   fuhrpark: ["fahrzeuge", "fahrtenbuch", "stempeluhr"],
   buchhaltung: ["rechnungen", "finanzen", "stempeluhr"],

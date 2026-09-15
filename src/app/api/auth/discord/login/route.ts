@@ -1,8 +1,14 @@
-import { createOAuthState } from "@/lib/server/session";
+import { createOAuthState, type OAuthPurpose } from "@/lib/server/session";
 
 const STATE_COOKIE = "bf_oauth_state";
 
-export async function GET() {
+/**
+ * Same Discord app / same registered redirect URI serves both login flows —
+ * ?purpose=customer here starts the Bestandskunden-Login (/kunden), anything
+ * else (or omitted) starts the employee login. See createOAuthState() for why.
+ */
+export async function GET(request: Request) {
+  const purpose: OAuthPurpose = new URL(request.url).searchParams.get("purpose") === "customer" ? "customer" : "employee";
   const clientId = process.env.DISCORD_CLIENT_ID;
   const redirectUri = process.env.DISCORD_REDIRECT_URI;
 
@@ -17,7 +23,7 @@ export async function GET() {
     );
   }
 
-  const state = createOAuthState();
+  const state = createOAuthState(purpose);
   const authorizeUrl = new URL("https://discord.com/oauth2/authorize");
   authorizeUrl.searchParams.set("client_id", clientId);
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);

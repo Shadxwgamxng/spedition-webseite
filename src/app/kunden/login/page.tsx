@@ -2,39 +2,37 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Logo } from "@/components/site/logo";
-import { useAuth } from "@/lib/auth";
-import { DiscordIcon, LockIcon } from "@/components/ui/icons";
 import Link from "next/link";
+import { Logo } from "@/components/site/logo";
+import { useCustomerAuth } from "@/lib/customer-auth";
+import { DiscordIcon, LockIcon } from "@/components/ui/icons";
 
 const ERROR_MESSAGES: Record<string, string> = {
   unlinked:
-    "Dieser Discord-Account ist keinem Mitarbeiter-Konto zugeordnet. Bitte wende dich an die Geschäftsführung, damit sie deinen Discord-Account verknüpft.",
-  state: "Die Anmeldung ist abgelaufen oder ungültig. Bitte versuche es erneut.",
-  config: "Discord-Login ist auf diesem Server noch nicht eingerichtet. Bitte die Geschäftsführung informieren.",
-  token: "Discord konnte nicht bestätigt werden. Bitte versuche es erneut.",
-  profile: "Discord-Profil konnte nicht geladen werden. Bitte versuche es erneut.",
-  unknown: "Bei der Anmeldung ist ein unerwarteter Fehler aufgetreten. Bitte versuche es erneut.",
+    "Dieser Discord-Account ist keinem Kundenkonto zugeordnet oder das interne Dispositionssystem wurde für Sie noch nicht freigeschaltet. Bitte wenden Sie sich an Ihren Ansprechpartner bei Baltic Freight.",
+  state: "Die Anmeldung ist abgelaufen oder ungültig. Bitte versuchen Sie es erneut.",
+  config: "Der Discord-Login ist auf diesem Server noch nicht eingerichtet. Bitte kontaktieren Sie Baltic Freight.",
+  token: "Discord konnte nicht bestätigt werden. Bitte versuchen Sie es erneut.",
+  profile: "Ihr Discord-Profil konnte nicht geladen werden. Bitte versuchen Sie es erneut.",
+  unknown: "Bei der Anmeldung ist ein unerwarteter Fehler aufgetreten. Bitte versuchen Sie es erneut.",
 };
 
-export default function LoginPage() {
-  const { user, status } = useAuth();
+export default function KundenLoginPage() {
+  const { customer, status } = useCustomerAuth();
   const router = useRouter();
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const error = errorCode ? (ERROR_MESSAGES[errorCode] ?? ERROR_MESSAGES.unknown) : null;
 
   useEffect(() => {
-    // Client-only read of the redirect error param — avoids the Suspense
-    // boundary that Next.js requires around useSearchParams().
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setErrorCode(new URLSearchParams(window.location.search).get("error"));
   }, []);
 
   useEffect(() => {
-    if (status === "ready" && user) {
-      router.replace("/mitarbeiter");
+    if (status === "ready" && customer) {
+      router.replace("/kunden");
     }
-  }, [status, user, router]);
+  }, [status, customer, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-navy-950 px-4 py-16">
@@ -46,18 +44,18 @@ export default function LoginPage() {
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-xl">
           <div className="flex items-center gap-2 text-amber-600">
             <LockIcon className="h-5 w-5" />
-            <span className="text-xs font-semibold uppercase tracking-wider">Mitarbeiterbereich</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Internes Dispositionssystem</span>
           </div>
-          <h1 className="mt-3 text-2xl font-bold text-navy-900">Anmelden</h1>
+          <h1 className="mt-3 text-2xl font-bold text-navy-900">Kunden-Login</h1>
           <p className="mt-1 text-sm text-navy-700/70">
-            Der Mitarbeiterbereich wird ausschließlich über Discord entsperrt. Deine Geschäftsführung verknüpft
-            deinen Discord-Account einmalig mit deinem Mitarbeiter-Konto.
+            Als Bestandskunde können Sie Aufträge direkt einreichen und Ihren Auftragsstatus einsehen. Der Zugang
+            wird von Baltic Freight einmalig über Ihren Discord-Account freigeschaltet.
           </p>
 
           {error ? <p className="mt-4 text-sm font-medium text-red-600">{error}</p> : null}
 
           <a
-            href="/api/auth/discord/login"
+            href="/api/auth/discord/login?purpose=customer"
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#5865F2] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#4752C4]"
           >
             <DiscordIcon className="h-5 w-5" />
@@ -65,7 +63,7 @@ export default function LoginPage() {
           </a>
 
           <p className="mt-6 text-center text-xs text-navy-700/50">
-            Noch kein verknüpftes Konto? Wende dich an deine Geschäftsführung.
+            Noch kein Zugang? Wenden Sie sich an Ihren Ansprechpartner bei Baltic Freight.
           </p>
 
           <Link href="/" className="mt-4 block text-center text-xs font-medium text-navy-700/60 hover:text-navy-900">

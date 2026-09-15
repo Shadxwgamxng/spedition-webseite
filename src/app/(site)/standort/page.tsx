@@ -15,17 +15,9 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-const hours = [
-  { day: "Montag – Freitag", time: "06:00 – 20:00 Uhr" },
-  { day: "Samstag", time: "07:00 – 14:00 Uhr (Disposition Notdienst)" },
-  { day: "Sonn- & Feiertag", time: "geschlossen" },
-];
-
-const mapSrc =
-  "https://www.openstreetmap.org/export/embed.html?bbox=14.13%2C53.35%2C14.27%2C53.42&layer=mapnik&marker=53.385%2C14.2";
-
 export default async function StandortPage() {
   const company = await getCompany();
+  const hours = company.businessHours ?? [];
   return (
     <>
       <PageHero
@@ -36,49 +28,49 @@ export default async function StandortPage() {
 
       <Section>
         <Container>
-          <div className="grid grid-cols-1 gap-10 lg:grid-cols-5">
-            <div className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <div className="flex items-start gap-3">
+                <MapPinIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <div>
+                  <div className="text-sm font-semibold text-navy-900">Adresse</div>
+                  <div className="mt-1 text-sm text-navy-700/75">
+                    {company.street}
+                    <br />
+                    {company.zip} {company.city}
+                    <br />
+                    Deutschland
+                  </div>
+                </div>
+              </div>
+            </Card>
+            {company.phone ? (
               <Card>
                 <div className="flex items-start gap-3">
-                  <MapPinIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <PhoneIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
                   <div>
-                    <div className="text-sm font-semibold text-navy-900">Adresse</div>
-                    <div className="mt-1 text-sm text-navy-700/75">
-                      {company.street}
-                      <br />
-                      {company.zip} {company.city}
-                      <br />
-                      Deutschland
+                    <div className="text-sm font-semibold text-navy-900">Telefon</div>
+                    <div className="mt-1 text-sm text-navy-700/75">{company.phone}</div>
+                  </div>
+                </div>
+              </Card>
+            ) : null}
+            {company.email || company.disposition_email || company.karriere_email ? (
+              <Card>
+                <div className="flex items-start gap-3">
+                  <MailIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <div>
+                    <div className="text-sm font-semibold text-navy-900">E-Mail</div>
+                    <div className="mt-1 space-y-0.5 text-sm text-navy-700/75">
+                      {company.email ? <div>Allgemein: {company.email}</div> : null}
+                      {company.disposition_email ? <div>Disposition: {company.disposition_email}</div> : null}
+                      {company.karriere_email ? <div>Karriere: {company.karriere_email}</div> : null}
                     </div>
                   </div>
                 </div>
               </Card>
-              {company.phone ? (
-                <Card>
-                  <div className="flex items-start gap-3">
-                    <PhoneIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                    <div>
-                      <div className="text-sm font-semibold text-navy-900">Telefon</div>
-                      <div className="mt-1 text-sm text-navy-700/75">{company.phone}</div>
-                    </div>
-                  </div>
-                </Card>
-              ) : null}
-              {company.email || company.disposition_email || company.karriere_email ? (
-                <Card>
-                  <div className="flex items-start gap-3">
-                    <MailIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                    <div>
-                      <div className="text-sm font-semibold text-navy-900">E-Mail</div>
-                      <div className="mt-1 space-y-0.5 text-sm text-navy-700/75">
-                        {company.email ? <div>Allgemein: {company.email}</div> : null}
-                        {company.disposition_email ? <div>Disposition: {company.disposition_email}</div> : null}
-                        {company.karriere_email ? <div>Karriere: {company.karriere_email}</div> : null}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ) : null}
+            ) : null}
+            {hours.length > 0 ? (
               <Card>
                 <div className="flex items-start gap-3">
                   <ClockIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
@@ -95,18 +87,7 @@ export default async function StandortPage() {
                   </div>
                 </div>
               </Card>
-            </div>
-
-            <div className="lg:col-span-3">
-              <div className="overflow-hidden rounded-2xl border border-navy-900/8 shadow-sm shadow-navy-950/5">
-                <iframe
-                  title="Standort Baltic Freight GmbH, Falkenwalde"
-                  src={mapSrc}
-                  className="h-80 w-full sm:h-96"
-                  loading="lazy"
-                />
-              </div>
-            </div>
+            ) : null}
           </div>
         </Container>
       </Section>

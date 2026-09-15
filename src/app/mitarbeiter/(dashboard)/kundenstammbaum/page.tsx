@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { EmployeePageHeader } from "@/components/employee/page-header";
-import { Button } from "@/components/ui/primitives";
+import { Badge, Button } from "@/components/ui/primitives";
 import { CheckIcon } from "@/components/ui/icons";
 import { usePolling } from "@/lib/use-polling";
 import type { CustomerRecord } from "@/lib/server/db-types";
@@ -25,7 +25,7 @@ export default function KundenstammbaumPage() {
     setError(null);
     setSaving(true);
     const form = new FormData(event.currentTarget);
-    const payload: Record<string, string> = {
+    const payload: Record<string, string | boolean> = {
       companyName: String(form.get("companyName") ?? ""),
       contactName: String(form.get("contactName") ?? ""),
       street: String(form.get("street") ?? ""),
@@ -34,6 +34,8 @@ export default function KundenstammbaumPage() {
       email: String(form.get("email") ?? ""),
       phone: String(form.get("phone") ?? ""),
       notes: String(form.get("notes") ?? ""),
+      discordId: String(form.get("discordId") ?? ""),
+      portalEnabled: form.get("portalEnabled") === "on",
     };
 
     try {
@@ -91,6 +93,23 @@ export default function KundenstammbaumPage() {
           <Field label="Ort" name="city" defaultValue={editingCustomer?.city} />
           <Field label="E-Mail" name="email" type="email" defaultValue={editingCustomer?.email} />
           <Field label="Telefon" name="phone" defaultValue={editingCustomer?.phone} />
+          <Field
+            label="Discord-Nutzer-ID"
+            name="discordId"
+            placeholder="z. B. 123456789012345678"
+            defaultValue={editingCustomer?.discordId}
+          />
+          <div className="flex items-end pb-2 sm:col-span-2 lg:col-span-1">
+            <label className="flex items-center gap-2 text-sm text-navy-800">
+              <input
+                type="checkbox"
+                name="portalEnabled"
+                defaultChecked={editingCustomer?.portalEnabled ?? false}
+                className="h-4 w-4 rounded border-navy-900/25 text-amber-500 focus:ring-amber-500/40"
+              />
+              Freischalten für Internes Dispositionssystem
+            </label>
+          </div>
           <div className="sm:col-span-2 lg:col-span-3">
             <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor="notes">
               Notizen
@@ -103,6 +122,11 @@ export default function KundenstammbaumPage() {
               className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
             />
           </div>
+          <p className="text-xs text-navy-700/50 sm:col-span-2 lg:col-span-3">
+            Mit freigeschaltetem Dispositionssystem und hinterlegter Discord-Nutzer-ID kann sich dieser Kunde unter{" "}
+            <span className="font-mono">/kunden/login</span> mit Discord anmelden, um Aufträge direkt einzureichen
+            und seine eigenen Aufträge einzusehen.
+          </p>
 
           {error ? <p className="text-sm text-red-600 sm:col-span-2 lg:col-span-3">{error}</p> : null}
           <div className="sm:col-span-2 lg:col-span-3">
@@ -127,13 +151,14 @@ export default function KundenstammbaumPage() {
               <th className="px-4 py-3 font-medium">Ansprechpartner</th>
               <th className="px-4 py-3 font-medium">Ort</th>
               <th className="px-4 py-3 font-medium">Kontakt</th>
+              <th className="px-4 py-3 font-medium">Dispositionssystem</th>
               <th className="px-4 py-3 font-medium">&nbsp;</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-navy-900/6">
             {customers.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-navy-700/60">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-navy-700/60">
                   Noch keine Kunden angelegt.
                 </td>
               </tr>
@@ -150,6 +175,11 @@ export default function KundenstammbaumPage() {
                   </td>
                   <td className="px-4 py-3 text-navy-700/70">
                     {[customer.email, customer.phone].filter(Boolean).join(" · ") || "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={customer.portalEnabled ? "green" : "navy"}>
+                      {customer.portalEnabled ? "Freigeschaltet" : "Deaktiviert"}
+                    </Badge>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
@@ -186,12 +216,14 @@ function Field({
   type = "text",
   required = false,
   defaultValue,
+  placeholder,
 }: {
   label: string;
   name: string;
   type?: string;
   required?: boolean;
   defaultValue?: string;
+  placeholder?: string;
 }) {
   return (
     <div>
@@ -204,6 +236,7 @@ function Field({
         type={type}
         required={required}
         defaultValue={defaultValue}
+        placeholder={placeholder}
         className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
       />
     </div>

@@ -9,7 +9,12 @@ export const company = {
   email: "",
   disposition_email: "",
   karriere_email: "",
-  mapsQuery: "Industriestraße 7-12, Falkenwalde, Vorpommern-Greifswald",
+  /** Editable under Verwaltung → Unternehmensdaten; shown on /standort under "Erreichbarkeit". */
+  businessHours: [
+    { day: "Montag – Freitag", time: "06:00 – 20:00 Uhr" },
+    { day: "Samstag", time: "07:00 – 14:00 Uhr (Disposition Notdienst)" },
+    { day: "Sonn- & Feiertag", time: "geschlossen" },
+  ] as { day: string; time: string }[],
   /**
    * MIME-Typ des hochgeladenen Firmenlogos (z. B. fürs Briefkopf-Layout des
    * Arbeitsvertrags), null = kein Logo hinterlegt. Die Bilddaten selbst liegen

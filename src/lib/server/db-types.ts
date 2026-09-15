@@ -211,8 +211,15 @@ export type CustomerRecord = {
   email: string;
   phone: string;
   notes: string;
+  /** Discord user ID for the internal Bestandskunden-Dispositionssystem login (see PublicCustomer/session.ts) — "" until set. */
+  discordId: string;
+  /** Whether this customer may log in at /kunden with `discordId` above ("Freischalten für Internes Dispositionssystem"). */
+  portalEnabled: boolean;
   createdAt: string;
 };
+
+/** Shape of a customer exposed to the client after Discord login — same fields as CustomerRecord (nothing more sensitive than an EmployeeRecord carries). */
+export type PublicCustomer = CustomerRecord;
 
 /**
  * A single Stempeluhr clock-in/clock-out punch for one employee.
@@ -278,6 +285,32 @@ export type JobApplicationRecord = {
   statusUpdatedAt: string;
 };
 
+/** One Discord DM an employee sent back in reply to a contact inquiry — free text, no fixed template. */
+export type ContactReply = {
+  id: string;
+  text: string;
+  sentAt: string;
+  /** Name of the employee who wrote it, captured at send time. */
+  sentBy: string;
+};
+
+/**
+ * A message submitted through the public contact form (/standort). Like
+ * JobApplicationRecord, requires a Discord ID so the bot can reach the
+ * sender — there is no email-sending backend in this app.
+ */
+export type ContactInquiryRecord = {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  discordId: string;
+  message: string;
+  createdAt: string;
+  replies: ContactReply[];
+};
+
 function slugify(input: string): string {
   return input
     .toLowerCase()
@@ -319,6 +352,7 @@ export type Db = {
   customers: CustomerRecord[];
   timeClockEntries: TimeClockEntry[];
   applications: JobApplicationRecord[];
+  contactInquiries: ContactInquiryRecord[];
   news: NewsRecord[];
   jobs: JobRecord[];
   services: ServiceRecord[];
@@ -415,6 +449,7 @@ export function seedDb(): Db {
     customers: [],
     timeClockEntries: [],
     applications: [],
+    contactInquiries: [],
     news: newsSeed,
     jobs: jobsSeed,
     services: servicesSeed,
