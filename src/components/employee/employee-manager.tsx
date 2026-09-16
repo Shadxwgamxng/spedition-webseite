@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { usePolling } from "@/lib/use-polling";
 import { Button } from "@/components/ui/primitives";
 import { CheckIcon } from "@/components/ui/icons";
-import { roleKeys, roleLabels, type RoleKey } from "@/lib/roles";
+import { roleKeys, roleLabels, driverLicenseKeys, driverLicenseLabels, type RoleKey } from "@/lib/roles";
 import type { EmployeeUser } from "@/lib/auth";
 
 type Employee = EmployeeUser & {
@@ -12,6 +12,7 @@ type Employee = EmployeeUser & {
   /** Set when this account is synced from the FiveM Speditions-Tablet (see README "Tablet-Sync") — role changes then come from there, not this form. */
   tabletEmployeeId?: number | null;
   status?: "aktiv" | "inaktiv";
+  driverLicenses?: string[];
 };
 
 const NEW = "__new__";
@@ -35,12 +36,14 @@ export function EmployeeManager() {
     setNotice(null);
     setSaving(true);
     const form = new FormData(event.currentTarget);
+    const driverLicenses = form.getAll("driverLicenses").map(String);
     const payload: Record<string, unknown> = {
       username: String(form.get("username") ?? ""),
       discordId: String(form.get("discordId") ?? ""),
       discordUsername: String(form.get("discordUsername") ?? ""),
       name: String(form.get("name") ?? ""),
       department: String(form.get("department") ?? ""),
+      driverLicenses,
     };
     // roleKey ist bei einem Tablet-verknüpften Konto ausgegraut (die Rolle
     // wird dort verwaltet) — ein disabled <select> liefert keinen Wert in
@@ -87,10 +90,25 @@ export function EmployeeManager() {
                 name: payload.name,
                 websiteRoleKey: payload.roleKey,
                 discordId: payload.discordId,
+                driverPermissions: driverLicenses,
               },
             }),
           });
         }
+      } else if (editingEmployee?.tabletEmployeeId) {
+        // Bereits Tablet-verknüpftes Konto: Änderung an den Führerschein-
+        // klassen als eigener Befehl an die Queue - Drivers.SetPermissionsFromWebsite
+        // auf Tablet-Seite ersetzt dort die komplette Liste (voller Abgleich,
+        // kein inkrementelles Hinzufügen), das Ergebnis kommt asynchron per
+        // Befehls-Ack zurück, nicht als Antwort auf dieses Formular.
+        await fetch("/api/tablet/commands", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "update_driver_permissions",
+            data: { tabletEmployeeId: editingEmployee.tabletEmployeeId, permissions: driverLicenses },
+          }),
+        });
       }
       await refetch();
       setEditingId(null);
@@ -219,6 +237,29 @@ export function EmployeeManager() {
               placeholder="z. B. Disposition, Lager, Fahrbetrieb …"
               className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
             />
+          </div>
+
+          <div className="sm:col-span-2">
+            <span className="mb-1.5 block text-xs font-medium text-navy-800">Führerscheinklassen</span>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {driverLicenseKeys.map((key) => (
+                <label key={key} className="flex items-center gap-1.5 text-xs text-navy-800">
+                  <input
+                    type="checkbox"
+                    name="driverLicenses"
+                    value={key}
+                    defaultChecked={editingEmployee?.driverLicenses?.includes(key) ?? false}
+                    className="h-4 w-4 rounded border-navy-900/25"
+                  />
+                  {driverLicenseLabels[key]}
+                </label>
+              ))}
+            </div>
+            {editingEmployee?.tabletEmployeeId ? (
+              <p className="mt-1 text-xs text-navy-700/50">
+                Änderungen werden an das verknüpfte Tablet-Konto #{editingEmployee.tabletEmployeeId} übertragen.
+              </p>
+            ) : null}
           </div>
 
           <p className="text-xs text-navy-700/50 sm:col-span-2">

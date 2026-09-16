@@ -73,6 +73,14 @@ export type EmployeeRecord = {
    * A website-only account (no tabletEmployeeId) is always implicitly "aktiv".
    */
   status?: "aktiv" | "inaktiv";
+  /**
+   * Führerscheinklassen/Sonderberechtigungen (DriverLicenseKey[], src/lib/roles.ts) —
+   * relevant regardless of tablet linkage, but only actually enforced in-game
+   * for a tablet-linked account. Editing this for such an account enqueues an
+   * `update_driver_permissions` command so the Tablet's st_driver_permissions
+   * stays in sync (full replace, see src/lib/server/store.ts updateEmployee).
+   */
+  driverLicenses?: string[];
 };
 
 export type PublicEmployee = EmployeeRecord;

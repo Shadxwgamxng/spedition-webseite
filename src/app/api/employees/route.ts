@@ -15,6 +15,9 @@ export async function POST(request: Request) {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const roleKey = typeof body?.roleKey === "string" ? body.roleKey : "";
   const department = typeof body?.department === "string" ? body.department.trim() : "";
+  const driverLicenses: string[] = Array.isArray(body?.driverLicenses)
+    ? body.driverLicenses.filter((v: unknown): v is string => typeof v === "string")
+    : [];
 
   if (!username || !discordId || !name || !department) {
     return Response.json(
@@ -27,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const employee = await createEmployee({ username, discordId, discordUsername, name, roleKey, department });
+    const employee = await createEmployee({ username, discordId, discordUsername, name, roleKey, department, driverLicenses });
     const discordDm = await sendDiscordDm(employee.discordId, buildWelcomeDm(employee.name, employee.role));
     return Response.json({ ok: true, employee, discordDm }, { status: 201 });
   } catch (error) {

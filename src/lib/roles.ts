@@ -27,6 +27,28 @@ export function isRoleKey(value: string): value is RoleKey {
   return Object.prototype.hasOwnProperty.call(roleLabels, value);
 }
 
+export type DriverLicenseKey = "klasse_c" | "klasse_ce" | "gefahrgut" | "schwertransport";
+
+/**
+ * Führerscheinklassen/Sonderberechtigungen — mirrors Config.DriverPermissions
+ * in the FiveM Speditions-Tablet (config.lua) key-for-key. Stored per
+ * employee (EmployeeRecord.driverLicenses); for a tablet-linked account, an
+ * edit here is pushed to the tablet's st_driver_permissions via the
+ * `update_driver_permissions` command (see README "Tablet-Sync").
+ */
+export const driverLicenseLabels: Record<DriverLicenseKey, string> = {
+  klasse_c: "Klasse C",
+  klasse_ce: "Klasse CE",
+  gefahrgut: "Gefahrgut",
+  schwertransport: "Schwertransport",
+};
+
+export const driverLicenseKeys = Object.keys(driverLicenseLabels) as DriverLicenseKey[];
+
+export function isDriverLicenseKey(value: string): value is DriverLicenseKey {
+  return Object.prototype.hasOwnProperty.call(driverLicenseLabels, value);
+}
+
 /**
  * Full module access shared by Geschäftsführer and Prokurist — a Prokurist
  * has, by definition (§ 48 ff. HGB in the real world; here simply "gleiche

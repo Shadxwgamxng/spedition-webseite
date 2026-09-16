@@ -129,6 +129,12 @@ wie oben vergibt (`src/lib/roles.ts`). Ein neues Fahrer-Konto bekommt beim Anleg
 Fahrerkarte, damit die digitale Fahrerkarte sofort funktioniert. Ohne eingetragene Discord-Nutzer-ID kann sich
 das Konto nicht einloggen — das wird in der Liste farblich hervorgehoben.
 
+Zusätzlich lassen sich die **Führerscheinklassen** (Klasse C, Klasse CE, Gefahrgut, Schwertransport —
+`src/lib/roles.ts`, `driverLicenseLabels`) direkt beim Anlegen ankreuzen und später jederzeit wieder ändern. Bei
+einem mit dem Tablet verknüpften Konto (`tabletEmployeeId` gesetzt) wird eine Änderung zusätzlich als
+`update_driver_permissions`-Befehl an das Tablet gemeldet (siehe „Tablet-Sync" unten) — dort ersetzt sie die
+Führerscheinklassen des Fahrers vollständig (kein inkrementelles Hinzufügen).
+
 Konten liegen serverseitig im Store (`employees`-Collection in `.data/db.json`), die Verwaltung läuft über
 `src/app/api/employees/*`.
 
@@ -394,7 +400,12 @@ zurück. So braucht der Spielserver keinen offenen eingehenden Port. Befehlstype
 - `create_employee` — ein neu angelegtes Website-Konto bekommt optional auch ein Tablet-Login (Passwort wird dafür
   beim Anlegen zusätzlich abgefragt, aber **nicht** auf der Website gespeichert). Setzt voraus, dass im
   Tablet-Rollen-Editor **genau eine** Tablet-Rolle der gewählten Website-Rolle zugeordnet ist — sonst meldet das
-  Tablet einen Fehler zurück (asynchron, im `pendingCommands`-Ergebnis, nicht als Formular-Fehler sichtbar).
+  Tablet einen Fehler zurück (asynchron, im `pendingCommands`-Ergebnis, nicht als Formular-Fehler sichtbar). Die
+  beim Anlegen angekreuzten Führerscheinklassen werden dabei direkt mitgegeben.
+- `update_driver_permissions` — eine Änderung an den Führerscheinklassen (Klasse C, Klasse CE, Gefahrgut,
+  Schwertransport) eines bereits Tablet-verknüpften Kontos (`tabletEmployeeId` gesetzt) wird als vollständiger
+  Abgleich ans Tablet gemeldet: die im Formular angekreuzten Klassen ersetzen dort komplett, was der Fahrer bisher
+  hatte (kein inkrementelles Hinzufügen/Entfernen).
 
 Alle `/api/tablet/*`-Routen prüfen einen `X-Api-Key`-Header gegen `TABLET_API_KEY` (konstante Zeit, siehe
 `src/lib/server/tablet-auth.ts`) — die einzigen Routen in dieser App mit einem echten Auth-Gate, weil sie Schreibzugriffe

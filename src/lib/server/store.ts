@@ -34,7 +34,7 @@ import {
   type TripRecord,
 } from "@/lib/server/db-types";
 import type { OrderMessage, OrderRecord, OrderStatus, VehicleRecord } from "@/lib/fleet-data";
-import { isRoleKey, roleLabels, type RoleKey } from "@/lib/roles";
+import { isRoleKey, roleLabels, isDriverLicenseKey, type RoleKey } from "@/lib/roles";
 import type { TabletCommandRecord, TabletLocationRecord } from "@/lib/server/db-types";
 
 /**
@@ -1057,6 +1057,7 @@ export async function createEmployee(input: {
   name: string;
   roleKey: RoleKey;
   department: string;
+  driverLicenses?: string[];
 }): Promise<PublicEmployee> {
   const db = await readDb();
   const username = input.username.trim().toLowerCase();
@@ -1079,6 +1080,7 @@ export async function createEmployee(input: {
     role: roleLabels[input.roleKey],
     roleKey: input.roleKey,
     department: input.department.trim(),
+    driverLicenses: input.driverLicenses?.filter(isDriverLicenseKey) ?? [],
   };
   db.employees.push(employee);
   db.personnelFiles.push(makeEmptyPersonnelFile(employee.id));
@@ -1092,7 +1094,15 @@ export async function createEmployee(input: {
 
 export async function updateEmployee(
   id: string,
-  patch: Partial<{ username: string; discordId: string; discordUsername: string; name: string; roleKey: RoleKey; department: string }>,
+  patch: Partial<{
+    username: string;
+    discordId: string;
+    discordUsername: string;
+    name: string;
+    roleKey: RoleKey;
+    department: string;
+    driverLicenses: string[];
+  }>,
 ): Promise<PublicEmployee | null> {
   const db = await readDb();
   const employee = db.employees.find((e) => e.id === id);
@@ -1127,6 +1137,9 @@ export async function updateEmployee(
     employee.role = roleLabels[patch.roleKey];
     // Fahrerkarte creation for a newly-"fahrer" employee is handled by the
     // driver-cards sync in readDb(), which runs on every read.
+  }
+  if (patch.driverLicenses !== undefined) {
+    employee.driverLicenses = patch.driverLicenses.filter(isDriverLicenseKey);
   }
 
   await writeDb(db);

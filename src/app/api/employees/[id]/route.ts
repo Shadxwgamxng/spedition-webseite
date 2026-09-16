@@ -15,6 +15,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/employees/
     name?: string;
     roleKey?: RoleKey;
     department?: string;
+    driverLicenses?: string[];
   } = {};
 
   if (typeof body.username === "string") patch.username = body.username;
@@ -27,6 +28,9 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/employees/
       return Response.json({ ok: false, error: "Ungültige Rolle." }, { status: 400 });
     }
     patch.roleKey = body.roleKey;
+  }
+  if (Array.isArray(body.driverLicenses)) {
+    patch.driverLicenses = body.driverLicenses.filter((v: unknown): v is string => typeof v === "string");
   }
 
   try {
