@@ -368,27 +368,40 @@ einen Löschen-Button je Zeile; alle anderen Rollen mit Zugriff auf dieses Modul
 ## Tablet-Sync (FiveM Speditions-Tablet)
 
 Diese Website kann mit dem separaten FiveM-Roleplay-Tablet (`speditions-tablet`, eigenes Repo) synchronisiert werden:
-Aufträge/Disposition, Fuhrpark/Fahrzeuge, Fahrerkarte/Lenkzeiten sowie Mitarbeiterkonten. Das Tablet ist dabei die
-Quelle der Wahrheit für alles, was operativ im Spiel passiert — die Website zeigt es live an und kann darüber auch
-disponieren.
+Aufträge/Disposition, Fuhrpark/Fahrzeuge, Fahrerkarte/Lenkzeiten sowie Mitarbeiterkonten. Der Sync ist bewusst
+**gleichwertig in beide Richtungen** — weder das Tablet noch die Website ist die alleinige Quelle der Wahrheit;
+beide Seiten können Aufträge/Fahrzeuge/Mitarbeiter anlegen bzw. bearbeiten, und die jeweils andere Seite zieht nach.
 
 **Push (Tablet → Website)**: `POST /api/tablet/webhook` — das Tablet meldet Änderungen (`employee.upsert`,
-`order.upsert`, `vehicle.upsert`, `driver_hours.report`) in Echtzeit. Verknüpfung läuft über
+`order.upsert`, `vehicle.upsert`, `driver_hours.report`, `locations.sync`) in Echtzeit. Verknüpfung läuft über
 `tabletEmployeeId`/`tabletOrderId`/`tabletVehicleId` (bzw. das Kennzeichen bei Fahrzeugen) — bestehende Datensätze
-werden aktualisiert, unbekannte neu angelegt. Ein vom Tablet synchronisierter Mitarbeiter (`tabletEmployeeId`
-gesetzt) hat seine Rolle unter Verwaltung → Mitarbeiter-Konten nur noch lesend sichtbar — Rollenänderungen kommen
-vom Tablet.
+werden aktualisiert, unbekannte neu angelegt. `locations.sync` ist ein Sonderfall: kein Datensatz-Upsert, sondern
+meldet einmalig beim Tablet-Ressourcenstart die gültigen Standortnamen/Frachtarten (`Config.Locations`/
+`Config.CargoTypes`) — Grundlage für die Standort-Auswahl bei "Neuer Auftrag" auf der Website (`tabletLocations`/
+`tabletCargoTypes` in `db.json`, `GET /api/tablet-locations`).
 
-**Pull (Website → Tablet)**: Disposition-Aktionen auf einem `origin: "tablet"`-Auftrag (Fahrzeug zuweisen, im Spiel
-abbrechen) landen nicht als direkter Datenbank-Patch, sondern in einer Befehls-Queue
-(`POST /api/tablet/commands`) — das Tablet pollt `GET /api/tablet/commands` alle paar Sekunden, führt den Befehl
-gegen seine eigene Datenbank aus und meldet das Ergebnis über `POST /api/tablet/commands/[id]/ack` zurück. So
-braucht der Spielserver keinen offenen eingehenden Port.
+**Pull (Website → Tablet)**: Dispositionsaktionen landen nicht als direkter Datenbank-Patch, sondern in einer
+Befehls-Queue (`POST /api/tablet/commands`) — das Tablet pollt `GET /api/tablet/commands` alle paar Sekunden, führt
+den Befehl gegen seine eigene Datenbank aus und meldet das Ergebnis über `POST /api/tablet/commands/[id]/ack`
+zurück. So braucht der Spielserver keinen offenen eingehenden Port. Befehlstypen:
+- `assign_order`/`cancel_order` — auf einem `origin: "tablet"`-Auftrag (Fahrzeug zuweisen, im Spiel abbrechen).
+- `create_order` — ein auf der Website neu angelegter (`intern`) Auftrag landet im offenen Tablet-Auftragspool;
+  Start-/Zielort müssen dafür aus der `tabletLocations`-Auswahl stammen (Disposition → "Auch im Tablet-Spiel
+  anlegen"), sonst kann das Tablet sie keinem echten Standort zuordnen.
+- `update_vehicle` — eine Statusänderung an einem Tablet-verknüpften Fahrzeug (`tabletVehicleId` gesetzt, Reiter
+  Fahrzeugverwaltung → Bearbeiten) wird auch im Tablet gesetzt; die Website kennt nur 2-3 grobe Werkstatt-Zustände,
+  die auf die 5 feineren Tablet-Status abgebildet werden (`Einsatzbereit`→`verfuegbar`, alles andere→`wartung`).
+- `create_employee` — ein neu angelegtes Website-Konto bekommt optional auch ein Tablet-Login (Passwort wird dafür
+  beim Anlegen zusätzlich abgefragt, aber **nicht** auf der Website gespeichert). Setzt voraus, dass im
+  Tablet-Rollen-Editor **genau eine** Tablet-Rolle der gewählten Website-Rolle zugeordnet ist — sonst meldet das
+  Tablet einen Fehler zurück (asynchron, im `pendingCommands`-Ergebnis, nicht als Formular-Fehler sichtbar).
 
 Alle `/api/tablet/*`-Routen prüfen einen `X-Api-Key`-Header gegen `TABLET_API_KEY` (konstante Zeit, siehe
 `src/lib/server/tablet-auth.ts`) — die einzigen Routen in dieser App mit einem echten Auth-Gate, weil sie Schreibzugriffe
 von einem externen, nicht-interaktiven Aufrufer akzeptieren statt einer angemeldeten Browser-Session. Ohne gesetzte
-`TABLET_API_KEY` sind sie komplett gesperrt.
+`TABLET_API_KEY` sind sie komplett gesperrt. `/api/tablet-locations` (Standort-Cache fürs Dispo-Formular) und
+`GET /api/tablet/commands` als Enqueue-Ziel (`POST`) laufen dagegen über die normale, ungeschützte Dashboard-API
+wie alle anderen internen Routen (siehe "Wichtige Hinweise" unten zur fehlenden serverseitigen Autorisierung).
 
 **Bekannte Vereinfachungen**: Der Website-Auftragsstatus (`Angefragt/Neu/Disponiert/Unterwegs/Zugestellt/Abgelehnt`)
 ist gröber als der des Tablets — eine Mapping-Funktion (`mapTabletOrderStatus` in `src/lib/server/store.ts`)
@@ -397,7 +410,10 @@ dafür aktuell keine Historie). Die Sync-Schreibpfade (`upsertEmployeeFromTablet
 `upsertVehicleFromTablet`, `applyDriverHoursReport`, die Command-Queue) sind über einen einfachen In-Process-Mutex
 (`withSyncLock`) gegeneinander serialisiert, damit eine schnelle Folge von Webhook-Events sich nicht gegenseitig
 überschreibt — das ist kein Ersatz für eine echte Transaktions-Datenbank, aber für den erwarteten Event-Takt
-ausreichend (siehe Store-Kommentar zu `.data/db.json` weiter unten).
+ausreichend (siehe Store-Kommentar zu `.data/db.json` weiter unten). Ein komplett **neues** Fahrzeug von der
+Website aus im Spiel erscheinen zu lassen ist bewusst **nicht** umgesetzt (ein reales Fahrzeug braucht ein echtes
+FiveM-Spawn-Modell/eine Garage, die die Website nicht validieren kann) — nur Statusänderungen an bereits
+existierenden, Tablet-verknüpften Fahrzeugen gehen in beide Richtungen.
 
 ## Wichtige Hinweise vor dem produktiven Einsatz
 

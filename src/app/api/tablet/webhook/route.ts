@@ -1,6 +1,13 @@
 import { isAuthorizedTabletRequest, unauthorizedTabletResponse } from "@/lib/server/tablet-auth";
-import { applyDriverHoursReport, upsertEmployeeFromTablet, upsertOrderFromTablet, upsertVehicleFromTablet } from "@/lib/server/store";
+import {
+  applyDriverHoursReport,
+  upsertEmployeeFromTablet,
+  upsertOrderFromTablet,
+  upsertTabletLocations,
+  upsertVehicleFromTablet,
+} from "@/lib/server/store";
 import type { VehicleRecord } from "@/lib/fleet-data";
+import type { TabletLocationRecord } from "@/lib/server/db-types";
 
 /**
  * Push endpoint for the FiveM Speditions-Tablet (server/sv_website_bridge.lua,
@@ -104,6 +111,13 @@ export async function POST(request: Request) {
         }
         const card = await applyDriverHoursReport(tabletEmployeeId, num(data.dailyMinutes), data.resting === true);
         return Response.json({ ok: true, card });
+      }
+
+      case "locations.sync": {
+        const locations = Array.isArray(data.locations) ? (data.locations as TabletLocationRecord[]) : [];
+        const cargoTypes = Array.isArray(data.cargoTypes) ? (data.cargoTypes as string[]) : [];
+        await upsertTabletLocations(locations, cargoTypes);
+        return Response.json({ ok: true });
       }
 
       default:

@@ -336,6 +336,20 @@ export type TabletCommandRecord = {
   resolvedAt?: string | null;
 };
 
+/**
+ * Gültige Standortnamen aus dem Tablet (Config.Locations), gepusht via
+ * 'locations.sync' (server/sv_website_bridge.lua, WebsiteBridge.PushLocations).
+ * Grundlage für die Auswahl bei "Neuer Auftrag" auf der Website: ein Auftrag
+ * kann nur dann per `create_order`-Befehl an das Tablet gemeldet werden, wenn
+ * Start-/Zielort exakt einem dieser Namen entsprechen (siehe
+ * Orders.CreateFromWebsite im Tablet-Repo).
+ */
+export type TabletLocationRecord = {
+  name: string;
+  sourceCargo?: string[];
+  destCargo?: string[];
+};
+
 function slugify(input: string): string {
   return input
     .toLowerCase()
@@ -389,6 +403,9 @@ export type Db = {
   company: CompanyInfo;
   /** Control-direction command queue for the FiveM Speditions-Tablet — see TabletCommandRecord. */
   pendingCommands: TabletCommandRecord[];
+  /** Gültige Tablet-Standorte/Frachtarten, gepusht via 'locations.sync' — siehe TabletLocationRecord. */
+  tabletLocations: TabletLocationRecord[];
+  tabletCargoTypes: string[];
 };
 
 export const COLLECTION_ID_FIELD = {
@@ -487,5 +504,7 @@ export function seedDb(): Db {
     partners: withIds(partnersSeed, (p) => p.name),
     company: companySeed,
     pendingCommands: [],
+    tabletLocations: [],
+    tabletCargoTypes: [],
   };
 }

@@ -7,10 +7,12 @@ import { usePolling } from "@/lib/use-polling";
 import { useAuth } from "@/lib/auth";
 import { OrderChat } from "@/components/employee/order-chat";
 import type { OrderRecord, OrderStatus, VehicleRecord } from "@/lib/fleet-data";
+import type { TabletLocationRecord } from "@/lib/server/db-types";
 import { CheckIcon, MapPinIcon, MessageIcon, TruckIcon } from "@/components/ui/icons";
 
 type OrdersResponse = { orders: OrderRecord[] };
 type VehiclesResponse = { vehicles: VehicleRecord[] };
+type TabletLocationsResponse = { locations: TabletLocationRecord[]; cargoTypes: string[] };
 
 const statusStyles: Record<OrderStatus, "navy" | "amber" | "green" | "red"> = {
   Angefragt: "amber",
@@ -34,11 +36,19 @@ export default function DispositionPage() {
   const { user } = useAuth();
   const orders = usePolling<OrdersResponse>("/api/orders", 4000);
   const vehicles = usePolling<VehiclesResponse>("/api/vehicles", 4000);
+  const tabletLocations = usePolling<TabletLocationsResponse>("/api/tablet-locations", 4000);
   const [filter, setFilter] = useState<OrderStatus | "Alle">("Alle");
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [syncToTablet, setSyncToTablet] = useState(false);
+
+  const knownLocationNames = useMemo(
+    () => (tabletLocations.data?.locations ?? []).map((l) => l.name),
+    [tabletLocations.data],
+  );
+  const knownCargoTypes = tabletLocations.data?.cargoTypes ?? [];
 
   const allOrders = useMemo(() => orders.data?.orders ?? [], [orders.data]);
   const activeFleet = useMemo(
@@ -120,14 +130,16 @@ export default function DispositionPage() {
     setFormError(null);
     setSubmitting(true);
     const form = new FormData(event.currentTarget);
+    const pickup = form.get("pickup");
+    const delivery = form.get("delivery");
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customer: form.get("customer"),
-          pickup: form.get("pickup"),
-          delivery: form.get("delivery"),
+          pickup,
+          delivery,
           date: form.get("date"),
           notes: form.get("notes"),
           origin: "intern",
@@ -138,8 +150,23 @@ export default function DispositionPage() {
         setFormError(json.error ?? "Auftrag konnte nicht erstellt werden.");
         return;
       }
+
+      // Auftrag soll auch im Tablet-Spiel ankommen: Start-/Zielort kommen
+      // hier zwangsläufig aus der Dropdown-Auswahl (echte Config.Locations-
+      // Namen), nicht aus dem Freitext-Feld oben - landet im offenen
+      // Tablet-Auftragspool, ein Disponent im Spiel muss ihn noch
+      // disponieren (siehe README "Website-Sync").
+      if (syncToTablet) {
+        await enqueueTabletCommand("create_order", {
+          cargo: form.get("cargo"),
+          startLocation: pickup,
+          endLocation: delivery,
+        });
+      }
+
       await orders.refetch();
       setShowForm(false);
+      setSyncToTablet(false);
       event.currentTarget.reset();
     } catch {
       setFormError("Verbindung zum Server fehlgeschlagen.");
@@ -189,8 +216,18 @@ export default function DispositionPage() {
             >
               <Field label="Kunde" name="customer" required />
               <Field label="Termin" name="date" type="date" required />
-              <Field label="Abholung" name="pickup" placeholder="z. B. Falkenwalde" required />
-              <Field label="Ziel" name="delivery" placeholder="z. B. Berlin" required />
+              {syncToTablet ? (
+                <>
+                  <SelectField label="Abholung (Tablet-Standort)" name="pickup" options={knownLocationNames} required />
+                  <SelectField label="Ziel (Tablet-Standort)" name="delivery" options={knownLocationNames} required />
+                  <SelectField label="Frachtart" name="cargo" options={knownCargoTypes} required />
+                </>
+              ) : (
+                <>
+                  <Field label="Abholung" name="pickup" placeholder="z. B. Falkenwalde" required />
+                  <Field label="Ziel" name="delivery" placeholder="z. B. Berlin" required />
+                </>
+              )}
               <div className="sm:col-span-2">
                 <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor="notes">
                   Hinweise
@@ -202,6 +239,19 @@ export default function DispositionPage() {
                   className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                 />
               </div>
+              <label className="flex items-center gap-2 text-xs font-medium text-navy-800 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={syncToTablet}
+                  onChange={(e) => setSyncToTablet(e.target.checked)}
+                  className="h-4 w-4 rounded border-navy-900/25"
+                />
+                Auch im Tablet-Spiel als offenen Auftrag anlegen (ein Disponent im Spiel muss ihn dort noch
+                disponieren)
+                {syncToTablet && knownLocationNames.length === 0 ? (
+                  <span className="text-amber-600">— keine Tablet-Standorte bekannt, Website-Sync aktiv?</span>
+                ) : null}
+              </label>
               {formError ? <p className="text-sm text-red-600 sm:col-span-2">{formError}</p> : null}
               <div className="sm:col-span-2">
                 <Button type="submit" icon={false} className={submitting ? "opacity-60" : ""}>
@@ -523,6 +573,42 @@ function Field({
         placeholder={placeholder}
         className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm text-navy-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
       />
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  name,
+  options,
+  required = false,
+}: {
+  label: string;
+  name: string;
+  options: string[];
+  required?: boolean;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor={name}>
+        {label}
+      </label>
+      <select
+        id={name}
+        name={name}
+        required={required}
+        defaultValue=""
+        className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm text-navy-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+      >
+        <option value="" disabled>
+          Bitte wählen…
+        </option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

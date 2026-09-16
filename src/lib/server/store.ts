@@ -35,7 +35,7 @@ import {
 } from "@/lib/server/db-types";
 import type { OrderMessage, OrderRecord, OrderStatus, VehicleRecord } from "@/lib/fleet-data";
 import { isRoleKey, roleLabels, type RoleKey } from "@/lib/roles";
-import type { TabletCommandRecord } from "@/lib/server/db-types";
+import type { TabletCommandRecord, TabletLocationRecord } from "@/lib/server/db-types";
 
 /**
  * File-backed JSON store standing in for a real database/CMS backend. It exists
@@ -546,6 +546,33 @@ export async function createVehicle(data: Omit<VehicleRecord, "activeDriver" | "
   return vehicle;
 }
 
+/**
+ * Bearbeitet Status/Kilometerstand eines bestehenden Fahrzeugs. Ist das
+ * Fahrzeug mit dem Tablet verknüpft (`tabletVehicleId` gesetzt), wird die
+ * Änderung zusätzlich als `update_vehicle`-Befehl für das Tablet eingereiht
+ * (siehe enqueueCommand) - reine Website-Fahrzeuge (kein tabletVehicleId)
+ * bleiben unverändert website-only.
+ */
+export async function updateVehicle(
+  plate: string,
+  data: { maintenanceStatus?: VehicleRecord["maintenanceStatus"]; mileage?: number },
+): Promise<VehicleRecord | null> {
+  return withSyncLock(async () => {
+    const db = await readDb();
+    const vehicle = db.vehicles.find((v) => v.plate === plate);
+    if (!vehicle) return null;
+    if (data.maintenanceStatus !== undefined) vehicle.maintenanceStatus = data.maintenanceStatus;
+    if (data.mileage !== undefined) vehicle.mileage = data.mileage;
+    await writeDb(db);
+
+    if (vehicle.tabletVehicleId) {
+      const tabletStatus = data.maintenanceStatus === "Einsatzbereit" ? "verfuegbar" : "wartung";
+      await enqueueCommand("update_vehicle", { plate, status: tabletStatus, mileage: vehicle.mileage });
+    }
+    return vehicle;
+  });
+}
+
 export async function deleteVehicle(plate: string): Promise<boolean> {
   const db = await readDb();
   const index = db.vehicles.findIndex((v) => v.plate === plate);
@@ -888,6 +915,26 @@ export async function resolveCommand(id: string, result: { ok: boolean; error?: 
     await writeDb(db);
     return command;
   });
+}
+
+/**
+ * Gültige Standortnamen/Frachtarten aus dem Tablet (Config.Locations,
+ * Config.CargoTypes), gepusht via 'locations.sync'. Grundlage für die
+ * Auswahl bei "Neuer Auftrag" — nur Aufträge mit Start-/Zielort aus dieser
+ * Liste können per `create_order`-Befehl auch im Tablet angelegt werden.
+ */
+export async function upsertTabletLocations(locations: TabletLocationRecord[], cargoTypes: string[]): Promise<void> {
+  return withSyncLock(async () => {
+    const db = await readDb();
+    db.tabletLocations = locations;
+    db.tabletCargoTypes = cargoTypes;
+    await writeDb(db);
+  });
+}
+
+export async function getTabletLocations(): Promise<{ locations: TabletLocationRecord[]; cargoTypes: string[] }> {
+  const db = await readDb();
+  return { locations: db.tabletLocations, cargoTypes: db.tabletCargoTypes };
 }
 
 // ---------------------------------------------------------------------------

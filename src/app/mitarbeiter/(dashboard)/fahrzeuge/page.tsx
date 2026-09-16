@@ -25,6 +25,10 @@ export default function FahrzeugePage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [editingPlate, setEditingPlate] = useState<string | null>(null);
+  const [editStatus, setEditStatus] = useState<MaintenanceStatus>("Einsatzbereit");
+  const [editMileage, setEditMileage] = useState(0);
+  const [saving, setSaving] = useState(false);
 
   const canManage = user?.roleKey === "geschaeftsfuehrung";
   const vehicles = useMemo(() => data?.vehicles ?? [], [data]);
@@ -69,6 +73,31 @@ export default function FahrzeugePage() {
       setFormError("Verbindung zum Server fehlgeschlagen.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function startEdit(v: VehicleRecord) {
+    setEditingPlate(v.plate);
+    setEditStatus(v.maintenanceStatus);
+    setEditMileage(v.mileage);
+  }
+
+  // Fahrzeuge mit tabletVehicleId kommen aus dem Speditions-Tablet im Spiel
+  // (oder wurden dorthin bereits übertragen) - eine Bearbeitung hier wird
+  // zusätzlich als update_vehicle-Befehl an das Tablet gemeldet (siehe
+  // store.ts, updateVehicle), damit keine Seite die andere überstimmt.
+  async function saveEdit(plate: string) {
+    setSaving(true);
+    try {
+      await fetch(`/api/vehicles/${encodeURIComponent(plate)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maintenanceStatus: editStatus, mileage: editMileage }),
+      });
+      await refetch();
+      setEditingPlate(null);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -170,42 +199,106 @@ export default function FahrzeugePage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-navy-900/6">
-            {filtered.map((v) => (
-              <tr key={v.plate}>
-                <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold text-navy-900">{v.plate}</td>
-                <td className="px-4 py-3 text-navy-800">{v.type}</td>
-                <td className="px-4 py-3 text-navy-700/70">{v.year}</td>
-                <td className="px-4 py-3 text-navy-700/70">{v.mileage.toLocaleString("de-DE")} km</td>
-                <td className="whitespace-nowrap px-4 py-3 text-navy-700/70">
-                  {new Date(v.nextService).toLocaleDateString("de-DE")}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-navy-700/70">
-                  {new Date(v.nextTuv).toLocaleDateString("de-DE")}
-                </td>
-                <td className="px-4 py-3">
-                  {v.activeDriver ? (
-                    <Badge tone="green">{v.activeDriver}</Badge>
-                  ) : (
-                    <span className="text-navy-700/40">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <Badge tone={statusTone[v.maintenanceStatus]}>{v.maintenanceStatus}</Badge>
-                </td>
-                {canManage ? (
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      disabled={deleting === v.plate}
-                      onClick={() => handleDelete(v.plate)}
-                      className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
-                    >
-                      {deleting === v.plate ? "Löscht…" : "Löschen"}
-                    </button>
+            {filtered.map((v) => {
+              const editing = editingPlate === v.plate;
+              return (
+                <tr key={v.plate}>
+                  <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold text-navy-900">
+                    {v.plate}
+                    {v.tabletVehicleId ? (
+                      <span className="ml-2 rounded-full bg-navy-900/5 px-2 py-0.5 text-[10px] font-semibold text-navy-700/70">
+                        🎮 Tablet
+                      </span>
+                    ) : null}
                   </td>
-                ) : null}
-              </tr>
-            ))}
+                  <td className="px-4 py-3 text-navy-800">{v.type}</td>
+                  <td className="px-4 py-3 text-navy-700/70">{v.year}</td>
+                  <td className="px-4 py-3 text-navy-700/70">
+                    {editing ? (
+                      <input
+                        type="number"
+                        value={editMileage}
+                        onChange={(e) => setEditMileage(Number(e.target.value))}
+                        className="w-28 rounded-lg border border-navy-900/15 bg-white px-2 py-1 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                      />
+                    ) : (
+                      `${v.mileage.toLocaleString("de-DE")} km`
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-navy-700/70">
+                    {new Date(v.nextService).toLocaleDateString("de-DE")}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-navy-700/70">
+                    {new Date(v.nextTuv).toLocaleDateString("de-DE")}
+                  </td>
+                  <td className="px-4 py-3">
+                    {v.activeDriver ? (
+                      <Badge tone="green">{v.activeDriver}</Badge>
+                    ) : (
+                      <span className="text-navy-700/40">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {editing ? (
+                      <select
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value as MaintenanceStatus)}
+                        className="rounded-lg border border-navy-900/15 bg-white px-2 py-1 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                      >
+                        {statusOptions.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Badge tone={statusTone[v.maintenanceStatus]}>{v.maintenanceStatus}</Badge>
+                    )}
+                  </td>
+                  {canManage ? (
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {editing ? (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => saveEdit(v.plate)}
+                            className="text-xs font-semibold text-navy-900 hover:text-amber-600 disabled:opacity-50"
+                          >
+                            {saving ? "Speichert…" : "Speichern"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingPlate(null)}
+                            className="text-xs font-semibold text-navy-700/60 hover:text-navy-900"
+                          >
+                            Abbrechen
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(v)}
+                            className="text-xs font-semibold text-navy-900 hover:text-amber-600"
+                          >
+                            Bearbeiten
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deleting === v.plate}
+                            onClick={() => handleDelete(v.plate)}
+                            className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                          >
+                            {deleting === v.plate ? "Löscht…" : "Löschen"}
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  ) : null}
+                </tr>
+              );
+            })}
             {filtered.length === 0 && data ? (
               <tr>
                 <td colSpan={canManage ? 9 : 8} className="px-4 py-8 text-center text-sm text-navy-700/50">

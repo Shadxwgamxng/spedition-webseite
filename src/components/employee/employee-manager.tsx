@@ -23,6 +23,7 @@ export function EmployeeManager() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [alsoInTablet, setAlsoInTablet] = useState(false);
 
   const employees = data?.employees ?? [];
   const editingEmployee = editingId && editingId !== NEW ? employees.find((e) => e.id === editingId) : null;
@@ -67,9 +68,33 @@ export function EmployeeManager() {
             ? "Konto angelegt — Discord-DM mit Login-Link wurde verschickt."
             : `Konto angelegt, aber Discord-DM konnte nicht verschickt werden: ${json.discordDm?.error ?? "unbekannter Fehler"}`,
         );
+
+        // Soll auch ein Tablet-Login entstehen: eigener Befehl an die
+        // Befehls-Queue (Employees.HireFromWebsite auf Tablet-Seite sucht
+        // dort die passende Tablet-Rolle über die Website-Rolle) - schlägt
+        // dort fehl, wenn noch keine (eindeutige) Tablet-Rolle im
+        // Rollen-Editor zugeordnet ist; das Ergebnis kommt asynchron per
+        // Befehls-Ack zurück, nicht als Antwort auf dieses Formular.
+        if (alsoInTablet) {
+          await fetch("/api/tablet/commands", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "create_employee",
+              data: {
+                username: payload.username,
+                password: form.get("tabletPassword"),
+                name: payload.name,
+                websiteRoleKey: payload.roleKey,
+                discordId: payload.discordId,
+              },
+            }),
+          });
+        }
       }
       await refetch();
       setEditingId(null);
+      setAlsoInTablet(false);
     } catch {
       setError("Verbindung zum Server fehlgeschlagen.");
     } finally {
@@ -200,6 +225,41 @@ export function EmployeeManager() {
             Die Discord-Nutzer-ID findet dein Mitarbeiter in seinen Discord-Einstellungen unter &bdquo;Erweitert&ldquo; →
             &bdquo;Entwicklermodus&ldquo; aktivieren, dann Rechtsklick auf den eigenen Namen → &bdquo;Nutzer-ID kopieren&ldquo;.
           </p>
+
+          {isNew ? (
+            <div className="sm:col-span-2">
+              <label className="flex items-center gap-2 text-xs font-medium text-navy-800">
+                <input
+                  type="checkbox"
+                  checked={alsoInTablet}
+                  onChange={(e) => setAlsoInTablet(e.target.checked)}
+                  className="h-4 w-4 rounded border-navy-900/25"
+                />
+                Auch ein Tablet-Login (im Spiel) für diese Person anlegen
+              </label>
+              {alsoInTablet ? (
+                <div className="mt-2">
+                  <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor="tabletPassword">
+                    Tablet-Passwort
+                    <span className="ml-1 font-normal text-navy-700/50">
+                      (nur fürs Tablet-Login im Spiel — wird auf der Website nicht gespeichert/verwendet)
+                    </span>
+                  </label>
+                  <input
+                    id="tabletPassword"
+                    name="tabletPassword"
+                    type="text"
+                    required={alsoInTablet}
+                    className="w-full max-w-sm rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  />
+                  <p className="mt-1 text-xs text-navy-700/50">
+                    Erfordert, dass die gewählte Rolle im Tablet-Rollen-Editor eindeutig zugeordnet ist — sonst
+                    schlägt das Anlegen im Spiel fehl (Konto auf der Website wird trotzdem angelegt).
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {error ? <p className="text-sm text-red-600 sm:col-span-2">{error}</p> : null}
           <div className="sm:col-span-2">
