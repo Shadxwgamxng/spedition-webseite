@@ -5,13 +5,13 @@ import {
   createSessionToken,
   customerSessionCookieHeader,
   sessionCookieHeader,
-const APP_ORIGIN = process.env.APP_URL || "https://baltic-freight.de";
 
   verifyOAuthState,
   type OAuthPurpose,
 } from "@/lib/server/session";
 
 const STATE_COOKIE = "bf_oauth_state";
+const APP_ORIGIN = process.env.APP_URL || "https://baltic-freight.de";
 
 const LOGIN_PATH: Record<OAuthPurpose, string> = {
   employee: "/mitarbeiter/login",
