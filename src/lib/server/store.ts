@@ -35,7 +35,7 @@ import {
 } from "@/lib/server/db-types";
 import type { OrderMessage, OrderRecord, OrderStatus, VehicleRecord } from "@/lib/fleet-data";
 import { isRoleKey, roleLabels, isDriverLicenseKey, type RoleKey } from "@/lib/roles";
-import type { TabletCommandRecord, TabletLocationRecord } from "@/lib/server/db-types";
+import type { DriverPositionRecord, TabletCommandRecord, TabletLocationRecord } from "@/lib/server/db-types";
 
 /**
  * File-backed JSON store standing in for a real database/CMS backend. It exists
@@ -935,6 +935,41 @@ export async function upsertTabletLocations(locations: TabletLocationRecord[], c
 export async function getTabletLocations(): Promise<{ locations: TabletLocationRecord[]; cargoTypes: string[] }> {
   const db = await readDb();
   return { locations: db.tabletLocations, cargoTypes: db.tabletCargoTypes };
+}
+
+// ---------------------------------------------------------------------------
+// Live-Karte: Positionen eingestempelter Fahrer, gepusht via
+// 'driver_position.update'/'driver_position.remove' (server/sv_tracking.lua).
+// Bewusst NICHT über readDb()/writeDb() (also nicht in db.json persistiert) -
+// das ändert sich alle paar Sekunden pro Fahrer und wäre für den
+// datei-basierten Store viel zu schreiblastig; beim Neustart der Website
+// baut sich die Karte einfach innerhalb eines Tracking-Intervalls neu auf.
+// ---------------------------------------------------------------------------
+
+const driverPositions = new Map<number, DriverPositionRecord>();
+
+/** Nach dieser Zeit ohne Update gilt eine Position als veraltet (z.B. ein verpasstes "remove"-Event bei einem harten Absturz des Spielservers) und wird beim Auslesen verworfen. */
+const DRIVER_POSITION_STALE_MS = 4 * 60_000;
+
+export function upsertDriverPosition(input: Omit<DriverPositionRecord, "updatedAt">): void {
+  driverPositions.set(input.tabletEmployeeId, { ...input, updatedAt: new Date().toISOString() });
+}
+
+export function removeDriverPosition(tabletEmployeeId: number): void {
+  driverPositions.delete(tabletEmployeeId);
+}
+
+export function listDriverPositions(): DriverPositionRecord[] {
+  const now = Date.now();
+  const fresh: DriverPositionRecord[] = [];
+  for (const [id, pos] of driverPositions) {
+    if (now - new Date(pos.updatedAt).getTime() > DRIVER_POSITION_STALE_MS) {
+      driverPositions.delete(id);
+    } else {
+      fresh.push(pos);
+    }
+  }
+  return fresh;
 }
 
 // ---------------------------------------------------------------------------

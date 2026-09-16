@@ -1,0 +1,23 @@
+Live-Karte: eigenes Kartenbild ablegen
+=======================================
+
+Diese Website liefert absichtlich KEIN GTA-V-Kartenbild mit - Rockstars
+Kartengrafik ist urheberrechtlich geschützt.
+
+Um die Live-Karte (/mitarbeiter/live-karte) mit einem echten Kartenbild zu
+nutzen, lege eine eigene Kartengrafik der GTA-V-Spielwelt genau hier ab:
+
+    public/gta-map.jpg
+
+Fertig - beim nächsten Laden der Seite wird das Bild automatisch geladen.
+Ohne Datei zeigt die Live-Karte stattdessen einen Hinweistext statt eines
+kaputten Bildes.
+
+Passt dein Kartenausschnitt nicht exakt zu den hinterlegten
+Weltkoordinaten-Grenzen (die Marker sitzen dann leicht daneben), justiere
+MAP_BOUNDS in src/app/mitarbeiter/(dashboard)/live-karte/page.tsx nach -
+identisch zu MAP_BOUNDS im Tablet-Repo (html/js/app.js), damit ein Fahrer
+auf beiden Karten an derselben relativen Stelle erscheint.
+
+Diese Datei selbst hat keine Funktion und kann gelöscht werden, sobald
+gta-map.jpg im Ordner liegt.

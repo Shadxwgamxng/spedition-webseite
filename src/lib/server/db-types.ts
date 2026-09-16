@@ -358,6 +358,32 @@ export type TabletLocationRecord = {
   destCargo?: string[];
 };
 
+/**
+ * Live-Position eines gerade eingestempelten Fahrers, gepusht via
+ * 'driver_position.update' (server/sv_tracking.lua, WebsiteBridge.PushDriverPosition)
+ * bzw. entfernt via 'driver_position.remove'. Rein transient (in-memory, siehe
+ * store.ts upsertDriverPosition/removeDriverPosition) - NICHT Teil der
+ * persistierten Db/db.json, da sie sich alle paar Sekunden pro Fahrer ändert.
+ * Automatisch veraltete Einträge (kein Update mehr, z.B. verpasstes
+ * "remove"-Event bei einem harten Absturz) werden beim Auslesen verworfen.
+ */
+export type DriverPositionRecord = {
+  tabletEmployeeId: number;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  vehiclePlate: string | null;
+  vehicleLabel: string | null;
+  order: {
+    cargo: string;
+    startLocation: string;
+    endLocation: string;
+    status: string;
+  } | null;
+  updatedAt: string;
+};
+
 function slugify(input: string): string {
   return input
     .toLowerCase()
