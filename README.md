@@ -231,27 +231,6 @@ Server-API (`src/app/api/vehicles/*`) mit einem dateibasierten Store (`.data/db.
 sehen Disponenten auf einem **anderen Gerät/Tab** die Anmeldung live (Polling alle 4 s) im Bereich „Aktive
 Fahrzeuge" und können neue Aufträge anlegen sowie live angemeldeten Fahrzeugen/Fahrern zuweisen.
 
-### Live-Karte (nur Geschäftsführung/Prokurist/Betriebsleitung/Disposition)
-
-Unter `/mitarbeiter/live-karte` zeigt eine Live-Karte **ausschließlich gerade
-eingestempelte** Fahrer des FiveM Speditions-Tablets als Marker über einem
-Kartenbild der Spielwelt: Name, Position, genutztes Fahrzeug (Typ/Kennzeichen)
-und aktiver Lieferauftrag inkl. Route, falls einer läuft. Die Daten kommen
-ausschließlich vom Tablet (`driver_position.update`/`.remove`-Events, siehe
-"Tablet-Sync" unten) — ohne aktiven Website-Sync bleibt die Seite leer
-("Aktuell ist niemand eingestempelt.").
-
-**Eigenes Kartenbild nötig**: Diese Website liefert **kein** GTA-V-Kartenbild
-mit (Rockstars Kartengrafik ist urheberrechtlich geschützt). Lege eine eigene
-Kartengrafik unter `public/gta-map.jpg` ab (siehe
-`public/KARTENBILD_HIER_ABLEGEN.txt`) — ohne diese Datei zeigt die Seite
-stattdessen einen Hinweistext. Die Umrechnung von Weltkoordinaten auf
-Bildposition nutzt dieselben groben, community-üblichen Grenzwerte
-(`MAP_BOUNDS`) wie im Tablet-Repo (`html/js/app.js`), damit ein Fahrer auf
-beiden Karten an derselben relativen Stelle erscheint — passt dein
-Kartenausschnitt nicht exakt dazu, in `src/app/mitarbeiter/(dashboard)/live-karte/page.tsx`
-nachjustieren.
-
 ### Digitale Fahrerkarte
 
 Fahrer aktivieren ihre eigene Fahrerkarte und erfassen Pausen (Start/Ende) selbst; Lenkzeiten heute/Woche werden
@@ -400,17 +379,12 @@ Aufträge/Disposition, Fuhrpark/Fahrzeuge, Fahrerkarte/Lenkzeiten sowie Mitarbei
 beide Seiten können Aufträge/Fahrzeuge/Mitarbeiter anlegen bzw. bearbeiten, und die jeweils andere Seite zieht nach.
 
 **Push (Tablet → Website)**: `POST /api/tablet/webhook` — das Tablet meldet Änderungen (`employee.upsert`,
-`order.upsert`, `vehicle.upsert`, `driver_hours.report`, `locations.sync`, `driver_position.update`/`.remove`) in
+`order.upsert`, `vehicle.upsert`, `driver_hours.report`, `locations.sync`) in
 Echtzeit. Verknüpfung läuft über `tabletEmployeeId`/`tabletOrderId`/`tabletVehicleId` (bzw. das Kennzeichen bei
 Fahrzeugen) — bestehende Datensätze werden aktualisiert, unbekannte neu angelegt. `locations.sync` ist ein
 Sonderfall: kein Datensatz-Upsert, sondern meldet einmalig beim Tablet-Ressourcenstart die gültigen
 Standortnamen/Frachtarten (`Config.Locations`/`Config.CargoTypes`) — Grundlage für die Standort-Auswahl bei "Neuer
 Auftrag" auf der Website (`tabletLocations`/`tabletCargoTypes` in `db.json`, `GET /api/tablet-locations`).
-`driver_position.update`/`.remove` sind ebenfalls ein Sonderfall: kein Upsert in `db.json`, sondern ein rein
-in-memory gehaltener Zustand (siehe `driverPositions` in `src/lib/server/store.ts`) — bei jedem Tracking-Tick des
-Tablets (`Config.LiveMap.trackingIntervalMs`, Standard 3s) für jeden gerade eingestempelten Fahrer gemeldet, bei
-Schichtende/Disconnect sofort mit `.remove` entfernt. Grundlage für die Live-Karte (`/mitarbeiter/live-karte`,
-`GET /api/live-map`) — siehe eigener Abschnitt "Live-Karte" unten.
 
 **Pull (Website → Tablet)**: Dispositionsaktionen landen nicht als direkter Datenbank-Patch, sondern in einer
 Befehls-Queue (`POST /api/tablet/commands`) — das Tablet pollt `GET /api/tablet/commands` alle paar Sekunden, führt

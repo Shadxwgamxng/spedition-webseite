@@ -1,8 +1,6 @@
 import { isAuthorizedTabletRequest, unauthorizedTabletResponse } from "@/lib/server/tablet-auth";
 import {
   applyDriverHoursReport,
-  removeDriverPosition,
-  upsertDriverPosition,
   upsertEmployeeFromTablet,
   upsertOrderFromTablet,
   upsertTabletLocations,
@@ -113,44 +111,6 @@ export async function POST(request: Request) {
         }
         const card = await applyDriverHoursReport(tabletEmployeeId, num(data.dailyMinutes), data.resting === true);
         return Response.json({ ok: true, card });
-      }
-
-      case "driver_position.update": {
-        const tabletEmployeeId = num(data.tabletEmployeeId);
-        const name = str(data.name);
-        if (!tabletEmployeeId || !name) {
-          return Response.json({ ok: false, error: "tabletEmployeeId und name sind erforderlich." }, { status: 400 });
-        }
-        const rawOrder = data.order as Record<string, unknown> | null | undefined;
-        const order =
-          rawOrder && str(rawOrder.cargo)
-            ? {
-                cargo: str(rawOrder.cargo),
-                startLocation: str(rawOrder.startLocation),
-                endLocation: str(rawOrder.endLocation),
-                status: str(rawOrder.status),
-              }
-            : null;
-        upsertDriverPosition({
-          tabletEmployeeId,
-          name,
-          x: num(data.x),
-          y: num(data.y),
-          z: num(data.z),
-          vehiclePlate: typeof data.vehiclePlate === "string" ? data.vehiclePlate : null,
-          vehicleLabel: typeof data.vehicleLabel === "string" ? data.vehicleLabel : null,
-          order,
-        });
-        return Response.json({ ok: true });
-      }
-
-      case "driver_position.remove": {
-        const tabletEmployeeId = num(data.tabletEmployeeId);
-        if (!tabletEmployeeId) {
-          return Response.json({ ok: false, error: "tabletEmployeeId ist erforderlich." }, { status: 400 });
-        }
-        removeDriverPosition(tabletEmployeeId);
-        return Response.json({ ok: true });
       }
 
       case "locations.sync": {
