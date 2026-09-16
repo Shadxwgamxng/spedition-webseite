@@ -59,8 +59,24 @@ export default function DispositionPage() {
     return c;
   }, [allOrders]);
 
-  async function patchOrder(id: string, patch: Record<string, unknown>) {
-    await fetch(`/api/orders/${id}`, {
+  // "tablet"-Aufträge kommen aus dem Speditions-Tablet im Spiel — ein
+  // direkter PATCH hier würde nur die lokale Website-Kopie ändern, ohne dass
+  // sich im Spiel etwas tut. Dispo-Aktionen auf solchen Aufträgen laufen
+  // deshalb über die Befehls-Queue: das Tablet holt sie sich per Polling ab
+  // und führt sie gegen seine eigene Datenbank aus (siehe README
+  // "Tablet-Sync"). Der nächste order.upsert-Webhook vom Tablet überschreibt
+  // dann den tatsächlichen neuen Status/Fahrer/Fahrzeug.
+  async function enqueueTabletCommand(type: string, data: Record<string, unknown>) {
+    await fetch("/api/tablet/commands", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, data }),
+    });
+    await orders.refetch();
+  }
+
+  async function patchOrder(order: OrderRecord, patch: Record<string, unknown>) {
+    await fetch(`/api/orders/${order.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
@@ -68,19 +84,31 @@ export default function DispositionPage() {
     await orders.refetch();
   }
 
-  async function deleteOrderRow(id: string) {
-    if (!window.confirm(`Auftrag ${id} wirklich unwiderruflich löschen?`)) return;
-    await fetch(`/api/orders/${id}`, { method: "DELETE" });
+  async function deleteOrderRow(order: OrderRecord) {
+    if (order.origin === "tablet") {
+      if (!window.confirm(`Auftrag ${order.id} im Spiel abbrechen?`)) return;
+      await enqueueTabletCommand("cancel_order", { tabletOrderId: order.tabletOrderId });
+      return;
+    }
+    if (!window.confirm(`Auftrag ${order.id} wirklich unwiderruflich löschen?`)) return;
+    await fetch(`/api/orders/${order.id}`, { method: "DELETE" });
     await orders.refetch();
   }
 
   function assignVehicle(order: OrderRecord, plate: string) {
+    if (order.origin === "tablet") {
+      enqueueTabletCommand("assign_order", {
+        tabletOrderId: order.tabletOrderId,
+        vehiclePlate: plate === UNASSIGNED ? null : plate,
+      });
+      return;
+    }
     if (plate === UNASSIGNED) {
-      patchOrder(order.id, { driverName: null, vehiclePlate: null });
+      patchOrder(order, { driverName: null, vehiclePlate: null });
       return;
     }
     const vehicle = activeFleet.find((v) => v.plate === plate);
-    patchOrder(order.id, {
+    patchOrder(order, {
       vehiclePlate: plate,
       driverName: vehicle?.activeDriver ?? null,
       status: order.status === "Neu" ? "Disponiert" : order.status,
@@ -218,18 +246,29 @@ export default function DispositionPage() {
                   return (
                     <Fragment key={order.id}>
                       <tr className="align-middle">
-                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold text-navy-900">{order.id}</td>
+                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs font-semibold text-navy-900">
+                          {order.id}
+                          {order.origin === "tablet" ? (
+                            <div className="mt-1 font-sans text-[10px] font-semibold uppercase tracking-wide text-amber-600">
+                              🎮 Tablet
+                            </div>
+                          ) : null}
+                        </td>
                         <td className="px-4 py-3 text-navy-800">{order.customer}</td>
                         <td className="px-4 py-3 text-navy-700/80">
                           {order.pickup} → {order.delivery}
                         </td>
                         <td className="px-4 py-3">
-                          <input
-                            type="date"
-                            value={order.date}
-                            onChange={(e) => patchOrder(order.id, { date: e.target.value })}
-                            className="rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs"
-                          />
+                          {order.origin === "tablet" ? (
+                            <span className="text-xs text-navy-700/50">{formatDate(order.date)}</span>
+                          ) : (
+                            <input
+                              type="date"
+                              value={order.date}
+                              onChange={(e) => patchOrder(order, { date: e.target.value })}
+                              className="rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs"
+                            />
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <select
@@ -238,12 +277,15 @@ export default function DispositionPage() {
                             className="rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs"
                           >
                             <option value={UNASSIGNED}>{UNASSIGNED}</option>
-                            {activeFleet.map((v) => (
+                            {(order.origin === "tablet" ? vehicles.data?.vehicles ?? [] : activeFleet).map((v) => (
                               <option key={v.plate} value={v.plate}>
-                                {v.plate} · {v.activeDriver}
+                                {v.plate} · {v.activeDriver ?? (order.origin === "tablet" ? "im Tablet zugewiesen" : "")}
                               </option>
                             ))}
-                            {order.vehiclePlate && !activeFleet.some((v) => v.plate === order.vehiclePlate) ? (
+                            {order.vehiclePlate &&
+                            !(order.origin === "tablet" ? vehicles.data?.vehicles ?? [] : activeFleet).some(
+                              (v) => v.plate === order.vehiclePlate,
+                            ) ? (
                               <option value={order.vehiclePlate}>
                                 {order.vehiclePlate} · {order.driverName} (abgemeldet)
                               </option>
@@ -251,20 +293,26 @@ export default function DispositionPage() {
                           </select>
                         </td>
                         <td className="px-4 py-3">
-                          <select
-                            value={order.status}
-                            onChange={(e) => patchOrder(order.id, { status: e.target.value })}
-                            className="rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs font-medium"
-                          >
-                            {statusOptions.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="mt-1.5">
+                          {order.origin === "tablet" ? (
                             <Badge tone={statusStyles[order.status]}>{order.status}</Badge>
-                          </div>
+                          ) : (
+                            <>
+                              <select
+                                value={order.status}
+                                onChange={(e) => patchOrder(order, { status: e.target.value })}
+                                className="rounded-lg border border-navy-900/15 bg-white px-2 py-1.5 text-xs font-medium"
+                              >
+                                {statusOptions.map((s) => (
+                                  <option key={s} value={s}>
+                                    {s}
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="mt-1.5">
+                                <Badge tone={statusStyles[order.status]}>{order.status}</Badge>
+                              </div>
+                            </>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <button
@@ -279,10 +327,10 @@ export default function DispositionPage() {
                         <td className="px-4 py-3">
                           <button
                             type="button"
-                            onClick={() => deleteOrderRow(order.id)}
+                            onClick={() => deleteOrderRow(order)}
                             className="text-xs font-semibold text-red-600 hover:text-red-700"
                           >
-                            Löschen
+                            {order.origin === "tablet" ? "Im Spiel abbrechen" : "Löschen"}
                           </button>
                         </td>
                       </tr>

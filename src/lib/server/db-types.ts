@@ -65,6 +65,14 @@ export type EmployeeRecord = {
   role: string;
   roleKey: RoleKey;
   department: string;
+  /** st_employees.id from the FiveM Speditions-Tablet, if this account is linked/synced from there — null/undefined for website-only accounts. See src/app/api/tablet/webhook/route.ts. */
+  tabletEmployeeId?: number | null;
+  /**
+   * Mirrors the Tablet's st_employees.status for linked accounts ("aktiv"/"inaktiv").
+   * Undefined/missing is treated as "aktiv" (all pre-existing website-only accounts).
+   * A website-only account (no tabletEmployeeId) is always implicitly "aktiv".
+   */
+  status?: "aktiv" | "inaktiv";
 };
 
 export type PublicEmployee = EmployeeRecord;
@@ -311,6 +319,23 @@ export type ContactInquiryRecord = {
   replies: ContactReply[];
 };
 
+/**
+ * A control-direction command queued for the FiveM Speditions-Tablet to pick
+ * up (e.g. Disposition assigning a driver/vehicle to a `origin: "tablet"`
+ * order on the website). The tablet's sv_website_bridge.lua polls
+ * GET /api/tablet/commands, executes matching `type`s against its own DB,
+ * then reports back via POST /api/tablet/commands/[id]/ack — see
+ * server/store.ts (enqueueCommand/listPendingCommands/resolveCommand).
+ */
+export type TabletCommandRecord = {
+  id: string;
+  type: string;
+  data: Record<string, unknown>;
+  createdAt: string;
+  result?: { ok: boolean; error?: string } | null;
+  resolvedAt?: string | null;
+};
+
 function slugify(input: string): string {
   return input
     .toLowerCase()
@@ -362,6 +387,8 @@ export type Db = {
   reviews: ReviewRecord[];
   partners: PartnerRecord[];
   company: CompanyInfo;
+  /** Control-direction command queue for the FiveM Speditions-Tablet — see TabletCommandRecord. */
+  pendingCommands: TabletCommandRecord[];
 };
 
 export const COLLECTION_ID_FIELD = {
@@ -459,5 +486,6 @@ export function seedDb(): Db {
     reviews: withIds(reviewsSeed, (r) => `${r.author}-${r.company}`),
     partners: withIds(partnersSeed, (p) => p.name),
     company: companySeed,
+    pendingCommands: [],
   };
 }

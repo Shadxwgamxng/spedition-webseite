@@ -84,6 +84,7 @@ Cookie. Der OAuth-Callback ist zusätzlich per signiertem `state`-Cookie gegen C
 | `SESSION_SECRET` | Beliebige lange Zufallszeichenkette zum Signieren der Session-/State-Cookies |
 | `OWNER_DISCORD_ID` | Deine eigene Discord-Nutzer-ID — wird beim allerersten Start automatisch als `discordId` des `admin`-Kontos gesetzt (löst das „Henne-Ei-Problem": ohne bestehendes Geschäftsführungs-Konto könnte sonst niemand ein erstes Konto verknüpfen) |
 | `DISCORD_BOT_TOKEN` | Bot-Token derselben Discord-Anwendung — wird genutzt, um neu angelegten Mitarbeitenden automatisch eine Willkommens-DM mit Login-Link zu schicken (siehe unten). Optional: Ohne diese Variable werden Konten weiterhin ganz normal angelegt, nur die DM entfällt. |
+| `TABLET_API_KEY` | Geteiltes Geheimnis mit dem FiveM Speditions-Tablet für die `/api/tablet/*`-Sync-Routen (siehe „Tablet-Sync" unten). Optional: Ohne diese Variable sind die Routen komplett gesperrt (fail closed), der Rest der Website läuft unverändert weiter. |
 
 **Discord-Anwendung einrichten:**
 
@@ -363,6 +364,40 @@ Werkstatt) mehr, da dafür keine echte Datenquelle existiert; die Seite weist da
 
 Nur die Geschäftsführung sieht in der Fahrzeugverwaltung zusätzlich ein Formular zum Anlegen neuer Fahrzeuge und
 einen Löschen-Button je Zeile; alle anderen Rollen mit Zugriff auf dieses Modul sehen es weiterhin nur lesend.
+
+## Tablet-Sync (FiveM Speditions-Tablet)
+
+Diese Website kann mit dem separaten FiveM-Roleplay-Tablet (`speditions-tablet`, eigenes Repo) synchronisiert werden:
+Aufträge/Disposition, Fuhrpark/Fahrzeuge, Fahrerkarte/Lenkzeiten sowie Mitarbeiterkonten. Das Tablet ist dabei die
+Quelle der Wahrheit für alles, was operativ im Spiel passiert — die Website zeigt es live an und kann darüber auch
+disponieren.
+
+**Push (Tablet → Website)**: `POST /api/tablet/webhook` — das Tablet meldet Änderungen (`employee.upsert`,
+`order.upsert`, `vehicle.upsert`, `driver_hours.report`) in Echtzeit. Verknüpfung läuft über
+`tabletEmployeeId`/`tabletOrderId`/`tabletVehicleId` (bzw. das Kennzeichen bei Fahrzeugen) — bestehende Datensätze
+werden aktualisiert, unbekannte neu angelegt. Ein vom Tablet synchronisierter Mitarbeiter (`tabletEmployeeId`
+gesetzt) hat seine Rolle unter Verwaltung → Mitarbeiter-Konten nur noch lesend sichtbar — Rollenänderungen kommen
+vom Tablet.
+
+**Pull (Website → Tablet)**: Disposition-Aktionen auf einem `origin: "tablet"`-Auftrag (Fahrzeug zuweisen, im Spiel
+abbrechen) landen nicht als direkter Datenbank-Patch, sondern in einer Befehls-Queue
+(`POST /api/tablet/commands`) — das Tablet pollt `GET /api/tablet/commands` alle paar Sekunden, führt den Befehl
+gegen seine eigene Datenbank aus und meldet das Ergebnis über `POST /api/tablet/commands/[id]/ack` zurück. So
+braucht der Spielserver keinen offenen eingehenden Port.
+
+Alle `/api/tablet/*`-Routen prüfen einen `X-Api-Key`-Header gegen `TABLET_API_KEY` (konstante Zeit, siehe
+`src/lib/server/tablet-auth.ts`) — die einzigen Routen in dieser App mit einem echten Auth-Gate, weil sie Schreibzugriffe
+von einem externen, nicht-interaktiven Aufrufer akzeptieren statt einer angemeldeten Browser-Session. Ohne gesetzte
+`TABLET_API_KEY` sind sie komplett gesperrt.
+
+**Bekannte Vereinfachungen**: Der Website-Auftragsstatus (`Angefragt/Neu/Disponiert/Unterwegs/Zugestellt/Abgelehnt`)
+ist gröber als der des Tablets — eine Mapping-Funktion (`mapTabletOrderStatus` in `src/lib/server/store.ts`)
+übersetzt zwischen beiden. Die wöchentliche Lenkzeit auf der Fahrerkarte wird nicht synchronisiert (das Tablet führt
+dafür aktuell keine Historie). Die Sync-Schreibpfade (`upsertEmployeeFromTablet`, `upsertOrderFromTablet`,
+`upsertVehicleFromTablet`, `applyDriverHoursReport`, die Command-Queue) sind über einen einfachen In-Process-Mutex
+(`withSyncLock`) gegeneinander serialisiert, damit eine schnelle Folge von Webhook-Events sich nicht gegenseitig
+überschreibt — das ist kein Ersatz für eine echte Transaktions-Datenbank, aber für den erwarteten Event-Takt
+ausreichend (siehe Store-Kommentar zu `.data/db.json` weiter unten).
 
 ## Wichtige Hinweise vor dem produktiven Einsatz
 

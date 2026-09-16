@@ -33,8 +33,9 @@ import {
   type TimeClockSummary,
   type TripRecord,
 } from "@/lib/server/db-types";
-import type { OrderMessage, OrderRecord, VehicleRecord } from "@/lib/fleet-data";
-import { roleLabels, type RoleKey } from "@/lib/roles";
+import type { OrderMessage, OrderRecord, OrderStatus, VehicleRecord } from "@/lib/fleet-data";
+import { isRoleKey, roleLabels, type RoleKey } from "@/lib/roles";
+import type { TabletCommandRecord } from "@/lib/server/db-types";
 
 /**
  * File-backed JSON store standing in for a real database/CMS backend. It exists
@@ -611,6 +612,52 @@ export async function logoutVehicle(driverName: string): Promise<{ ok: true } | 
   return { ok: true };
 }
 
+/**
+ * Create-or-update a vehicle from a Tablet `vehicle.upsert` webhook, keyed on
+ * `plate` (both sides use the license plate as the natural identifier — the
+ * Tablet's numeric `st_vehicles.id` is kept only as `tabletVehicleId` for
+ * reference/debugging). Deliberately does not touch `activeDriver`/
+ * `activeSince` — that stays purely a website concept (Fahrzeug-Gate login),
+ * not something the Tablet reports.
+ */
+export async function upsertVehicleFromTablet(payload: {
+  tabletVehicleId: number;
+  plate: string;
+  type: string;
+  mileage: number;
+  maintenanceStatus: VehicleRecord["maintenanceStatus"];
+}): Promise<VehicleRecord> {
+  return withSyncLock(async () => {
+    const db = await readDb();
+    let vehicle = db.vehicles.find((v) => v.plate === payload.plate);
+    if (vehicle) {
+      vehicle.type = payload.type;
+      vehicle.mileage = payload.mileage;
+      vehicle.maintenanceStatus = payload.maintenanceStatus;
+      vehicle.tabletVehicleId = payload.tabletVehicleId;
+    } else {
+      const now = new Date();
+      const inOneYear = new Date(now);
+      inOneYear.setFullYear(inOneYear.getFullYear() + 1);
+      vehicle = {
+        plate: payload.plate,
+        type: payload.type,
+        year: now.getFullYear(),
+        mileage: payload.mileage,
+        nextService: inOneYear.toISOString().slice(0, 10),
+        nextTuv: inOneYear.toISOString().slice(0, 10),
+        maintenanceStatus: payload.maintenanceStatus,
+        activeDriver: null,
+        activeSince: null,
+        tabletVehicleId: payload.tabletVehicleId,
+      };
+      db.vehicles.push(vehicle);
+    }
+    await writeDb(db);
+    return vehicle;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Orders
 // ---------------------------------------------------------------------------
@@ -708,6 +755,141 @@ export async function addOrderMessage(
   return order;
 }
 
+/**
+ * Maps a Tablet `st_orders.status` (server/sv_orders.lua's richer, 10-value
+ * lifecycle) onto the website's coarser 6-value `OrderStatus` — deliberately
+ * a translation function rather than widening `OrderStatus` everywhere across
+ * the existing UI, which only ever needs to distinguish "not yet moving" /
+ * "on the road" / "done" / "rejected".
+ */
+export function mapTabletOrderStatus(tabletStatus: string): OrderStatus {
+  switch (tabletStatus) {
+    case "offen":
+    case "disponiert":
+      return "Neu";
+    case "angenommen":
+    case "anfahrt":
+    case "beladen":
+    case "entladen":
+    case "unterwegs":
+      return "Unterwegs";
+    case "abgeschlossen":
+      return "Zugestellt";
+    case "abgebrochen":
+    case "abgelehnt":
+      return "Abgelehnt";
+    default:
+      return "Neu";
+  }
+}
+
+export async function findOrderByTabletId(tabletOrderId: number): Promise<OrderRecord | null> {
+  const db = await readDb();
+  return db.orders.find((o) => o.tabletOrderId === tabletOrderId) ?? null;
+}
+
+/**
+ * Create-or-update an order from a Tablet `order.upsert` webhook, keyed on
+ * `tabletOrderId` (the Tablet's own `st_orders.id`). The Tablet has no
+ * "Kunde" concept (it's point-to-point cargo runs, not customer orders), so
+ * `customer`/`cargoType` are both set to the cargo description and route
+ * details go into `notes`. `origin: "tablet"` marks it for the Disposition UI
+ * (see disposition/page.tsx) to route dispatch actions through the command
+ * queue instead of a direct PATCH.
+ */
+export async function upsertOrderFromTablet(payload: {
+  tabletOrderId: number;
+  cargo: string;
+  startLocation: string;
+  endLocation: string;
+  distanceKm: number;
+  status: string;
+  driverName: string | null;
+  vehiclePlate: string | null;
+}): Promise<OrderRecord> {
+  return withSyncLock(async () => {
+    const db = await readDb();
+    const status = mapTabletOrderStatus(payload.status);
+    let order = db.orders.find((o) => o.tabletOrderId === payload.tabletOrderId);
+    if (order) {
+      order.status = status;
+      order.driverName = payload.driverName;
+      order.vehiclePlate = payload.vehiclePlate;
+      order.notes = `${payload.distanceKm.toFixed(0)} km`;
+    } else {
+      order = {
+        id: `BF-T${payload.tabletOrderId}`,
+        customer: payload.cargo,
+        pickup: payload.startLocation,
+        delivery: payload.endLocation,
+        date: new Date().toISOString().slice(0, 10),
+        notes: `${payload.distanceKm.toFixed(0)} km`,
+        status,
+        driverName: payload.driverName,
+        vehiclePlate: payload.vehiclePlate,
+        createdAt: new Date().toISOString(),
+        messages: [],
+        origin: "tablet",
+        tabletOrderId: payload.tabletOrderId,
+        customerId: null,
+        contactName: "",
+        email: "",
+        phone: "",
+        cargoType: payload.cargo,
+        requestedPickupDate: "",
+        requestedDeliveryDate: "",
+      };
+      db.orders.unshift(order);
+    }
+    await writeDb(db);
+    return order;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Command queue: Disposition-Aktionen auf "tablet"-Aufträgen/-Fahrzeugen
+// (Website → Tablet) landen hier statt eines direkten `updateOrder`, weil ein
+// bloßer PATCH auf `db.json` nichts im Spiel selbst ändern würde. Das
+// Tablet-seitige `sv_website_bridge.lua` pollt `listPendingCommands`, führt
+// den Befehl serverseitig gegen die eigene MySQL-DB aus und meldet das
+// Ergebnis über `resolveCommand` zurück.
+// ---------------------------------------------------------------------------
+
+export async function enqueueCommand(type: string, data: Record<string, unknown>): Promise<TabletCommandRecord> {
+  return withSyncLock(async () => {
+    const db = await readDb();
+    const command: TabletCommandRecord = {
+      id: makeId(type),
+      type,
+      data,
+      createdAt: new Date().toISOString(),
+      result: null,
+      resolvedAt: null,
+    };
+    db.pendingCommands.push(command);
+    await writeDb(db);
+    return command;
+  });
+}
+
+/** Commands the Tablet hasn't reported a result for yet — what its poll loop fetches. */
+export async function listPendingCommands(): Promise<TabletCommandRecord[]> {
+  const db = await readDb();
+  return db.pendingCommands.filter((c) => !c.resolvedAt);
+}
+
+export async function resolveCommand(id: string, result: { ok: boolean; error?: string }): Promise<TabletCommandRecord | null> {
+  return withSyncLock(async () => {
+    const db = await readDb();
+    const command = db.pendingCommands.find((c) => c.id === id);
+    if (!command) return null;
+    command.result = result;
+    command.resolvedAt = new Date().toISOString();
+    await writeDb(db);
+    return command;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Driver cards
 // ---------------------------------------------------------------------------
@@ -776,6 +958,33 @@ export async function acknowledgeDriverReminder(employeeId: string, reminderId: 
   if (reminder) reminder.read = true;
   await writeDb(db);
   return card;
+}
+
+/**
+ * Applies a Tablet `driver_hours.report` webhook (Lenk-/Ruhezeiten aus
+ * server/sv_hours.lua, Hours.Status) onto the matching driver card —
+ * `drivingTodayMinutes`/`onBreak` were previously write-only dead fields on
+ * the website (nothing ever set them); this is what actually fills them in.
+ * No-op (returns null) if the reporting employee has no linked website
+ * account yet or no card (e.g. Tablet-Rolle noch nicht auf "fahrer" gemappt).
+ */
+export async function applyDriverHoursReport(
+  tabletEmployeeId: number,
+  dailyMinutes: number,
+  resting: boolean,
+): Promise<DriverCardRecord | null> {
+  return withSyncLock(async () => {
+    const db = await readDb();
+    const employee = db.employees.find((e) => e.tabletEmployeeId === tabletEmployeeId);
+    if (!employee) return null;
+    const card = findCard(db, employee.id);
+    if (!card) return null;
+    card.drivingTodayMinutes = Math.max(0, Math.round(dailyMinutes));
+    card.onBreak = resting;
+    if (!resting) card.breakStartedAt = null;
+    await writeDb(db);
+    return card;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -897,6 +1106,99 @@ export async function verifyDiscordLogin(discordId: string): Promise<PublicEmplo
   const db = await readDb();
   const employee = db.employees.find((e) => e.discordId && e.discordId === discordId);
   return employee ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// FiveM Speditions-Tablet sync (Aufträge/Disposition, Fuhrpark, Fahrerkarte,
+// Mitarbeiterkonten) — see src/app/api/tablet/webhook/route.ts.
+//
+// `withSyncLock` serializes these specific functions against each other (a
+// simple promise-chain mutex) so a burst of near-simultaneous webhook
+// deliveries from the game server can't clobber one another with a lost
+// read-modify-write — the store as a whole has no such protection (see the
+// class doc-comment above), this only closes the gap for the new tablet-sync
+// write paths, which are the ones actually expected to fire in quick
+// succession from an external, non-interactive caller.
+// ---------------------------------------------------------------------------
+
+let syncQueue: Promise<unknown> = Promise.resolve();
+
+function withSyncLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = syncQueue.then(fn, fn);
+  syncQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+export async function findEmployeeByTabletId(tabletEmployeeId: number): Promise<PublicEmployee | null> {
+  const db = await readDb();
+  return db.employees.find((e) => e.tabletEmployeeId === tabletEmployeeId) ?? null;
+}
+
+/**
+ * Create-or-update an employee from a Tablet `employee.upsert` webhook.
+ * Unlike the public `createEmployee` (used by the website's own "Mitarbeiter
+ * einstellen" form), `discordId` is optional here — a Tablet-hired employee
+ * may not have a Discord account linked yet; that can be added later under
+ * Verwaltung → Mitarbeiter-Konten. `websiteRoleKey` must be a valid RoleKey
+ * (the Geschäftsführung maps each Tablet-Rolle to one of the 9 website roles
+ * in the Tablet's Rollen-Editor) — an employee whose Tablet-Rolle has no
+ * mapping yet is rejected rather than guessed at.
+ */
+export async function upsertEmployeeFromTablet(payload: {
+  tabletEmployeeId: number;
+  name: string;
+  discordId?: string | null;
+  websiteRoleKey: string;
+  status: "aktiv" | "inaktiv";
+  department?: string;
+}): Promise<PublicEmployee> {
+  return withSyncLock(async () => {
+    if (!isRoleKey(payload.websiteRoleKey)) {
+      throw new Error(
+        `Unbekannte Website-Rolle "${payload.websiteRoleKey}" — im Tablet unter Rollen die Website-Rolle für diese Rolle zuordnen.`,
+      );
+    }
+    const db = await readDb();
+    const discordId = payload.discordId?.trim() ?? "";
+    if (discordId && db.employees.some((e) => e.tabletEmployeeId !== payload.tabletEmployeeId && e.discordId === discordId)) {
+      throw new Error("Diese Discord-Nutzer-ID ist bereits einem anderen Konto zugeordnet.");
+    }
+
+    let employee = db.employees.find((e) => e.tabletEmployeeId === payload.tabletEmployeeId);
+    if (employee) {
+      employee.name = payload.name;
+      employee.roleKey = payload.websiteRoleKey;
+      employee.role = roleLabels[payload.websiteRoleKey];
+      employee.status = payload.status;
+      if (discordId) employee.discordId = discordId;
+      if (payload.department !== undefined) employee.department = payload.department;
+    } else {
+      let username = payload.name.trim().toLowerCase().replace(/\s+/g, ".").replace(/[^a-z0-9.]/g, "") || `tablet-${payload.tabletEmployeeId}`;
+      if (db.employees.some((e) => e.username.toLowerCase() === username)) {
+        username = `${username}-${payload.tabletEmployeeId}`;
+      }
+      employee = {
+        id: makeId(username),
+        username,
+        discordId,
+        discordUsername: "",
+        name: payload.name,
+        role: roleLabels[payload.websiteRoleKey],
+        roleKey: payload.websiteRoleKey,
+        department: payload.department ?? "",
+        tabletEmployeeId: payload.tabletEmployeeId,
+        status: payload.status,
+      };
+      db.employees.push(employee);
+      db.personnelFiles.push(makeEmptyPersonnelFile(employee.id));
+    }
+
+    await writeDb(db);
+    return employee;
+  });
 }
 
 // ---------------------------------------------------------------------------
