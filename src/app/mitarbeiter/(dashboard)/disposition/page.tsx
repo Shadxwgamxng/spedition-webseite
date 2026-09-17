@@ -32,6 +32,53 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+/** Deutsche Übersetzung der Lua-Fehlercodes, die ein Website→Tablet-Befehl
+ * (assign_order/cancel_order) auf Auftrags-Aktionen werfen kann (siehe
+ * server/sv_orders.lua) - ohne das kam bei einer Ablehnung (z.B. Auftrag im
+ * Tablet bereits abgeschlossen, kein Fahrer am Fahrzeug angemeldet) auf der
+ * Website überhaupt keine Rückmeldung an, der Button wirkte dadurch einfach
+ * wirkungslos statt den tatsächlichen Grund zu zeigen. */
+const TABLET_ORDER_ERRORS: Record<string, string> = {
+  order_not_found: "Auftrag wurde im Tablet nicht gefunden (evtl. durch einen Neustart entfernt).",
+  order_already_closed: "Auftrag ist im Tablet bereits abgeschlossen, abgebrochen oder abgelehnt.",
+  order_not_open: "Auftrag ist im Tablet nicht mehr offen (wurde zwischenzeitlich schon disponiert) — Seite aktualisieren.",
+  no_vehicle_selected: "Kein Fahrzeug ausgewählt.",
+  vehicle_not_found: "Das gewählte Fahrzeug existiert im Tablet nicht (mehr).",
+  vehicle_archived: "Das gewählte Fahrzeug ist im Tablet archiviert.",
+  vehicle_unavailable: "Das gewählte Fahrzeug ist im Tablet aktuell nicht verfügbar (z. B. in der Werkstatt).",
+  vehicle_missing_trailer: "Am gewählten Fahrzeug hängt im Tablet kein zur Fracht passender Anhänger.",
+  driver_not_found: "Am gewählten Fahrzeug ist im Tablet aktuell kein aktiver Fahrer angemeldet.",
+  driver_missing_permission: "Der Fahrer hat im Tablet nicht die nötige Führerscheinklasse für diese Fracht.",
+  invalid_command_payload: "Ungültige Daten wurden an das Tablet übermittelt.",
+};
+
+function translateOrderCommandError(error?: string): string {
+  if (!error) return "Unbekannter Fehler.";
+  return TABLET_ORDER_ERRORS[error] ?? error;
+}
+
+type TabletCommandResult = { ok: boolean; error?: string } | null;
+
+/** Pollt den Status eines Website→Tablet-Befehls, bis das Tablet ihn
+ * bestätigt hat (typischerweise binnen weniger Sekunden, siehe
+ * Config.Website.pollIntervalMs) oder das Zeitlimit erreicht ist - selbes
+ * Muster wie employee-manager.tsx. `null` = keine Rückmeldung binnen des
+ * Zeitlimits (Tablet nicht erreichbar/Config.Website dort nicht aktiv). */
+async function pollCommandResult(id: string, timeoutMs = 30000, intervalMs = 2000): Promise<TabletCommandResult> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    try {
+      const res = await fetch(`/api/tablet/commands/${id}`);
+      const json = await res.json();
+      if (json?.ok && json.command?.resolvedAt) return json.command.result as TabletCommandResult;
+    } catch {
+      // nächster Poll-Versuch
+    }
+  }
+  return null;
+}
+
 export default function DispositionPage() {
   const { user } = useAuth();
   const orders = usePolling<OrdersResponse>("/api/orders", 4000);
@@ -43,6 +90,7 @@ export default function DispositionPage() {
   const [submitting, setSubmitting] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [syncToTablet, setSyncToTablet] = useState(false);
+  const [commandNotice, setCommandNotice] = useState<string | null>(null);
 
   const knownLocationNames = useMemo(
     () => (tabletLocations.data?.locations ?? []).map((l) => l.name),
@@ -77,12 +125,32 @@ export default function DispositionPage() {
   // "Tablet-Sync"). Der nächste order.upsert-Webhook vom Tablet überschreibt
   // dann den tatsächlichen neuen Status/Fahrer/Fahrzeug.
   async function enqueueTabletCommand(type: string, data: Record<string, unknown>) {
-    await fetch("/api/tablet/commands", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type, data }),
-    });
-    await orders.refetch();
+    setCommandNotice("Befehl wird an das Tablet gesendet…");
+    try {
+      const res = await fetch("/api/tablet/commands", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, data }),
+      });
+      const json = await res.json().catch(() => null);
+      const commandId = json?.command?.id as string | undefined;
+      if (!commandId) {
+        setCommandNotice("Befehl konnte nicht an die Website-Warteschlange übergeben werden.");
+        return;
+      }
+      const result = await pollCommandResult(commandId);
+      if (result === null) {
+        setCommandNotice(
+          "Keine Rückmeldung vom Tablet innerhalb von 30s — läuft die Ressource, und ist Config.Website dort aktiv?",
+        );
+      } else if (result.ok) {
+        setCommandNotice(null);
+      } else {
+        setCommandNotice(`Aktion im Tablet fehlgeschlagen: ${translateOrderCommandError(result.error)}`);
+      }
+    } finally {
+      await orders.refetch();
+    }
   }
 
   async function patchOrder(order: OrderRecord, patch: Record<string, unknown>) {
@@ -187,7 +255,19 @@ export default function DispositionPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {commandNotice ? (
+        <div
+          className={`mt-4 rounded-xl border px-4 py-2.5 text-sm font-medium ${
+            commandNotice.startsWith("Aktion im Tablet fehlgeschlagen") || commandNotice.startsWith("Keine Rückmeldung")
+              ? "border-red-500/30 bg-red-50 text-red-700"
+              : "border-navy-900/10 bg-mist-100 text-navy-700"
+          }`}
+        >
+          {commandNotice}
+        </div>
+      ) : null}
+
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {statusOptions.map((s) => (
           <StatCard key={s} label={s} value={String(counts[s])} />
         ))}
