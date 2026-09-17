@@ -17,6 +17,47 @@ type Employee = EmployeeUser & {
 
 const NEW = "__new__";
 
+/** Deutsche Übersetzung der Lua-Fehlercodes, die Employees.HireFromWebsite
+ * auf Tablet-Seite werfen kann (server/sv_employees.lua) - ohne das würde
+ * dem Nutzer nur der rohe Fehlerstring angezeigt. */
+const TABLET_COMMAND_ERRORS: Record<string, string> = {
+  no_tablet_role_mapped_to_website_role:
+    "Keine Tablet-Rolle ist dieser Website-Rolle zugeordnet - im Tablet unter Reiter „Rollen“ bei genau einer Rolle die passende Website-Rolle eintragen, dann Konto erneut anlegen.",
+  ambiguous_tablet_role_mapping:
+    "Mehrere Tablet-Rollen sind derselben Website-Rolle zugeordnet - im Tablet unter Reiter „Rollen“ muss das eindeutig sein (nur eine Tablet-Rolle pro Website-Rolle).",
+  employee_already_exists: "Dieser Benutzername ist im Tablet bereits vergeben - anderen Benutzernamen wählen.",
+  missing_fields: "Es fehlten Pflichtfelder beim Anlegen im Tablet.",
+};
+
+function translateTabletCommandError(error: string | undefined): string {
+  if (!error) return "Unbekannter Fehler.";
+  return TABLET_COMMAND_ERRORS[error] ?? error;
+}
+
+type TabletCommandResult = { ok: boolean; error?: string } | null;
+
+/** Pollt den Status eines Website→Tablet-Befehls, bis das Tablet ihn
+ * bestätigt hat (typischerweise binnen weniger Sekunden, siehe
+ * Config.Website.pollIntervalMs) oder das Zeitlimit erreicht ist - damit ein
+ * fehlgeschlagener create_employee-Befehl (z.B. Rollen-Zuordnung im Tablet
+ * nicht eindeutig) sichtbar wird, statt dass es nur beim erfolglosen
+ * Ingame-Login auffällt. `null` = keine Rückmeldung binnen des Zeitlimits
+ * (Tablet nicht erreichbar/Config.Website nicht aktiv). */
+async function pollCommandResult(id: string, timeoutMs = 30000, intervalMs = 2000): Promise<TabletCommandResult> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    try {
+      const res = await fetch(`/api/tablet/commands/${id}`);
+      const json = await res.json();
+      if (json?.ok && json.command?.resolvedAt) return json.command.result as TabletCommandResult;
+    } catch {
+      // nächster Poll-Versuch
+    }
+  }
+  return null;
+}
+
 export function EmployeeManager() {
   const { data, refetch } = usePolling<{ employees: Employee[] }>("/api/employees", 6000);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -66,20 +107,21 @@ export function EmployeeManager() {
         return;
       }
       if (isNew) {
-        setNotice(
-          json.discordDm?.ok
-            ? "Konto angelegt — Discord-DM mit Login-Link wurde verschickt."
-            : `Konto angelegt, aber Discord-DM konnte nicht verschickt werden: ${json.discordDm?.error ?? "unbekannter Fehler"}`,
-        );
+        const websitePart = json.discordDm?.ok
+          ? "Konto angelegt — Discord-DM mit Login-Link wurde verschickt."
+          : `Konto angelegt, aber Discord-DM konnte nicht verschickt werden: ${json.discordDm?.error ?? "unbekannter Fehler"}`;
 
         // Soll auch ein Tablet-Login entstehen: eigener Befehl an die
         // Befehls-Queue (Employees.HireFromWebsite auf Tablet-Seite sucht
         // dort die passende Tablet-Rolle über die Website-Rolle) - schlägt
         // dort fehl, wenn noch keine (eindeutige) Tablet-Rolle im
-        // Rollen-Editor zugeordnet ist; das Ergebnis kommt asynchron per
-        // Befehls-Ack zurück, nicht als Antwort auf dieses Formular.
+        // Rollen-Editor zugeordnet ist. Auf das Befehls-Ack wird hier aktiv
+        // gewartet (statt es stillschweigend zu ignorieren), damit ein
+        // Fehlschlag sofort sichtbar ist statt erst beim erfolglosen
+        // Ingame-Login.
         if (alsoInTablet) {
-          await fetch("/api/tablet/commands", {
+          setNotice(`${websitePart} Warte auf Rückmeldung vom Tablet…`);
+          const commandRes = await fetch("/api/tablet/commands", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -94,6 +136,20 @@ export function EmployeeManager() {
               },
             }),
           });
+          const commandJson = await commandRes.json().catch(() => null);
+          const commandId = commandJson?.command?.id as string | undefined;
+          const result = commandId ? await pollCommandResult(commandId) : null;
+          if (result === null) {
+            setNotice(
+              `${websitePart} Tablet-Login: keine Rückmeldung innerhalb von 30s - läuft die Ressource, und ist Config.Website im Tablet aktiv?`,
+            );
+          } else if (result.ok) {
+            setNotice(`${websitePart} Tablet-Login wurde erfolgreich eingerichtet.`);
+          } else {
+            setNotice(`${websitePart} Tablet-Login konnte NICHT angelegt werden: ${translateTabletCommandError(result.error)}`);
+          }
+        } else {
+          setNotice(websitePart);
         }
       } else if (editingEmployee?.tabletEmployeeId) {
         // Bereits Tablet-verknüpftes Konto: Änderung an den Führerschein-

@@ -926,6 +926,15 @@ export async function listPendingCommands(): Promise<TabletCommandRecord[]> {
   return db.pendingCommands.filter((c) => !c.resolvedAt);
 }
 
+/** A single command's current state — used by the frontend to show whether a
+ * fire-and-forget Website→Tablet action (e.g. create_employee) actually
+ * succeeded in-game, instead of staying silent until someone tries to log in
+ * and it doesn't work. */
+export async function getCommandById(id: string): Promise<TabletCommandRecord | null> {
+  const db = await readDb();
+  return db.pendingCommands.find((c) => c.id === id) ?? null;
+}
+
 export async function resolveCommand(id: string, result: { ok: boolean; error?: string }): Promise<TabletCommandRecord | null> {
   return withSyncLock(async () => {
     const db = await readDb();
