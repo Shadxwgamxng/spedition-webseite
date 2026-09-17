@@ -1281,7 +1281,7 @@ export async function deleteEmployee(id: string): Promise<boolean> {
   const db = await readDb();
   const index = db.employees.findIndex((e) => e.id === id);
   if (index === -1) return false;
-  db.employees.splice(index, 1);
+  const [removed] = db.employees.splice(index, 1);
 
   const fileIndex = db.personnelFiles.findIndex((f) => f.employeeId === id);
   if (fileIndex !== -1) {
@@ -1290,6 +1290,16 @@ export async function deleteEmployee(id: string): Promise<boolean> {
   }
 
   await writeDb(db);
+
+  // War das Konto mit dem Tablet verknüpft, dort ebenfalls entfernen -
+  // als Deaktivieren, kein hartes SQL-Löschen (würde Auftrags-/
+  // Transaktions-/Log-Historie verwaisen lassen, die noch auf diesen
+  // Mitarbeiter verweist; Deaktivieren ist im Tablet ohnehin die
+  // etablierte "Entfernen"-Variante für Mitarbeiter).
+  if (removed.tabletEmployeeId) {
+    await enqueueCommand("deactivate_employee", { tabletEmployeeId: removed.tabletEmployeeId });
+  }
+
   return true;
 }
 
