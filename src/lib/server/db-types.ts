@@ -7,12 +7,19 @@ import {
   jobs as jobsSeed,
   reviews as reviewsSeed,
   partners as partnersSeed,
+  aboutPage as aboutPageSeed,
+  aboutMilestones as aboutMilestonesSeed,
+  aboutValues as aboutValuesSeed,
+  aboutHighlights as aboutHighlightsSeed,
   type Service,
   type TeamMember,
   type NewsPost,
   type Job,
   type Review,
   type Partner,
+  type AboutMilestone,
+  type AboutValue,
+  type AboutHighlight,
 } from "@/lib/data";
 import { fleet as fleetSeed, type FleetVehicle } from "@/lib/data";
 import { initialOrders, initialVehicles, type OrderRecord, type VehicleRecord } from "@/lib/fleet-data";
@@ -29,6 +36,10 @@ export type PartnerRecord = WithId<Partner>;
 export type ServiceRecord = Service; // slug already unique, used as id
 export type NewsRecord = NewsPost; // slug already unique, used as id
 export type JobRecord = Job; // slug already unique, used as id
+export type AboutMilestoneRecord = WithId<AboutMilestone>;
+export type AboutValueRecord = WithId<AboutValue>;
+export type AboutHighlightRecord = WithId<AboutHighlight>;
+export type AboutPageInfo = typeof aboutPageSeed;
 
 export type ReminderEntry = { id: string; text: string; at: string; read: boolean };
 
@@ -443,6 +454,10 @@ export type Db = {
   reviews: ReviewRecord[];
   partners: PartnerRecord[];
   company: CompanyInfo;
+  aboutPage: AboutPageInfo;
+  aboutMilestones: AboutMilestoneRecord[];
+  aboutValues: AboutValueRecord[];
+  aboutHighlights: AboutHighlightRecord[];
   /** Control-direction command queue for the FiveM Speditions-Tablet — see TabletCommandRecord. */
   pendingCommands: TabletCommandRecord[];
   /** Gültige Tablet-Standorte/Frachtarten, gepusht via 'locations.sync' — siehe TabletLocationRecord. */
@@ -469,6 +484,9 @@ export const COLLECTION_ID_FIELD = {
   fleetCategories: "id",
   reviews: "id",
   partners: "id",
+  aboutMilestones: "id",
+  aboutValues: "id",
+  aboutHighlights: "id",
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_ID_FIELD;
@@ -489,6 +507,9 @@ export const CMS_COLLECTIONS = [
   "fleetCategories",
   "reviews",
   "partners",
+  "aboutMilestones",
+  "aboutValues",
+  "aboutHighlights",
 ] as const;
 
 export type CmsCollectionName = (typeof CMS_COLLECTIONS)[number];
@@ -549,6 +570,10 @@ export function seedDb(): Db {
     reviews: withIds(reviewsSeed, (r) => `${r.author}-${r.company}`),
     partners: withIds(partnersSeed, (p) => p.name),
     company: companySeed,
+    aboutPage: aboutPageSeed,
+    aboutMilestones: withIds(aboutMilestonesSeed, (m) => m.year),
+    aboutValues: withIds(aboutValuesSeed, (v) => v.title),
+    aboutHighlights: withIds(aboutHighlightsSeed, (h) => h.title),
     pendingCommands: [],
     tabletLocations: [],
     tabletCargoTypes: [],

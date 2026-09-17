@@ -26,6 +26,60 @@ export const company = {
 };
 
 /**
+ * Inhalte der Seite /ueber-uns — vollständig unter Verwaltung → "Über uns"
+ * editierbar. `heroDescription` darf den Platzhalter "{founded}" enthalten,
+ * der beim Rendern durch `company.founded` ersetzt wird (so bleibt der
+ * Gründungsjahr-Bezug korrekt, auch wenn `company.founded` später geändert
+ * wird, ohne dass man den Hero-Text separat nachpflegen müsste).
+ */
+export const aboutPage = {
+  heroEyebrow: "Über uns",
+  heroTitle: "Familienunternehmen mit Blick auf die Ostsee",
+  heroDescription:
+    "Seit {founded} sind wir als inhabergeführte Spedition in Falkenwalde für unsere Kunden im Einsatz – heute mit über 120 Mitarbeitenden und einem modernen Fuhrpark.",
+  storyEyebrow: "Unsere Geschichte",
+  storyTitle: "Aus Falkenwalde in den Ostseeraum",
+  storyDescription:
+    "Was 2007 als kleiner regionaler Fuhrbetrieb begann, ist heute eine leistungsstarke Spedition mit eigenem Logistikzentrum und internationalen Verkehren.",
+  storyParagraph:
+    "Durch unsere Lage nahe der deutsch-polnischen Grenze sind wir prädestiniert für Transporte in den Ostsee- und Baltikumraum – ohne dabei unsere Wurzeln im nationalen Verkehr zu vernachlässigen.",
+  valuesEyebrow: "Unsere Werte",
+  valuesTitle: "Worauf wir bei Baltic Freight bauen",
+  ctaTitle: "Lernen Sie unser Führungsteam kennen",
+  ctaText: "Geschäftsführung, Abteilungsleitungen und die Menschen hinter Baltic Freight.",
+};
+
+export type AboutIconKey = "shield" | "truck" | "globe" | "users" | "clock" | "check" | "warehouse" | "route";
+
+export type AboutMilestone = { year: string; text: string };
+
+export const aboutMilestones: AboutMilestone[] = [
+  { year: "2007", text: "Gründung der Baltic Freight GmbH in Falkenwalde mit fünf Fahrzeugen." },
+  { year: "2012", text: "Aufbau des ersten Logistikzentrums mit 4.000 m² Lagerfläche." },
+  { year: "2016", text: "Ausweitung der internationalen Verkehre in den Baltikum- und Skandinavienraum." },
+  { year: "2020", text: "Einführung der digitalen Disposition und des Kundenportals." },
+  { year: "2023", text: "Erweiterung des Fuhrparks auf über 90 Fahrzeuge und Auflieger." },
+  { year: "2026", text: "Ausbau des Logistikzentrums auf über 12.000 m² Lagerfläche." },
+];
+
+export type AboutValue = { icon: AboutIconKey; title: string; text: string };
+
+export const aboutValues: AboutValue[] = [
+  { icon: "shield", title: "Zuverlässigkeit", text: "Termintreue und Ehrlichkeit sind die Basis jeder Zusammenarbeit." },
+  { icon: "truck", title: "Moderne Flotte", text: "Wir investieren kontinuierlich in neue, effiziente Fahrzeuge." },
+  { icon: "globe", title: "Regionale Wurzeln, europäische Reichweite", text: "Fest verwurzelt in Falkenwalde, unterwegs im gesamten Ostseeraum." },
+  { icon: "users", title: "Starkes Team", text: "Über 120 Mitarbeitende, die täglich für unsere Kunden im Einsatz sind." },
+];
+
+export type AboutHighlight = { icon: AboutIconKey; title: string; text: string };
+
+export const aboutHighlights: AboutHighlight[] = [
+  { icon: "clock", title: "Rund um die Uhr erreichbar", text: "Unsere Disposition ist für Sie und unsere Fahrer durchgehend erreichbar." },
+  { icon: "check", title: "Zertifizierte Qualität", text: "Regelmäßige Schulungen und geprüfte Prozesse sichern gleichbleibende Qualität." },
+  { icon: "users", title: "Ausbildungsbetrieb", text: "Wir bilden jährlich in mehreren Berufsbildern aus und fördern Nachwuchskräfte." },
+];
+
+/**
  * Impressum/Datenschutz "verantwortliche Person" — deliberately separate from
  * `company` above. This site presents a fictional Spedition ("Baltic Freight
  * GmbH"), but German law (§5 TMG, DSGVO) requires the real operator to be

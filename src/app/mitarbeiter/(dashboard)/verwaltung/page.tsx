@@ -6,6 +6,7 @@ import { EmployeePageHeader } from "@/components/employee/page-header";
 import { CollectionManager, type FieldConfig } from "@/components/employee/collection-manager";
 import { EmployeeManager } from "@/components/employee/employee-manager";
 import { CompanyForm } from "./company-form";
+import { AboutPageForm } from "./about-page-form";
 
 const teamFields: FieldConfig[] = [
   { key: "name", label: "Name", required: true },
@@ -15,10 +16,13 @@ const teamFields: FieldConfig[] = [
   { key: "initials", label: "Kürzel", required: true, placeholder: "z. B. TW", help: "2 Buchstaben" },
 ];
 
+const ABOUT_ICON_OPTIONS = ["shield", "truck", "globe", "users", "clock", "check", "warehouse", "route"];
+
 const tabs = [
   { key: "news", label: "News" },
   { key: "jobs", label: "Stellenangebote" },
   { key: "services", label: "Leistungen" },
+  { key: "ueberUns", label: "Über uns" },
   { key: "management", label: "Geschäftsführung" },
   { key: "keyPositions", label: "Wichtige Positionen" },
   { key: "fleetCategories", label: "Fuhrpark (Kategorien)" },
@@ -122,6 +126,62 @@ export default function VerwaltungPage() {
               },
             ]}
           />
+        ) : null}
+
+        {tab === "ueberUns" ? (
+          <div className="space-y-8">
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-navy-900">Texte</h2>
+              <AboutPageForm />
+            </div>
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-navy-900">Meilensteine (Zeitleiste)</h2>
+              <CollectionManager
+                collection="aboutMilestones"
+                idField="id"
+                titleField="year"
+                subtitleField="text"
+                emptyLabel="Noch keine Meilensteine."
+                newLabel="Meilenstein hinzufügen"
+                fields={[
+                  { key: "year", label: "Jahr", required: true, placeholder: "z. B. 2026" },
+                  { key: "text", label: "Text", type: "textarea", required: true },
+                ]}
+              />
+            </div>
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-navy-900">Werte</h2>
+              <CollectionManager
+                collection="aboutValues"
+                idField="id"
+                titleField="title"
+                subtitleField="text"
+                emptyLabel="Noch keine Werte."
+                newLabel="Wert hinzufügen"
+                fields={[
+                  { key: "title", label: "Titel", required: true },
+                  { key: "text", label: "Text", type: "textarea", required: true },
+                  { key: "icon", label: "Icon", type: "select", options: ABOUT_ICON_OPTIONS },
+                ]}
+              />
+            </div>
+            <div>
+              <h2 className="mb-3 text-sm font-semibold text-navy-900">Vorteile-Kacheln (unterer Bereich)</h2>
+              <CollectionManager
+                collection="aboutHighlights"
+                idField="id"
+                titleField="title"
+                subtitleField="text"
+                emptyLabel="Noch keine Einträge."
+                newLabel="Kachel hinzufügen"
+                fields={[
+                  { key: "title", label: "Titel", required: true },
+                  { key: "text", label: "Text", type: "textarea", required: true },
+                  { key: "icon", label: "Icon", type: "select", options: ABOUT_ICON_OPTIONS },
+                ]}
+              />
+            </div>
+          </div>
         ) : null}
 
         {tab === "management" ? (

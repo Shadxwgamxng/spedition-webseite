@@ -5,6 +5,10 @@ import {
   makeEmptyPersonnelFile,
   makeId,
   seedDb,
+  type AboutHighlightRecord,
+  type AboutMilestoneRecord,
+  type AboutPageInfo,
+  type AboutValueRecord,
   type ApplicationStatus,
   type CollectionName,
   type CompanyInfo,
@@ -533,6 +537,36 @@ export async function removeCompanyLogo(): Promise<CompanyInfo> {
   db.company.logoMimeType = null;
   await writeDb(db);
   return db.company;
+}
+
+// ---------------------------------------------------------------------------
+// About page ("Über uns") content — singleton text fields plus three CMS
+// collections (aboutMilestones/aboutValues/aboutHighlights, see db-types.ts
+// CMS_COLLECTIONS), all editable under Verwaltung → "Über uns".
+// ---------------------------------------------------------------------------
+
+export async function getAboutPage(): Promise<AboutPageInfo> {
+  const db = await readDb();
+  return db.aboutPage;
+}
+
+export async function updateAboutPage(patch: Partial<AboutPageInfo>): Promise<AboutPageInfo> {
+  const db = await readDb();
+  db.aboutPage = { ...db.aboutPage, ...patch };
+  await writeDb(db);
+  return db.aboutPage;
+}
+
+export async function getAboutMilestones() {
+  return listCollection<AboutMilestoneRecord>("aboutMilestones");
+}
+
+export async function getAboutValues() {
+  return listCollection<AboutValueRecord>("aboutValues");
+}
+
+export async function getAboutHighlights() {
+  return listCollection<AboutHighlightRecord>("aboutHighlights");
 }
 
 export async function getCompanyLogo(): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
