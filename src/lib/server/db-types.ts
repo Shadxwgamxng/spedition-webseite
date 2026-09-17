@@ -185,6 +185,27 @@ export type StockItemRecord = {
   unit: string;
 };
 
+export type TabletTransactionType = "einnahme" | "auszahlung" | "einzahlung" | "gehalt";
+
+/**
+ * A single Firmenkonto-Buchung aus dem FiveM Speditions-Tablet (st_transactions,
+ * server/sv_finance.lua Finance.AddTransaction — der einzige Schreibpfad dort,
+ * daher lückenlos für jede Art von Bewegung: Auftrags-Einnahme, Aus-/
+ * Einzahlung, Gehalt). Gepusht via 'finance.transaction'-Webhook, siehe
+ * upsertTabletTransactionFromTablet in store.ts. `amount` ist vorzeichenbehaftet
+ * (Einnahme positiv, alles andere negativ) — exakt wie im Tablet.
+ */
+export type TabletTransactionRecord = {
+  /** st_transactions.id — der Abgleichsschlüssel für erneute Pushs. */
+  id: number;
+  type: TabletTransactionType;
+  amount: number;
+  description: string;
+  driverName: string | null;
+  createdByName: string | null;
+  createdAt: string;
+};
+
 export type TripPurpose = "Geschäftlich" | "Privat";
 
 export type TripRecord = {
@@ -427,6 +448,10 @@ export type Db = {
   /** Gültige Tablet-Standorte/Frachtarten, gepusht via 'locations.sync' — siehe TabletLocationRecord. */
   tabletLocations: TabletLocationRecord[];
   tabletCargoTypes: string[];
+  /** Firmenkonto-Buchungen aus dem Tablet, gepusht via 'finance.transaction' — siehe TabletTransactionRecord. */
+  tabletTransactions: TabletTransactionRecord[];
+  /** Aktueller Tablet-Firmenkonto-Saldo (aus dem letzten 'finance.transaction'-Push, nicht selbst berechnet). */
+  tabletCompanyBalance: number;
 };
 
 export const COLLECTION_ID_FIELD = {
@@ -527,5 +552,7 @@ export function seedDb(): Db {
     pendingCommands: [],
     tabletLocations: [],
     tabletCargoTypes: [],
+    tabletTransactions: [],
+    tabletCompanyBalance: 0,
   };
 }

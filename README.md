@@ -382,9 +382,17 @@ Tablet-Verknüpfung stempelt weiterhin ganz normal über die Website selbst ein/
 
 ### Finanzbuchhaltung
 
-Zeigt eine ehrliche, auf die echten Rechnungsdaten beschränkte Übersicht (offene Forderungen, bezahlt gesamt,
-überfällige Rechnungen) — es gibt bewusst **keine** erfundene Ausgaben-/Kassenbuchhaltung (Kraftstoff, Personal,
-Werkstatt) mehr, da dafür keine echte Datenquelle existiert; die Seite weist das auch so aus.
+Zeigt zwei unabhängige, nicht gegeneinander verrechnete Quellen:
+
+- **Rechnungen (Erlöse)**: die auf die echten Rechnungsdaten beschränkte Übersicht (offene Forderungen, bezahlt
+  gesamt, überfällige Rechnungen) wie bisher.
+- **Ingame-Umsatz (Tablet-Firmenkonto)**: live gespiegeltes Firmenkonto des FiveM Speditions-Tablets — Saldo sowie
+  eine Buchungsliste (Auftrags-Einnahmen, Aus-/Einzahlungen, Gehaltsauszahlungen), gepusht via `finance.transaction`
+  (siehe „Tablet-Sync" unten). Ohne aktiven Website-Sync im Tablet (`Config.Website.enabled`) bleibt dieser
+  Abschnitt leer, mit entsprechendem Hinweistext statt eines Fehlers.
+
+Es gibt weiterhin **keine** erfundene Ausgaben-/Kassenbuchhaltung (Kraftstoff, Personal, Werkstatt) — beide
+gezeigten Quellen sind echte Daten, keine Simulation.
 
 ### Fahrzeugverwaltung: Anlegen/Löschen
 
@@ -403,11 +411,12 @@ Website übernimmt nur noch, statt eine zweite unabhängige Erfassung zu führen
 
 **Push (Tablet → Website)**: `POST /api/tablet/webhook` — das Tablet meldet Änderungen (`employee.upsert`,
 `order.upsert`, `vehicle.upsert`, `driver_hours.report`, `driver_shift.update`, `timeclock.update`, `trip.report`,
-`locations.sync`) in Echtzeit. Verknüpfung läuft über `tabletEmployeeId`/`tabletOrderId`/`tabletVehicleId` (bzw. das
-Kennzeichen bei Fahrzeugen) — bestehende Datensätze werden aktualisiert, unbekannte neu angelegt. `locations.sync`
-ist ein Sonderfall: kein Datensatz-Upsert, sondern meldet einmalig beim Tablet-Ressourcenstart die gültigen
-Standortnamen/Frachtarten (`Config.Locations`/`Config.CargoTypes`) — Grundlage für die Standort-Auswahl bei "Neuer
-Auftrag" auf der Website (`tabletLocations`/`tabletCargoTypes` in `db.json`, `GET /api/tablet-locations`).
+`finance.transaction`, `locations.sync`) in Echtzeit. Verknüpfung läuft über
+`tabletEmployeeId`/`tabletOrderId`/`tabletVehicleId` (bzw. das Kennzeichen bei Fahrzeugen) — bestehende Datensätze
+werden aktualisiert, unbekannte neu angelegt. `locations.sync` ist ein Sonderfall: kein Datensatz-Upsert, sondern
+meldet einmalig beim Tablet-Ressourcenstart die gültigen Standortnamen/Frachtarten
+(`Config.Locations`/`Config.CargoTypes`) — Grundlage für die Standort-Auswahl bei "Neuer Auftrag" auf der Website
+(`tabletLocations`/`tabletCargoTypes` in `db.json`, `GET /api/tablet-locations`).
 
 - `driver_hours.report` (periodisch, alle `Config.Website.driverHoursReportIntervalMs`) aktualisiert
   `drivingTodayMinutes`/`onBreak`/`breakStartedAt` der Fahrerkarte (`applyDriverHoursReport`); `drivingWeekMinutes`
@@ -423,6 +432,11 @@ Auftrag" auf der Website (`tabletLocations`/`tabletCargoTypes` in `db.json`, `GE
 - `trip.report` (bei jedem im Tablet abgeschlossenen Frachtauftrag) legt automatisch einen Fahrtenbuch-Eintrag an
   oder aktualisiert ihn (`upsertTripFromTablet`), gekeyt auf `tabletOrderId` — ein erneuter Push (z. B. nach einem
   Tablet-Ressourcen-Neustart) erzeugt dadurch nie einen doppelten Eintrag.
+- `finance.transaction` (bei JEDER Firmenkonto-Bewegung im Tablet — Finance.AddTransaction dort ist der einzige
+  Schreibpfad, daher lückenlos für Auftrags-Einnahmen, Aus-/Einzahlungen und Gehaltsauszahlungen) legt einen Eintrag
+  in `tabletTransactions` an (`upsertTabletTransactionFromTablet`, gekeyt auf `tabletTransactionId`) und
+  aktualisiert den gecachten `tabletCompanyBalance`. Grundlage für den Abschnitt "Ingame-Umsatz" auf der
+  Finanzbuchhaltung-Seite (`GET /api/finance/tablet`).
 
 **Pull (Website → Tablet)**: Dispositionsaktionen landen nicht als direkter Datenbank-Patch, sondern in einer
 Befehls-Queue (`POST /api/tablet/commands`) — das Tablet pollt `GET /api/tablet/commands` alle paar Sekunden, führt

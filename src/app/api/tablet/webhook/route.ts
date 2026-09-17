@@ -6,11 +6,14 @@ import {
   upsertEmployeeFromTablet,
   upsertOrderFromTablet,
   upsertTabletLocations,
+  upsertTabletTransactionFromTablet,
   upsertTripFromTablet,
   upsertVehicleFromTablet,
 } from "@/lib/server/store";
 import type { VehicleRecord } from "@/lib/fleet-data";
-import type { TabletLocationRecord } from "@/lib/server/db-types";
+import type { TabletLocationRecord, TabletTransactionType } from "@/lib/server/db-types";
+
+const TABLET_TRANSACTION_TYPES: TabletTransactionType[] = ["einnahme", "auszahlung", "einzahlung", "gehalt"];
 
 /**
  * Push endpoint for the FiveM Speditions-Tablet (server/sv_website_bridge.lua,
@@ -164,6 +167,28 @@ export async function POST(request: Request) {
           kmEnd: num(data.kmEnd),
         });
         return Response.json({ ok: true, trip });
+      }
+
+      case "finance.transaction": {
+        const tabletTransactionId = num(data.tabletTransactionId);
+        const txType = str(data.type);
+        if (!tabletTransactionId || !TABLET_TRANSACTION_TYPES.includes(txType as TabletTransactionType)) {
+          return Response.json(
+            { ok: false, error: "tabletTransactionId und ein gültiger type sind erforderlich." },
+            { status: 400 },
+          );
+        }
+        const transaction = await upsertTabletTransactionFromTablet({
+          tabletTransactionId,
+          type: txType as TabletTransactionType,
+          amount: num(data.amount),
+          description: str(data.description),
+          driverName: typeof data.driverName === "string" ? data.driverName : null,
+          createdByName: typeof data.createdByName === "string" ? data.createdByName : null,
+          createdAt: tabletTimestamp(data.createdAt),
+          newBalance: num(data.newBalance),
+        });
+        return Response.json({ ok: true, transaction });
       }
 
       case "locations.sync": {

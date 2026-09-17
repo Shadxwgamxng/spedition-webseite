@@ -35,7 +35,12 @@ import {
 } from "@/lib/server/db-types";
 import type { OrderMessage, OrderRecord, OrderStatus, VehicleRecord } from "@/lib/fleet-data";
 import { isRoleKey, roleLabels, isDriverLicenseKey, type RoleKey } from "@/lib/roles";
-import type { TabletCommandRecord, TabletLocationRecord } from "@/lib/server/db-types";
+import type {
+  TabletCommandRecord,
+  TabletLocationRecord,
+  TabletTransactionRecord,
+  TabletTransactionType,
+} from "@/lib/server/db-types";
 
 /**
  * File-backed JSON store standing in for a real database/CMS backend. It exists
@@ -941,6 +946,52 @@ export async function upsertTabletLocations(locations: TabletLocationRecord[], c
 export async function getTabletLocations(): Promise<{ locations: TabletLocationRecord[]; cargoTypes: string[] }> {
   const db = await readDb();
   return { locations: db.tabletLocations, cargoTypes: db.tabletCargoTypes };
+}
+
+/**
+ * Create-or-update a Firmenkonto-Buchung from a Tablet `finance.transaction`
+ * webhook (fired for EVERY st_transactions-Insert, see Finance.AddTransaction
+ * in server/sv_finance.lua — the single write path there, so this is a
+ * complete mirror, not just order revenue). Keyed on `tabletTransactionId`,
+ * same idempotency pattern as upsertOrderFromTablet — a repeated push (e.g.
+ * after a Tablet resource restart) never creates a duplicate row. Also
+ * updates the cached `tabletCompanyBalance` from the payload's `newBalance`
+ * (the Tablet is authoritative here, the website never recomputes it itself).
+ */
+export async function upsertTabletTransactionFromTablet(payload: {
+  tabletTransactionId: number;
+  type: TabletTransactionType;
+  amount: number;
+  description: string;
+  driverName: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  newBalance: number;
+}): Promise<TabletTransactionRecord> {
+  return withSyncLock(async () => {
+    const db = await readDb();
+    let tx = db.tabletTransactions.find((t) => t.id === payload.tabletTransactionId);
+    if (!tx) {
+      tx = {
+        id: payload.tabletTransactionId,
+        type: payload.type,
+        amount: payload.amount,
+        description: payload.description,
+        driverName: payload.driverName,
+        createdByName: payload.createdByName,
+        createdAt: payload.createdAt,
+      };
+      db.tabletTransactions.unshift(tx);
+    }
+    db.tabletCompanyBalance = payload.newBalance;
+    await writeDb(db);
+    return tx;
+  });
+}
+
+export async function getTabletFinance(): Promise<{ balance: number; transactions: TabletTransactionRecord[] }> {
+  const db = await readDb();
+  return { balance: db.tabletCompanyBalance, transactions: db.tabletTransactions };
 }
 
 // ---------------------------------------------------------------------------
