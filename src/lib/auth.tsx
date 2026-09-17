@@ -12,6 +12,8 @@ export type EmployeeUser = {
   role: string;
   roleKey: RoleKey;
   department: string;
+  /** st_employees.id from the FiveM Speditions-Tablet, if this account is linked — see EmployeeRecord in db-types.ts. Used to tell whether Stempeluhr/Fahrerkarte are Tablet-controlled for this user. */
+  tabletEmployeeId?: number | null;
 };
 
 type AuthContextValue = {

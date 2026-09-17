@@ -46,7 +46,12 @@ export default function FahrerkartePage() {
         }
       />
       {user.roleKey === "fahrer" ? (
-        <OwnCard card={cards.find((c) => c.employeeId === user.id) ?? null} employeeId={user.id} refetch={refetch} />
+        <OwnCard
+          card={cards.find((c) => c.employeeId === user.id) ?? null}
+          employeeId={user.id}
+          tabletLinked={Boolean(user.tabletEmployeeId)}
+          refetch={refetch}
+        />
       ) : (
         <AllCards cards={cards} refetch={refetch} />
       )}
@@ -57,10 +62,12 @@ export default function FahrerkartePage() {
 function OwnCard({
   card,
   employeeId,
+  tabletLinked,
   refetch,
 }: {
   card: DriverCardRecord | null;
   employeeId: string;
+  tabletLinked: boolean;
   refetch: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -117,14 +124,18 @@ function OwnCard({
               ) : null}
             </div>
           </div>
-          <Button
-            icon={false}
-            variant={card.active ? "outline" : "primary"}
-            className={busy ? "opacity-60" : ""}
-            onClick={() => run(card.active ? "deactivate" : "activate")}
-          >
-            {card.active ? "Fahrerkarte deaktivieren" : "Fahrerkarte aktivieren"}
-          </Button>
+          {tabletLinked ? (
+            <div className="text-right text-xs text-navy-700/50">Wird automatisch vom Tablet gesteuert</div>
+          ) : (
+            <Button
+              icon={false}
+              variant={card.active ? "outline" : "primary"}
+              className={busy ? "opacity-60" : ""}
+              onClick={() => run(card.active ? "deactivate" : "activate")}
+            >
+              {card.active ? "Fahrerkarte deaktivieren" : "Fahrerkarte aktivieren"}
+            </Button>
+          )}
         </div>
 
         <div className="mt-6 space-y-4">
@@ -172,16 +183,22 @@ function OwnCard({
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            disabled={busy || !card.active}
-            onClick={() => run(card.onBreak ? "break-end" : "break-start")}
-            className="rounded-full bg-navy-900 px-4 py-2 text-xs font-semibold text-white hover:bg-navy-800 disabled:opacity-40"
-          >
-            {card.onBreak ? "Pause beenden" : "Pause starten"}
-          </button>
+          {tabletLinked ? null : (
+            <button
+              type="button"
+              disabled={busy || !card.active}
+              onClick={() => run(card.onBreak ? "break-end" : "break-start")}
+              className="rounded-full bg-navy-900 px-4 py-2 text-xs font-semibold text-white hover:bg-navy-800 disabled:opacity-40"
+            >
+              {card.onBreak ? "Pause beenden" : "Pause starten"}
+            </button>
+          )}
         </div>
-        {!card.active ? (
+        {tabletLinked ? (
+          <p className="mt-3 text-xs text-navy-700/50">
+            Aktiv-Status und Pause kommen direkt vom Tablet (Fahrerkarte einstecken/abziehen, Fahrersitz verlassen).
+          </p>
+        ) : !card.active ? (
           <p className="mt-3 text-xs text-navy-700/50">Fahrerkarte muss aktiv sein, um eine Pause zu erfassen.</p>
         ) : null}
       </div>

@@ -33,6 +33,7 @@ export default function StempeluhrPage() {
   if (!user) return null;
 
   const own = summaries.find((s) => s.employeeId === user.id) ?? null;
+  const tabletLinked = Boolean(user.tabletEmployeeId);
 
   return (
     <div>
@@ -45,7 +46,7 @@ export default function StempeluhrPage() {
         }
       />
 
-      <OwnClock summary={own} employeeId={user.id} refetch={refetch} />
+      <OwnClock summary={own} employeeId={user.id} tabletLinked={tabletLinked} refetch={refetch} />
 
       {isManager ? <TeamOverview summaries={summaries} /> : null}
     </div>
@@ -55,10 +56,12 @@ export default function StempeluhrPage() {
 function OwnClock({
   summary,
   employeeId,
+  tabletLinked,
   refetch,
 }: {
   summary: TimeClockSummary | null;
   employeeId: string;
+  tabletLinked: boolean;
   refetch: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -100,20 +103,31 @@ function OwnClock({
               </div>
             ) : null}
           </div>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={toggle}
-            className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60 ${
-              summary.clockedIn
-                ? "bg-navy-900 text-white hover:bg-navy-800"
-                : "bg-amber-500 text-navy-950 hover:bg-amber-400"
-            }`}
-          >
-            <ClockIcon className="h-4 w-4" />
-            {busy ? "Wird gebucht…" : summary.clockedIn ? "Ausstempeln" : "Einstempeln"}
-          </button>
+          {tabletLinked ? (
+            <div className="text-right text-xs text-navy-700/50">Wird automatisch vom Tablet gesteuert</div>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={toggle}
+              className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60 ${
+                summary.clockedIn
+                  ? "bg-navy-900 text-white hover:bg-navy-800"
+                  : "bg-amber-500 text-navy-950 hover:bg-amber-400"
+              }`}
+            >
+              <ClockIcon className="h-4 w-4" />
+              {busy ? "Wird gebucht…" : summary.clockedIn ? "Ausstempeln" : "Einstempeln"}
+            </button>
+          )}
         </div>
+
+        {tabletLinked ? (
+          <p className="mt-3 text-xs text-navy-700/50">
+            Du bist mit dem Speditions-Tablet verknüpft — stempele dich dort ein/aus, die Website übernimmt den Status
+            automatisch.
+          </p>
+        ) : null}
 
         {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
 

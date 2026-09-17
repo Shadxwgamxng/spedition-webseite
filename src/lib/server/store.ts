@@ -278,6 +278,10 @@ async function readDb(): Promise<Db> {
         card.driverName = employee.name;
         changed = true;
       }
+      if (card.lastReportDate === undefined) {
+        card.lastReportDate = null;
+        changed = true;
+      }
     }
 
     for (const employee of (db.employees ?? []).filter((e) => e.roleKey === "fahrer")) {
@@ -292,6 +296,7 @@ async function readDb(): Promise<Db> {
           breakStartedAt: null,
           breakTakenTodayMinutes: 0,
           reminders: [],
+          lastReportDate: null,
         });
         changed = true;
       }
@@ -621,6 +626,7 @@ export async function loginVehicle(
         breakStartedAt: null,
         breakTakenTodayMinutes: 0,
         reminders: [],
+        lastReportDate: null,
       });
     }
   }
@@ -1007,6 +1013,14 @@ export async function acknowledgeDriverReminder(employeeId: string, reminderId: 
   return card;
 }
 
+/** Monday (YYYY-MM-DD) of the ISO week containing the given YYYY-MM-DD date — used to detect a week rollover for drivingWeekMinutes. */
+function isoWeekMonday(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00`);
+  const mondayOffset = (d.getDay() + 6) % 7; // Mon=0 .. Sun=6
+  d.setDate(d.getDate() - mondayOffset);
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * Applies a Tablet `driver_hours.report` webhook (Lenk-/Ruhezeiten aus
  * server/sv_hours.lua, Hours.Status) onto the matching driver card —
@@ -1014,11 +1028,20 @@ export async function acknowledgeDriverReminder(employeeId: string, reminderId: 
  * the website (nothing ever set them); this is what actually fills them in.
  * No-op (returns null) if the reporting employee has no linked website
  * account yet or no card (e.g. Tablet-Rolle noch nicht auf "fahrer" gemappt).
+ *
+ * `drivingWeekMinutes` has no equivalent on the Tablet (it only tracks the
+ * current day, see README "Bekannte Einschränkungen") — the website builds
+ * it up itself by watching for a day change between two reports and folding
+ * the previous day's final total in, resetting on an ISO week boundary
+ * (Monday). This relies on the website server's own clock, so it can be off
+ * by up to a few hours from the Tablet's if the two run in different time
+ * zones — acceptable for this non-legal-grade Lenkzeit display.
  */
 export async function applyDriverHoursReport(
   tabletEmployeeId: number,
   dailyMinutes: number,
   resting: boolean,
+  restingSince: string | null,
 ): Promise<DriverCardRecord | null> {
   return withSyncLock(async () => {
     const db = await readDb();
@@ -1026,9 +1049,47 @@ export async function applyDriverHoursReport(
     if (!employee) return null;
     const card = findCard(db, employee.id);
     if (!card) return null;
+
+    const today = new Date().toISOString().slice(0, 10);
+    if (card.lastReportDate && card.lastReportDate !== today) {
+      if (isoWeekMonday(card.lastReportDate) !== isoWeekMonday(today)) {
+        card.drivingWeekMinutes = 0;
+      }
+      card.drivingWeekMinutes += card.drivingTodayMinutes;
+    }
+    card.lastReportDate = today;
+
     card.drivingTodayMinutes = Math.max(0, Math.round(dailyMinutes));
     card.onBreak = resting;
-    if (!resting) card.breakStartedAt = null;
+    card.breakStartedAt = resting ? (restingSince ?? card.breakStartedAt) : null;
+    await writeDb(db);
+    return card;
+  });
+}
+
+/**
+ * Applies a Tablet `driver_shift.update` webhook (Fahrerkarte einstecken/
+ * abziehen, Drivers.StartShift/EndShift in server/sv_drivers.lua) onto the
+ * matching driver card's `active` flag — for a Tablet-linked driver this
+ * replaces the website's own "Fahrerkarte aktivieren/deaktivieren" button
+ * (disabled in the UI for such drivers, see fahrerkarte/page.tsx) so there's
+ * a single source of truth instead of two independently toggled states.
+ */
+export async function applyDriverShiftUpdate(
+  tabletEmployeeId: number,
+  onShift: boolean,
+): Promise<DriverCardRecord | null> {
+  return withSyncLock(async () => {
+    const db = await readDb();
+    const employee = db.employees.find((e) => e.tabletEmployeeId === tabletEmployeeId);
+    if (!employee) return null;
+    const card = findCard(db, employee.id);
+    if (!card) return null;
+    card.active = onShift;
+    if (!onShift) {
+      card.onBreak = false;
+      card.breakStartedAt = null;
+    }
     await writeDb(db);
     return card;
   });
@@ -1342,6 +1403,61 @@ export async function createTrip(input: {
   return trip;
 }
 
+/**
+ * Create-or-update a Fahrtenbuch entry from a Tablet `trip.report` webhook
+ * (fired once per abgeschlossenem Auftrag, see Orders.Complete in
+ * server/sv_orders.lua). Keyed on `tabletOrderId` so a repeated push (e.g.
+ * after a Tablet resource restart replaying an event) updates the existing
+ * row instead of creating a duplicate trip — the same idempotency pattern as
+ * upsertOrderFromTablet/upsertVehicleFromTablet.
+ */
+export async function upsertTripFromTablet(payload: {
+  tabletOrderId: number;
+  tabletEmployeeId: number;
+  driverName: string;
+  vehiclePlate: string;
+  date: string;
+  start: string;
+  end: string;
+  kmStart: number;
+  kmEnd: number;
+}): Promise<TripRecord> {
+  return withSyncLock(async () => {
+    const db = await readDb();
+    let trip = db.trips.find((t) => t.tabletOrderId === payload.tabletOrderId);
+    if (trip) {
+      trip.driverName = payload.driverName;
+      trip.vehiclePlate = payload.vehiclePlate;
+      trip.date = payload.date;
+      trip.start = payload.start;
+      trip.end = payload.end;
+      trip.kmStart = payload.kmStart;
+      trip.kmEnd = Math.max(payload.kmEnd, payload.kmStart);
+    } else {
+      const maxNumber = db.trips.reduce((max, t) => {
+        const n = Number(t.id.replace("FT-", ""));
+        return Number.isFinite(n) ? Math.max(max, n) : max;
+      }, 9000);
+      trip = {
+        id: `FT-${maxNumber + 1}`,
+        date: payload.date,
+        driverName: payload.driverName,
+        vehiclePlate: payload.vehiclePlate,
+        start: payload.start,
+        end: payload.end,
+        kmStart: payload.kmStart,
+        kmEnd: Math.max(payload.kmEnd, payload.kmStart),
+        purpose: "Geschäftlich",
+        tabletOrderId: payload.tabletOrderId,
+        origin: "tablet",
+      };
+      db.trips.unshift(trip);
+    }
+    await writeDb(db);
+    return trip;
+  });
+}
+
 export async function deleteTrip(id: string): Promise<boolean> {
   const db = await readDb();
   const index = db.trips.findIndex((t) => t.id === id);
@@ -1601,6 +1717,43 @@ export async function clockOut(employeeId: string): Promise<TimeClockEntry> {
   entry.clockOut = new Date().toISOString();
   await writeDb(db);
   return entry;
+}
+
+/**
+ * Applies a Tablet `timeclock.update` webhook (Payroll.ClockIn/ClockOut,
+ * server/sv_payroll.lua) onto the matching employee's Stempeluhr — the
+ * Tablet is the authoritative source for a Tablet-linked employee, so this
+ * mirrors its clock-in/clock-out state instead of the website computing its
+ * own independent one (see the disabled toggle in stempeluhr/page.tsx for
+ * such employees). Idempotent: a duplicate "clockedIn" push while already
+ * open, or "clocked out" while already closed, is a no-op rather than an
+ * error, since a Website-Sync retry must never throw.
+ */
+export async function applyTimeclockUpdate(
+  tabletEmployeeId: number,
+  clockedIn: boolean,
+  at: string,
+): Promise<TimeClockEntry | null> {
+  return withSyncLock(async () => {
+    const db = await readDb();
+    const employee = db.employees.find((e) => e.tabletEmployeeId === tabletEmployeeId);
+    if (!employee) return null;
+
+    if (clockedIn) {
+      const alreadyOpen = db.timeClockEntries.find((e) => e.employeeId === employee.id && e.clockOut === null);
+      if (alreadyOpen) return alreadyOpen;
+      const entry: TimeClockEntry = { id: makeId(employee.id), employeeId: employee.id, clockIn: at, clockOut: null };
+      db.timeClockEntries.push(entry);
+      await writeDb(db);
+      return entry;
+    }
+
+    const entry = db.timeClockEntries.find((e) => e.employeeId === employee.id && e.clockOut === null);
+    if (!entry) return null;
+    entry.clockOut = at;
+    await writeDb(db);
+    return entry;
+  });
 }
 
 // ---------------------------------------------------------------------------

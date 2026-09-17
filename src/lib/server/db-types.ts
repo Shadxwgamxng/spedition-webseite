@@ -45,6 +45,15 @@ export type DriverCardRecord = {
   breakStartedAt: string | null;
   breakTakenTodayMinutes: number;
   reminders: ReminderEntry[];
+  /**
+   * Calendar date (YYYY-MM-DD, website server's local date) of the last
+   * processed Tablet `driver_hours.report`. Used by applyDriverHoursReport
+   * (store.ts) to detect a day rollover and fold the previous day's final
+   * drivingTodayMinutes into drivingWeekMinutes — the only place that field
+   * is ever written for a Tablet-linked driver. null for a card that has
+   * never received a report yet.
+   */
+  lastReportDate: string | null;
 };
 
 /**
@@ -188,6 +197,10 @@ export type TripRecord = {
   kmStart: number;
   kmEnd: number;
   purpose: TripPurpose;
+  /** st_orders.id from the Tablet, if this trip was auto-reported on order completion (see upsertTripFromTablet) — the de-dupe key for repeated pushes. Undefined/null for a manually entered trip. */
+  tabletOrderId?: number | null;
+  /** "tablet" for an auto-reported trip, "manual"/undefined for one entered by hand on the website. */
+  origin?: "tablet" | "manual";
 };
 
 export type InvoiceLineItem = { description: string; qty: number; price: number };

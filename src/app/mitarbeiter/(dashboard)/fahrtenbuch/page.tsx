@@ -18,6 +18,7 @@ type Trip = {
   kmStart: number;
   kmEnd: number;
   purpose: Purpose;
+  origin?: "tablet" | "manual";
 };
 
 type Employee = { username: string; name: string; roleKey: string };
@@ -73,7 +74,7 @@ export default function FahrtenbuchPage() {
     <div>
       <EmployeePageHeader
         title="Digitales Fahrtenbuch"
-        description="Fahrten je Fahrer und Fahrzeug erfassen und Kilometerstände lückenlos dokumentieren."
+        description="Fahrten je Fahrer und Fahrzeug erfassen und Kilometerstände lückenlos dokumentieren. Abgeschlossene Frachtaufträge aus dem Tablet werden automatisch eingetragen — für private/sonstige Fahrten das Formular nutzen."
         action={
           <Button icon={false} onClick={() => setShowForm((v) => !v)}>
             {showForm ? "Formular schließen" : "Fahrt erfassen"}
@@ -120,13 +121,14 @@ export default function FahrtenbuchPage() {
               <th className="px-4 py-3 font-medium">Strecke</th>
               <th className="px-4 py-3 font-medium">km</th>
               <th className="px-4 py-3 font-medium">Zweck</th>
+              <th className="px-4 py-3 font-medium">Herkunft</th>
               <th className="px-4 py-3 font-medium">&nbsp;</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-navy-900/6">
             {trips.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-sm text-navy-700/60">
+                <td colSpan={9} className="px-4 py-8 text-center text-sm text-navy-700/60">
                   Noch keine Fahrten erfasst.
                 </td>
               </tr>
@@ -145,6 +147,11 @@ export default function FahrtenbuchPage() {
                   <td className="px-4 py-3 text-navy-800">{(t.kmEnd - t.kmStart).toLocaleString("de-DE")} km</td>
                   <td className="px-4 py-3">
                     <Badge tone={t.purpose === "Geschäftlich" ? "green" : "navy"}>{t.purpose}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={t.origin === "tablet" ? "amber" : "navy"}>
+                      {t.origin === "tablet" ? "Tablet" : "Manuell"}
+                    </Badge>
                   </td>
                   <td className="px-4 py-3">
                     <button

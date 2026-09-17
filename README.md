@@ -246,6 +246,14 @@ wurde. Meldet sich ausnahmsweise jemand ohne Rolle „Fahrer" an einem Fahrzeug 
 eine Schicht übernimmt), bekommt auch diese Person automatisch eine Fahrerkarte, die dann dauerhaft erhalten
 bleibt (`src/lib/server/store.ts`, Abschnitt „Driver cards must reflect real employees…").
 
+**Für ein mit dem FiveM Speditions-Tablet verknüpftes Konto** (`tabletEmployeeId` gesetzt) ist die Fahrerkarte
+**tablet-gesteuert**: „Fahrerkarte aktivieren/deaktivieren" und „Pause starten/beenden" sind dort ausgeblendet
+(Hinweistext statt Button) — Aktiv-Status kommt vom Fahrerkarte-Einstecken/Abziehen im Spiel, Pause vom Verlassen
+des Fahrersitzes, jeweils per `driver_shift.update`/`driver_hours.report`-Webhook (siehe „Tablet-Sync" unten). Die
+Lenkzeit heute kommt 1:1 vom Tablet; die Lenkzeit dieser Woche berechnet die Website selbst aus den täglichen
+Meldungen (das Tablet führt dafür keine eigene Wochenhistorie) — siehe Einschränkungen im Tablet-Sync-Abschnitt.
+Ein Konto ohne Tablet-Verknüpfung nutzt weiterhin die eigenen Website-Buttons wie bisher.
+
 ### Auftragsanfragen von der Website
 
 Über „Auftrag einreichen" eingehende Anfragen landen mit Status „Angefragt" direkt bei der Disposition
@@ -296,6 +304,12 @@ und starten leer, bis welche angelegt werden. Eine Inventur zählt die Bestände
 Fahrten (Datum, Fahrer, Fahrzeug, Strecke, km-Stände, Zweck) werden serverseitig gespeichert und starten leer.
 Fahrer- und Fahrzeugauswahl im Erfassungsformular kommen live aus den echten Mitarbeiter-Konten (Rolle „Fahrer")
 und dem echten Fuhrpark, nicht aus einer festen Liste (`src/app/api/trips/*`).
+
+Jeder vom FiveM Speditions-Tablet abgeschlossene Frachtauftrag trägt sich automatisch als Fahrt ein
+(`trip.report`-Webhook, siehe „Tablet-Sync" unten) — Start-/Zielort, Kilometerstand vor/nach der Fahrt, Fahrer
+und Kennzeichen kommen dabei direkt vom Tablet, Zweck ist immer „Geschäftlich". Die Spalte „Herkunft" markiert
+solche Einträge mit „Tablet"; manuell über das Formular erfasste Fahrten (z. B. private oder sonstige Fahrten
+außerhalb des Tabletts) zeigen „Manuell" und bleiben weiterhin jederzeit frei editierbar/löschbar.
 
 ### Rechnungserstellung mit PDF-Export
 
@@ -360,6 +374,12 @@ Ein-/Ausstempel-Protokoll je Mitarbeiter bei jedem Aufruf neu berechnet, nicht i
 Fahrerkarte ist das ein einfaches Arbeitszeit-Tool für dieses fiktive Setting, keine rechtssichere
 Zeiterfassung.
 
+Für ein mit dem Tablet verknüpftes Konto ist auch die Stempeluhr **tablet-gesteuert**: der eigene Ein-/Ausstempel-
+Button ist ausgeblendet (Hinweistext statt Button), Status/Zeiten kommen stattdessen per `timeclock.update`-Webhook
+direkt vom Tablet (siehe „Tablet-Sync" unten) — dort ist die Stempeluhr zusätzlich an die tatsächliche
+Gehaltsauszahlung gekoppelt, während die Website-eigene Stempeluhr rein informativ ist. Ein Konto ohne
+Tablet-Verknüpfung stempelt weiterhin ganz normal über die Website selbst ein/aus.
+
 ### Finanzbuchhaltung
 
 Zeigt eine ehrliche, auf die echten Rechnungsdaten beschränkte Übersicht (offene Forderungen, bezahlt gesamt,
@@ -374,17 +394,35 @@ einen Löschen-Button je Zeile; alle anderen Rollen mit Zugriff auf dieses Modul
 ## Tablet-Sync (FiveM Speditions-Tablet)
 
 Diese Website kann mit dem separaten FiveM-Roleplay-Tablet (`speditions-tablet`, eigenes Repo) synchronisiert werden:
-Aufträge/Disposition, Fuhrpark/Fahrzeuge, Fahrerkarte/Lenkzeiten sowie Mitarbeiterkonten. Der Sync ist bewusst
-**gleichwertig in beide Richtungen** — weder das Tablet noch die Website ist die alleinige Quelle der Wahrheit;
-beide Seiten können Aufträge/Fahrzeuge/Mitarbeiter anlegen bzw. bearbeiten, und die jeweils andere Seite zieht nach.
+Aufträge/Disposition, Fuhrpark/Fahrzeuge, Fahrerkarte/Lenkzeiten, Stempeluhr, Fahrtenbuch sowie Mitarbeiterkonten.
+Der Sync ist bewusst **gleichwertig in beide Richtungen** — weder das Tablet noch die Website ist die alleinige
+Quelle der Wahrheit; beide Seiten können Aufträge/Fahrzeuge/Mitarbeiter anlegen bzw. bearbeiten, und die jeweils
+andere Seite zieht nach. Eine Ausnahme sind Stempeluhr und Fahrerkarte: für ein Tablet-verknüpftes Konto ist dort
+**ausschließlich das Tablet** die Quelle der Wahrheit (siehe „Stempeluhr"/„Digitale Fahrerkarte" oben) — die
+Website übernimmt nur noch, statt eine zweite unabhängige Erfassung zu führen.
 
 **Push (Tablet → Website)**: `POST /api/tablet/webhook` — das Tablet meldet Änderungen (`employee.upsert`,
-`order.upsert`, `vehicle.upsert`, `driver_hours.report`, `locations.sync`) in
-Echtzeit. Verknüpfung läuft über `tabletEmployeeId`/`tabletOrderId`/`tabletVehicleId` (bzw. das Kennzeichen bei
-Fahrzeugen) — bestehende Datensätze werden aktualisiert, unbekannte neu angelegt. `locations.sync` ist ein
-Sonderfall: kein Datensatz-Upsert, sondern meldet einmalig beim Tablet-Ressourcenstart die gültigen
+`order.upsert`, `vehicle.upsert`, `driver_hours.report`, `driver_shift.update`, `timeclock.update`, `trip.report`,
+`locations.sync`) in Echtzeit. Verknüpfung läuft über `tabletEmployeeId`/`tabletOrderId`/`tabletVehicleId` (bzw. das
+Kennzeichen bei Fahrzeugen) — bestehende Datensätze werden aktualisiert, unbekannte neu angelegt. `locations.sync`
+ist ein Sonderfall: kein Datensatz-Upsert, sondern meldet einmalig beim Tablet-Ressourcenstart die gültigen
 Standortnamen/Frachtarten (`Config.Locations`/`Config.CargoTypes`) — Grundlage für die Standort-Auswahl bei "Neuer
 Auftrag" auf der Website (`tabletLocations`/`tabletCargoTypes` in `db.json`, `GET /api/tablet-locations`).
+
+- `driver_hours.report` (periodisch, alle `Config.Website.driverHoursReportIntervalMs`) aktualisiert
+  `drivingTodayMinutes`/`onBreak`/`breakStartedAt` der Fahrerkarte (`applyDriverHoursReport`); `drivingWeekMinutes`
+  hat auf dem Tablet keine Entsprechung (dort nur Tageshistorie) und wird stattdessen serverseitig auf der Website
+  hochgerechnet, indem beim erkannten Tageswechsel der letzte Tageswert in die Wochensumme einfließt (Reset jeweils
+  Montag, nach der Systemuhr des Website-Servers — bei stark unterschiedlichen Zeitzonen zum Tablet-Server kann das
+  um wenige Stunden abweichen).
+- `driver_shift.update` (bei jedem Fahrerkarte einstecken/abziehen) setzt `active` auf der Fahrerkarte
+  (`applyDriverShiftUpdate`) — ersetzt für Tablet-verknüpfte Fahrer den eigenen Website-Button.
+- `timeclock.update` (bei jedem Ein-/Ausstempeln, auch beim automatischen Schließen+Neustart einer Session während
+  einer Tablet-Gehaltsauszahlung) spiegelt den Stempeluhr-Status (`applyTimeclockUpdate`) — ersetzt für
+  Tablet-verknüpfte Mitarbeiter den eigenen Website-Button.
+- `trip.report` (bei jedem im Tablet abgeschlossenen Frachtauftrag) legt automatisch einen Fahrtenbuch-Eintrag an
+  oder aktualisiert ihn (`upsertTripFromTablet`), gekeyt auf `tabletOrderId` — ein erneuter Push (z. B. nach einem
+  Tablet-Ressourcen-Neustart) erzeugt dadurch nie einen doppelten Eintrag.
 
 **Pull (Website → Tablet)**: Dispositionsaktionen landen nicht als direkter Datenbank-Patch, sondern in einer
 Befehls-Queue (`POST /api/tablet/commands`) — das Tablet pollt `GET /api/tablet/commands` alle paar Sekunden, führt

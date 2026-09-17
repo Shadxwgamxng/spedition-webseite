@@ -1,9 +1,12 @@
 import { isAuthorizedTabletRequest, unauthorizedTabletResponse } from "@/lib/server/tablet-auth";
 import {
   applyDriverHoursReport,
+  applyDriverShiftUpdate,
+  applyTimeclockUpdate,
   upsertEmployeeFromTablet,
   upsertOrderFromTablet,
   upsertTabletLocations,
+  upsertTripFromTablet,
   upsertVehicleFromTablet,
 } from "@/lib/server/store";
 import type { VehicleRecord } from "@/lib/fleet-data";
@@ -13,8 +16,9 @@ import type { TabletLocationRecord } from "@/lib/server/db-types";
  * Push endpoint for the FiveM Speditions-Tablet (server/sv_website_bridge.lua,
  * WebsiteBridge.PushEvent) — see README "Tablet-Sync". One event type per
  * synced domain (Aufträge/Disposition, Fuhrpark, Fahrerkarte/Lenkzeiten,
- * Mitarbeiterkonten); each is a create-or-update against the matching
- * `*FromTablet` store function, never a full-collection replace.
+ * Stempeluhr, Fahrtenbuch, Mitarbeiterkonten); each is a create-or-update
+ * against the matching `*FromTablet`/`apply*` store function, never a
+ * full-collection replace.
  */
 
 function str(value: unknown): string {
@@ -24,6 +28,12 @@ function str(value: unknown): string {
 function num(value: unknown): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+/** The Tablet sends timestamps as MySQL DATETIME ("YYYY-MM-DD HH:MM:SS", server-local, no zone) — turn the space into a "T" so `new Date(...)` reliably parses it instead of relying on non-standard string parsing. */
+function tabletTimestamp(value: unknown): string {
+  const s = str(value);
+  return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s) ? s.replace(" ", "T") : s;
 }
 
 const TABLET_VEHICLE_STATUS_TO_MAINTENANCE: Record<string, VehicleRecord["maintenanceStatus"]> = {
@@ -109,8 +119,51 @@ export async function POST(request: Request) {
         if (!tabletEmployeeId) {
           return Response.json({ ok: false, error: "tabletEmployeeId ist erforderlich." }, { status: 400 });
         }
-        const card = await applyDriverHoursReport(tabletEmployeeId, num(data.dailyMinutes), data.resting === true);
+        const restingSince = typeof data.restingSince === "string" && data.restingSince ? tabletTimestamp(data.restingSince) : null;
+        const card = await applyDriverHoursReport(tabletEmployeeId, num(data.dailyMinutes), data.resting === true, restingSince);
         return Response.json({ ok: true, card });
+      }
+
+      case "driver_shift.update": {
+        const tabletEmployeeId = num(data.tabletEmployeeId);
+        if (!tabletEmployeeId) {
+          return Response.json({ ok: false, error: "tabletEmployeeId ist erforderlich." }, { status: 400 });
+        }
+        const card = await applyDriverShiftUpdate(tabletEmployeeId, data.onShift === true);
+        return Response.json({ ok: true, card });
+      }
+
+      case "timeclock.update": {
+        const tabletEmployeeId = num(data.tabletEmployeeId);
+        if (!tabletEmployeeId) {
+          return Response.json({ ok: false, error: "tabletEmployeeId ist erforderlich." }, { status: 400 });
+        }
+        const entry = await applyTimeclockUpdate(tabletEmployeeId, data.clockedIn === true, tabletTimestamp(data.at));
+        return Response.json({ ok: true, entry });
+      }
+
+      case "trip.report": {
+        const tabletOrderId = num(data.tabletOrderId);
+        const driverName = str(data.driverName);
+        const vehiclePlate = str(data.vehiclePlate);
+        if (!tabletOrderId || !driverName || !vehiclePlate) {
+          return Response.json(
+            { ok: false, error: "tabletOrderId, driverName und vehiclePlate sind erforderlich." },
+            { status: 400 },
+          );
+        }
+        const trip = await upsertTripFromTablet({
+          tabletOrderId,
+          tabletEmployeeId: num(data.tabletEmployeeId),
+          driverName,
+          vehiclePlate,
+          date: tabletTimestamp(data.date),
+          start: str(data.start),
+          end: str(data.end),
+          kmStart: num(data.kmStart),
+          kmEnd: num(data.kmEnd),
+        });
+        return Response.json({ ok: true, trip });
       }
 
       case "locations.sync": {
