@@ -55,6 +55,11 @@ export async function POST(request: Request) {
   const data = (body?.data ?? {}) as Record<string, unknown>;
   if (!type) return Response.json({ ok: false, error: "type ist erforderlich." }, { status: 400 });
 
+  // Server-seitiges Log jedes eingehenden Tablet-Events - vorher war dieser
+  // Endpunkt komplett unsichtbar in den eigenen Server-Logs, was das
+  // Diagnostizieren (kam der Push überhaupt an?) unnötig erschwert hat.
+  console.log(`[tablet-webhook] ${type}`, data);
+
   try {
     switch (type) {
       case "employee.upsert": {
@@ -124,6 +129,9 @@ export async function POST(request: Request) {
         }
         const restingSince = typeof data.restingSince === "string" && data.restingSince ? tabletTimestamp(data.restingSince) : null;
         const card = await applyDriverHoursReport(tabletEmployeeId, num(data.dailyMinutes), data.resting === true, restingSince);
+        if (!card) {
+          console.warn(`[tablet-webhook] driver_hours.report: tabletEmployeeId ${tabletEmployeeId} hat kein verknüpftes Website-Konto oder keine Fahrerkarte - Update verworfen.`);
+        }
         return Response.json({ ok: true, card });
       }
 
@@ -133,6 +141,9 @@ export async function POST(request: Request) {
           return Response.json({ ok: false, error: "tabletEmployeeId ist erforderlich." }, { status: 400 });
         }
         const card = await applyDriverShiftUpdate(tabletEmployeeId, data.onShift === true);
+        if (!card) {
+          console.warn(`[tablet-webhook] driver_shift.update: tabletEmployeeId ${tabletEmployeeId} hat kein verknüpftes Website-Konto oder keine Fahrerkarte - Update verworfen.`);
+        }
         return Response.json({ ok: true, card });
       }
 
@@ -142,6 +153,9 @@ export async function POST(request: Request) {
           return Response.json({ ok: false, error: "tabletEmployeeId ist erforderlich." }, { status: 400 });
         }
         const entry = await applyTimeclockUpdate(tabletEmployeeId, data.clockedIn === true, tabletTimestamp(data.at));
+        if (!entry) {
+          console.warn(`[tablet-webhook] timeclock.update: tabletEmployeeId ${tabletEmployeeId} hat kein verknüpftes Website-Konto, oder es gab keine offene Sitzung zum Ausstempeln - Update verworfen.`);
+        }
         return Response.json({ ok: true, entry });
       }
 
