@@ -1354,16 +1354,38 @@ export async function upsertEmployeeFromTablet(payload: {
     }
     const db = await readDb();
     const discordId = payload.discordId?.trim() ?? "";
-    if (discordId && db.employees.some((e) => e.tabletEmployeeId !== payload.tabletEmployeeId && e.discordId === discordId)) {
-      throw new Error("Diese Discord-Nutzer-ID ist bereits einem anderen Konto zugeordnet.");
+
+    // Eine Discord-ID, die schon an eine ANDERE tabletEmployeeId gebunden
+    // ist, ist ein echter Konflikt. Eine Discord-ID, die zu einem Konto
+    // gehört, das noch GAR NICHT mit dem Tablet verknüpft ist, ist dagegen
+    // kein Konflikt, sondern genau der Fall, den dieser Aufruf herstellen
+    // soll (siehe unten) - z.B. "Konto anlegen" + "Auch ein Tablet-Login
+    // anlegen" auf der Website: das Website-Konto entsteht dort SOFORT
+    // (noch ohne tabletEmployeeId), die Verknüpfung kommt erst kurz danach
+    // asynchron über genau dieses employee.upsert zurück. Vorher wurde hier
+    // JEDE Discord-ID-Übereinstimmung als Konflikt behandelt - dadurch
+    // schlug die Verknüpfung für JEDEN über die Website mit Tablet-Login
+    // angelegten Mitarbeiter fehl (zwei dauerhaft getrennte Konten, Tablet-
+    // Login ging, aber Stempeluhr/Fahrerkarte liefen nie auf der Website an).
+    if (
+      discordId &&
+      db.employees.some(
+        (e) => e.discordId === discordId && e.tabletEmployeeId && e.tabletEmployeeId !== payload.tabletEmployeeId,
+      )
+    ) {
+      throw new Error("Diese Discord-Nutzer-ID ist bereits einem anderen, bereits verknüpften Tablet-Konto zugeordnet.");
     }
 
     let employee = db.employees.find((e) => e.tabletEmployeeId === payload.tabletEmployeeId);
+    if (!employee && discordId) {
+      employee = db.employees.find((e) => e.discordId === discordId && !e.tabletEmployeeId);
+    }
     if (employee) {
       employee.name = payload.name;
       employee.roleKey = payload.websiteRoleKey;
       employee.role = roleLabels[payload.websiteRoleKey];
       employee.status = payload.status;
+      employee.tabletEmployeeId = payload.tabletEmployeeId;
       if (discordId) employee.discordId = discordId;
       if (payload.department !== undefined) employee.department = payload.department;
     } else {
