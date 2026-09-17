@@ -9,6 +9,7 @@ import { employeeModules } from "@/lib/employee-nav";
 import { canAccessModule, roleModuleAccess } from "@/lib/roles";
 import { CloseIcon, LockIcon, MenuIcon } from "@/components/ui/icons";
 import { VehicleGate } from "@/components/employee/vehicle-gate";
+import { NotificationBell } from "@/components/employee/notification-bell";
 
 const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
 const INACTIVITY_CHECK_INTERVAL_MS = 30 * 60 * 1000;
@@ -156,6 +157,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </button>
           <div className="text-sm font-semibold text-navy-900 lg:hidden">Mitarbeiterbereich</div>
           <div className="ml-auto flex items-center gap-3">
+            <NotificationBell />
             <div className="hidden text-right sm:block">
               <div className="text-sm font-semibold text-navy-900">{user.name}</div>
               <div className="text-xs text-navy-700/60">{user.role}</div>

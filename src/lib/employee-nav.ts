@@ -1,4 +1,5 @@
 import {
+  BoxIcon,
   ChartIcon,
   ClipboardIcon,
   ClockIcon,
@@ -22,6 +23,13 @@ export const employeeModules = [
     label: "Disposition",
     description: "Touren planen, Fahrer & Fahrzeuge zuweisen.",
     icon: RouteIcon,
+  },
+  {
+    key: "auftragspool",
+    href: "/mitarbeiter/auftragspool",
+    label: "Auftragspool",
+    description: "Offene, noch unzugewiesene Aufträge aus dem Spiel direkt von der Website disponieren.",
+    icon: BoxIcon,
   },
   {
     key: "lager",

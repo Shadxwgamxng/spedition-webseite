@@ -373,6 +373,26 @@ export type ContactInquiryRecord = {
 };
 
 /**
+ * An in-app notification shown via the bell in DashboardShell (see
+ * src/components/employee/notification-bell.tsx). Visible to an employee
+ * when their roleKey is in `audienceRoles`, OR their name matches
+ * `audienceEmployeeName` — exactly one of the two is set per notification
+ * (role-broadcast vs. a single targeted employee, e.g. "Auftrag zugewiesen").
+ * `readBy` tracks which employee names have dismissed it, since this is a
+ * shared store with no per-employee inbox of its own.
+ */
+export type NotificationRecord = {
+  id: string;
+  kind: "pool_order" | "order_assigned" | "application" | "inquiry" | "customer_order";
+  message: string;
+  href: string;
+  createdAt: string;
+  audienceRoles: string[] | null;
+  audienceEmployeeName: string | null;
+  readBy: string[];
+};
+
+/**
  * A control-direction command queued for the FiveM Speditions-Tablet to pick
  * up (e.g. Disposition assigning a driver/vehicle to a `origin: "tablet"`
  * order on the website). The tablet's sv_website_bridge.lua polls
@@ -467,6 +487,8 @@ export type Db = {
   tabletTransactions: TabletTransactionRecord[];
   /** Aktueller Tablet-Firmenkonto-Saldo (aus dem letzten 'finance.transaction'-Push, nicht selbst berechnet). */
   tabletCompanyBalance: number;
+  /** In-App-Benachrichtigungen (Glocke im Dashboard) — siehe NotificationRecord. Neueste zuerst, auf NOTIFICATION_LIMIT gedeckelt. */
+  notifications: NotificationRecord[];
 };
 
 export const COLLECTION_ID_FIELD = {
@@ -579,5 +601,6 @@ export function seedDb(): Db {
     tabletCargoTypes: [],
     tabletTransactions: [],
     tabletCompanyBalance: 0,
+    notifications: [],
   };
 }

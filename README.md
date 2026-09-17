@@ -39,9 +39,9 @@ durchgesetzt in `DashboardShell`).
 | --- | --- |
 | Geschäftsführer | **Alles**, inkl. Verwaltung, Personalakten, Bewerbungen und Anfragen; einzige Rolle mit Fahrzeuge anlegen/löschen |
 | Prokurist | **Identisch zum Geschäftsführer** — beide Rollen teilen sich dieselbe Berechtigungsliste (`src/lib/roles.ts`) |
-| Betriebsleiter | Disposition, Lagerverwaltung, Fahrzeugverwaltung, Fahrtenbuch, Fahrerkarte (aller Fahrer), Kundenstammbaum, Anfragen, Stempeluhr (inkl. Team-Übersicht) |
-| Chefdisponent | Disposition, Fahrzeugverwaltung, Fahrerkarte (aller Fahrer, inkl. Erinnerungen senden), Kundenstammbaum, Anfragen, Stempeluhr |
-| Disponent | Disposition, Kundenstammbaum, Anfragen, Stempeluhr |
+| Betriebsleiter | Disposition, Auftragspool, Lagerverwaltung, Fahrzeugverwaltung, Fahrtenbuch, Fahrerkarte (aller Fahrer), Kundenstammbaum, Anfragen, Stempeluhr (inkl. Team-Übersicht) |
+| Chefdisponent | Disposition, Auftragspool, Fahrzeugverwaltung, Fahrerkarte (aller Fahrer, inkl. Erinnerungen senden), Kundenstammbaum, Anfragen, Stempeluhr |
+| Disponent | Disposition, Auftragspool, Kundenstammbaum, Anfragen, Stempeluhr |
 | Lager | Lagerverwaltung & Inventuren, Stempeluhr |
 | Fuhrpark & Werkstatt | Fahrzeugverwaltung (nur lesend), Digitales Fahrtenbuch, Stempeluhr |
 | Buchhaltung | Rechnungserstellung (inkl. PDF-Export), Finanzbuchhaltung, Stempeluhr |
@@ -231,6 +231,43 @@ Server-API (`src/app/api/vehicles/*`) mit einem dateibasierten Store (`.data/db.
 sehen Disponenten auf einem **anderen Gerät/Tab** die Anmeldung live (Polling alle 4 s) im Bereich „Aktive
 Fahrzeuge" und können neue Aufträge anlegen sowie live angemeldeten Fahrzeugen/Fahrern zuweisen.
 
+**Für mit dem FiveM Speditions-Tablet verknüpfte Fahrzeuge** (`tabletVehicleId` gesetzt) übernimmt „Aktive
+Fahrzeuge" den echten Ingame-Stand: Fahrerkarte einstecken/abziehen bzw. eine Fuhrpark-Zuweisung im Spiel pusht
+den zugewiesenen Fahrer per `vehicle.upsert`-Webhook (`driverName`/`activeSince`, siehe „Tablet-Sync" unten,
+Tablet-Version ab 1.9.0) — die eigene Website-Anmeldung oben bleibt nur für Fahrzeuge ohne Tablet-Verknüpfung
+relevant.
+
+### Auftragspool (Disposition, Chefdisponent, Betriebsleiter, Geschäftsführer/Prokurist)
+
+Eigener Reiter neben Disposition: zeigt ausschließlich Aufträge, die im FiveM Speditions-Tablet neu im offenen
+Pool gelandet sind (automatisch generiert oder über „Neuer Auftrag" mit „Auch im Tablet-Spiel anlegen" auf der
+Website erzeugt) und noch **weder Fahrzeug noch Fahrer** zugewiesen bekommen haben — die reguläre
+Disposition-Tabelle zeigt daneben auch bereits laufende/abgeschlossene Aufträge, dieser Reiter ist bewusst auf
+„muss jetzt disponiert werden" verengt. Eine Fahrzeugauswahl pro Zeile löst denselben `assign_order`-Befehl wie
+in der Disposition aus (siehe „Tablet-Sync" unten) — die Zuweisung kommt dadurch direkt im Spiel beim gewählten
+Fahrzeug/Fahrer an, ganz ohne dass jemand im Spiel selbst disponieren muss. Setzt voraus, dass das Tablet neu
+generierte Pool-Aufträge pusht (`Orders.GenerateOne`/`Orders.CreateFromWebsite` im Tablet-Repo, ab Version
+1.9.0) — mit einer älteren Tablet-Version bleibt der Pool leer, bis dort disponiert wird.
+
+### Benachrichtigungen (Glocke oben rechts im Dashboard)
+
+Pollt alle 6 s `GET /api/notifications` (`src/components/employee/notification-bell.tsx`) und zeigt neue,
+ungelesene Einträge mit rotem Zähler und einem kurzen Signalton (Web Audio, kein Audio-Asset nötig) an — der Ton
+spielt nur bei tatsächlich **neuen** ungelesenen Einträgen, nicht beim ersten Laden der Seite mit bereits
+offenen Altmeldungen. Ausgelöst wird eine Benachrichtigung bei:
+
+- **Neuer Auftrag im Auftragspool** — an alle Rollen mit Zugriff auf Disposition/Auftragspool.
+- **Auftrag mir zugewiesen** — nur an den konkreten Fahrer, dessen Name das Tablet als `driverName` meldet.
+- **Neue Bewerbung** — an Geschäftsführer/Prokurist (dieselben Rollen, die auch den Reiter „Bewerbungen" sehen).
+- **Neue Anfrage** (Kontaktformular) — an alle Rollen mit Zugriff auf „Anfragen".
+- **Neuer Auftrag von einem Bestandskunden** (`/kunden`-Login) — an alle Rollen mit Zugriff auf Disposition.
+
+Jede Benachrichtigung ist als „gelesen" pro Mitarbeitername markierbar (einzeln per Klick, oder „Alle als
+gelesen markieren") und verlinkt direkt auf die zuständige Seite. Die Ziel-Rollen je Typ werden nicht separat
+gepflegt, sondern aus `roleModuleAccess` (`src/lib/roles.ts`) abgeleitet (`src/lib/server/store.ts`,
+`DISPATCH_NOTIFICATION_ROLES`/`APPLICATION_NOTIFICATION_ROLES`/`INQUIRY_NOTIFICATION_ROLES`) — ändert sich dort
+der Modulzugriff einer Rolle, zieht die Benachrichtigungs-Zielgruppe automatisch nach.
+
 ### Digitale Fahrerkarte
 
 Fahrer aktivieren ihre eigene Fahrerkarte und erfassen Pausen (Start/Ende) selbst; Lenkzeiten heute/Woche werden
@@ -418,6 +455,14 @@ meldet einmalig beim Tablet-Ressourcenstart die gültigen Standortnamen/Frachtar
 (`Config.Locations`/`Config.CargoTypes`) — Grundlage für die Standort-Auswahl bei "Neuer Auftrag" auf der Website
 (`tabletLocations`/`tabletCargoTypes` in `db.json`, `GET /api/tablet-locations`).
 
+- `order.upsert` — bei jeder Auftragsänderung im Tablet, **inklusive** eines neu im offenen Pool generierten
+  Auftrags (ab Tablet-Version 1.9.0, siehe „Auftragspool" oben). Löst zwei Benachrichtigungen aus (siehe
+  „Benachrichtigungen" oben): einen neuen, noch unzugewiesenen Pool-Auftrag an alle Dispositions-Rollen, und —
+  sobald `driverName` neu gesetzt wird — eine gezielte „Dir wurde ein Auftrag zugewiesen" an genau diesen Fahrer.
+- `vehicle.upsert` trägt seit Tablet-Version 1.9.0 zusätzlich `driverName`/`activeSince` mit (aktuelle
+  Fahrzeug-Fahrer-Zuweisung aus dem Spiel, siehe „Fahrer-Login → Fahrzeug → Disposition" oben) — mit einer
+  älteren Tablet-Version bleiben diese beiden Felder leer und „Aktive Fahrzeuge" zeigt für Tablet-Fahrzeuge
+  nichts an.
 - `driver_hours.report` (periodisch, alle `Config.Website.driverHoursReportIntervalMs`) aktualisiert
   `drivingTodayMinutes`/`onBreak`/`breakStartedAt` der Fahrerkarte (`applyDriverHoursReport`); `drivingWeekMinutes`
   hat auf dem Tablet keine Entsprechung (dort nur Tageshistorie) und wird stattdessen serverseitig auf der Website

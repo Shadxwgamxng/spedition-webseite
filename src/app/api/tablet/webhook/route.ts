@@ -118,6 +118,8 @@ export async function POST(request: Request) {
           type: str(data.vehicleClass) || str(data.type),
           mileage: num(data.mileage),
           maintenanceStatus,
+          driverName: typeof data.driverName === "string" ? data.driverName : null,
+          activeSince: typeof data.activeSince === "string" && data.activeSince ? tabletTimestamp(data.activeSince) : null,
         });
         return Response.json({ ok: true, vehicle });
       }

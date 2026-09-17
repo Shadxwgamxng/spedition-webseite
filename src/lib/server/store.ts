@@ -23,6 +23,7 @@ import {
   type JobApplicationRecord,
   type JobRecord,
   type NewsRecord,
+  type NotificationRecord,
   type PartnerRecord,
   type PersonnelDocumentRecord,
   type PersonnelFileRecord,
@@ -38,7 +39,7 @@ import {
   type TripRecord,
 } from "@/lib/server/db-types";
 import type { OrderMessage, OrderRecord, OrderStatus, VehicleRecord } from "@/lib/fleet-data";
-import { isRoleKey, roleLabels, isDriverLicenseKey, type RoleKey } from "@/lib/roles";
+import { canAccessModule, isRoleKey, roleKeys, roleLabels, isDriverLicenseKey, type RoleKey } from "@/lib/roles";
 import type {
   TabletCommandRecord,
   TabletLocationRecord,
@@ -730,9 +731,13 @@ export async function logoutVehicle(driverName: string): Promise<{ ok: true } | 
  * Create-or-update a vehicle from a Tablet `vehicle.upsert` webhook, keyed on
  * `plate` (both sides use the license plate as the natural identifier — the
  * Tablet's numeric `st_vehicles.id` is kept only as `tabletVehicleId` for
- * reference/debugging). Deliberately does not touch `activeDriver`/
- * `activeSince` — that stays purely a website concept (Fahrzeug-Gate login),
- * not something the Tablet reports.
+ * reference/debugging). `driverName`/`activeSince` mirror the Tablet's own
+ * current assignment (Drivers.StartShift/EndShift, Vehicles.Assign — see
+ * server/sv_vehicles.lua's assignVehicleInternal in the Tablet repo) so the
+ * "Aktive Fahrzeuge"-Übersicht in der Website-Disposition den echten Stand
+ * aus dem Spiel zeigt, nicht nur den separaten Website-Fahrzeug-Login
+ * (loginVehicle/logoutVehicle oben bleibt für website-eigene Fahrzeuge ohne
+ * tabletVehicleId weiterhin die einzige Quelle).
  */
 export async function upsertVehicleFromTablet(payload: {
   tabletVehicleId: number;
@@ -740,6 +745,8 @@ export async function upsertVehicleFromTablet(payload: {
   type: string;
   mileage: number;
   maintenanceStatus: VehicleRecord["maintenanceStatus"];
+  driverName: string | null;
+  activeSince: string | null;
 }): Promise<VehicleRecord> {
   return withSyncLock(async () => {
     const db = await readDb();
@@ -749,6 +756,8 @@ export async function upsertVehicleFromTablet(payload: {
       vehicle.mileage = payload.mileage;
       vehicle.maintenanceStatus = payload.maintenanceStatus;
       vehicle.tabletVehicleId = payload.tabletVehicleId;
+      vehicle.activeDriver = payload.driverName;
+      vehicle.activeSince = payload.activeSince;
     } else {
       const now = new Date();
       const inOneYear = new Date(now);
@@ -761,8 +770,8 @@ export async function upsertVehicleFromTablet(payload: {
         nextService: inOneYear.toISOString().slice(0, 10),
         nextTuv: inOneYear.toISOString().slice(0, 10),
         maintenanceStatus: payload.maintenanceStatus,
-        activeDriver: null,
-        activeSince: null,
+        activeDriver: payload.driverName,
+        activeSince: payload.activeSince,
         tabletVehicleId: payload.tabletVehicleId,
       };
       db.vehicles.push(vehicle);
@@ -785,6 +794,66 @@ export async function getOrders(): Promise<OrderRecord[]> {
 export async function getOrdersForCustomer(customerId: string): Promise<OrderRecord[]> {
   const db = await readDb();
   return db.orders.filter((o) => o.customerId === customerId);
+}
+
+// ---------------------------------------------------------------------------
+// In-App-Benachrichtigungen (Glocke im Dashboard) — siehe NotificationRecord
+// (db-types.ts). Aufrufer mutieren direkt das schon geladene `db`-Objekt
+// (kein eigener readDb/writeDb-Zyklus), damit pushNotification sicher aus
+// Funktionen heraus aufgerufen werden kann, die selbst schon in withSyncLock
+// laufen — ein verschachtelter withSyncLock-Aufruf dort würde sich selbst
+// blockieren (siehe Kommentar bei withSyncLock weiter unten).
+// ---------------------------------------------------------------------------
+
+const NOTIFICATION_LIMIT = 200;
+
+/** Rollen mit Zugriff auf das jeweilige Modul (siehe roleModuleAccess) — Ziel-Publikum für die passenden Benachrichtigungstypen. */
+const DISPATCH_NOTIFICATION_ROLES = roleKeys.filter((r) => canAccessModule(r, "disposition"));
+const APPLICATION_NOTIFICATION_ROLES = roleKeys.filter((r) => canAccessModule(r, "bewerbungen"));
+const INQUIRY_NOTIFICATION_ROLES = roleKeys.filter((r) => canAccessModule(r, "anfragen"));
+
+function pushNotification(
+  db: Db,
+  input: {
+    kind: NotificationRecord["kind"];
+    message: string;
+    href: string;
+    audienceRoles?: RoleKey[] | null;
+    audienceEmployeeName?: string | null;
+  },
+): void {
+  const notification: NotificationRecord = {
+    id: makeId(input.kind),
+    kind: input.kind,
+    message: input.message,
+    href: input.href,
+    createdAt: new Date().toISOString(),
+    audienceRoles: input.audienceRoles ?? null,
+    audienceEmployeeName: input.audienceEmployeeName ?? null,
+    readBy: [],
+  };
+  db.notifications.unshift(notification);
+  if (db.notifications.length > NOTIFICATION_LIMIT) db.notifications.length = NOTIFICATION_LIMIT;
+}
+
+export async function getNotificationsForUser(roleKey: RoleKey, employeeName: string): Promise<NotificationRecord[]> {
+  const db = await readDb();
+  return db.notifications.filter(
+    (n) => n.audienceEmployeeName === employeeName || (n.audienceRoles?.includes(roleKey) ?? false),
+  );
+}
+
+export async function markNotificationsRead(ids: string[], employeeName: string): Promise<void> {
+  if (ids.length === 0) return;
+  const db = await readDb();
+  let changed = false;
+  for (const n of db.notifications) {
+    if (ids.includes(n.id) && !n.readBy.includes(employeeName)) {
+      n.readBy.push(employeeName);
+      changed = true;
+    }
+  }
+  if (changed) await writeDb(db);
 }
 
 export async function createOrder(input: {
@@ -832,6 +901,14 @@ export async function createOrder(input: {
     requestedDeliveryDate: input.requestedDeliveryDate ?? "",
   };
   db.orders.unshift(order);
+  if (origin === "kunde") {
+    pushNotification(db, {
+      kind: "customer_order",
+      message: `Neuer Auftrag von ${order.customer} (Kunden-Login): ${order.pickup} → ${order.delivery}`,
+      href: "/mitarbeiter/disposition",
+      audienceRoles: DISPATCH_NOTIFICATION_ROLES,
+    });
+  }
   await writeDb(db);
   return order;
 }
@@ -910,6 +987,12 @@ export async function findOrderByTabletId(tabletOrderId: number): Promise<OrderR
  * details go into `notes`. `origin: "tablet"` marks it for the Disposition UI
  * (see disposition/page.tsx) to route dispatch actions through the command
  * queue instead of a direct PATCH.
+ *
+ * Also the single place that notices two events worth a bell notification:
+ * a brand-new, still-unassigned pool order (Orders.GenerateOne/CreateFromWebsite
+ * in the Tablet now push as soon as it lands in the open pool, see README
+ * "Website-Sync") goes to everyone with Disposition access; a driverName that
+ * newly appears (order just got dispatched) goes to that one driver.
  */
 export async function upsertOrderFromTablet(payload: {
   tabletOrderId: number;
@@ -925,6 +1008,8 @@ export async function upsertOrderFromTablet(payload: {
     const db = await readDb();
     const status = mapTabletOrderStatus(payload.status);
     let order = db.orders.find((o) => o.tabletOrderId === payload.tabletOrderId);
+    const wasNew = !order;
+    const previousDriverName = order?.driverName ?? null;
     if (order) {
       order.status = status;
       order.driverName = payload.driverName;
@@ -955,6 +1040,24 @@ export async function upsertOrderFromTablet(payload: {
       };
       db.orders.unshift(order);
     }
+
+    if (wasNew && !payload.driverName && !payload.vehiclePlate) {
+      pushNotification(db, {
+        kind: "pool_order",
+        message: `Neuer Auftrag im Pool: ${payload.startLocation} → ${payload.endLocation} (${payload.cargo})`,
+        href: "/mitarbeiter/auftragspool",
+        audienceRoles: DISPATCH_NOTIFICATION_ROLES,
+      });
+    }
+    if (payload.driverName && payload.driverName !== previousDriverName) {
+      pushNotification(db, {
+        kind: "order_assigned",
+        message: `Dir wurde Auftrag ${order.id} zugewiesen: ${payload.startLocation} → ${payload.endLocation}`,
+        href: "/mitarbeiter/auftraege",
+        audienceEmployeeName: payload.driverName,
+      });
+    }
+
     await writeDb(db);
     return order;
   });
@@ -2058,6 +2161,12 @@ export async function createApplication(input: {
     await writeDocumentFile(id, input.cv.bytes);
   }
   db.applications.unshift(application);
+  pushNotification(db, {
+    kind: "application",
+    message: `Neue Bewerbung von ${firstName} ${lastName}${application.position ? ` (${application.position})` : ""}`,
+    href: "/mitarbeiter/bewerbungen",
+    audienceRoles: APPLICATION_NOTIFICATION_ROLES,
+  });
   await writeDb(db);
   return application;
 }
@@ -2133,6 +2242,12 @@ export async function createContactInquiry(input: {
     replies: [],
   };
   db.contactInquiries.unshift(inquiry);
+  pushNotification(db, {
+    kind: "inquiry",
+    message: `Neue Anfrage von ${name}`,
+    href: "/mitarbeiter/anfragen",
+    audienceRoles: INQUIRY_NOTIFICATION_ROLES,
+  });
   await writeDb(db);
   return inquiry;
 }
