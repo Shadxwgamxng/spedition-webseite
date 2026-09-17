@@ -367,9 +367,19 @@ async function readDb(): Promise<Db> {
   return db as Db;
 }
 
+// Schreibt zuerst in eine Temp-Datei und ersetzt db.json danach per rename()
+// - auf demselben Dateisystem ist rename() atomar, ein Leser sieht also
+// entweder den alten oder den neuen, aber NIE einen kaputten Zwischenstand.
+// Ohne das (vorher: direktes fs.writeFile auf den Zielpfad) konnte ein
+// Prozessabbruch (Absturz, `pm2 restart`, Deploy) mitten in einem Schreib-
+// vorgang eine unvollständige/kaputte db.json hinterlassen - readDb() sieht
+// beim nächsten Laden dann ungültiges JSON und setzt automatisch auf die
+// Demo-Seed-Daten zurück (siehe dessen catch-Block oben).
 async function writeDb(db: Db): Promise<void> {
   await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
-  await fs.writeFile(DB_PATH, JSON.stringify(db, null, 2), "utf-8");
+  const tmpPath = `${DB_PATH}.tmp-${process.pid}-${Date.now()}`;
+  await fs.writeFile(tmpPath, JSON.stringify(db, null, 2), "utf-8");
+  await fs.rename(tmpPath, DB_PATH);
 }
 
 // ---------------------------------------------------------------------------
