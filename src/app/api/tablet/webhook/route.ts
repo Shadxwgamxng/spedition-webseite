@@ -217,6 +217,11 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unbekannter Fehler.";
+    // War bisher nur als Fehlerantwort ans Tablet sichtbar (dort korrekt als
+    // "Website-Sync fehlgeschlagen" geloggt), aber NIE in den eigenen
+    // Server-Logs - z.B. der employee.upsert-Fehler bei zwei Tablet-
+    // Mitarbeitern mit derselben Discord-ID blieb dadurch hier unsichtbar.
+    console.error(`[tablet-webhook] ${type} fehlgeschlagen:`, message);
     return Response.json({ ok: false, error: message }, { status: 400 });
   }
 }
