@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
@@ -10,11 +10,38 @@ import { canAccessModule, roleModuleAccess } from "@/lib/roles";
 import { CloseIcon, LockIcon, MenuIcon } from "@/components/ui/icons";
 import { VehicleGate } from "@/components/employee/vehicle-gate";
 
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;
+const INACTIVITY_CHECK_INTERVAL_MS = 30 * 60 * 1000;
+const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "scroll", "touchstart"] as const;
+
 export function DashboardShell({ children }: { children: ReactNode }) {
   const { user, status, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const lastActivityRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const markActive = () => {
+      lastActivityRef.current = Date.now();
+    };
+    markActive();
+    ACTIVITY_EVENTS.forEach((event) => window.addEventListener(event, markActive, { passive: true }));
+
+    const interval = setInterval(() => {
+      if (lastActivityRef.current !== null && Date.now() - lastActivityRef.current >= INACTIVITY_LIMIT_MS) {
+        logout();
+        router.replace("/mitarbeiter/login");
+      }
+    }, INACTIVITY_CHECK_INTERVAL_MS);
+
+    return () => {
+      ACTIVITY_EVENTS.forEach((event) => window.removeEventListener(event, markActive));
+      clearInterval(interval);
+    };
+  }, [user, logout, router]);
 
   const currentModuleKey = pathname.split("/")[2] ?? null;
   const allowed = user ? roleModuleAccess[user.roleKey] : [];

@@ -157,11 +157,6 @@ export default async function HomePage() {
                     </li>
                   ))}
                 </ul>
-                <div className="mt-8">
-                  <Button href="/mitarbeiter/login" variant="primary">
-                    Zum Mitarbeiterbereich
-                  </Button>
-                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
