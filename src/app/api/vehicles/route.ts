@@ -27,8 +27,18 @@ export async function POST(request: Request) {
     );
   }
 
+  const tabletName = typeof body?.tabletName === "string" ? body.tabletName.trim() : "";
+  const tabletModel = typeof body?.tabletModel === "string" ? body.tabletModel.trim() : "";
+  const tabletLink = tabletName && tabletModel ? { name: tabletName, model: tabletModel } : undefined;
+  if (body?.alsoInTablet && !tabletLink) {
+    return Response.json(
+      { ok: false, error: "Für \"Auch im Tablet anlegen\" sind Tablet-Anzeigename und Tablet-Fahrzeugmodell erforderlich." },
+      { status: 400 },
+    );
+  }
+
   try {
-    const vehicle = await createVehicle({ plate, type, year, mileage, nextService, nextTuv, maintenanceStatus });
+    const vehicle = await createVehicle({ plate, type, year, mileage, nextService, nextTuv, maintenanceStatus }, tabletLink);
     return Response.json({ ok: true, vehicle }, { status: 201 });
   } catch (err) {
     return Response.json({ ok: false, error: err instanceof Error ? err.message : "Fehler beim Anlegen." }, { status: 409 });

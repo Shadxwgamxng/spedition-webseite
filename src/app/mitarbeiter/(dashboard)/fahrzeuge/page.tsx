@@ -23,7 +23,9 @@ export default function FahrzeugePage() {
   const [filter, setFilter] = useState<MaintenanceStatus | "Alle">("Alle");
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [formNotice, setFormNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [alsoInTablet, setAlsoInTablet] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [editingPlate, setEditingPlate] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState<MaintenanceStatus>("Einsatzbereit");
@@ -45,6 +47,7 @@ export default function FahrzeugePage() {
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
+    setFormNotice(null);
     setSubmitting(true);
     const form = new FormData(event.currentTarget);
     try {
@@ -59,6 +62,9 @@ export default function FahrzeugePage() {
           nextService: form.get("nextService"),
           nextTuv: form.get("nextTuv"),
           maintenanceStatus: form.get("maintenanceStatus"),
+          alsoInTablet,
+          tabletName: form.get("tabletName"),
+          tabletModel: form.get("tabletModel"),
         }),
       });
       const json = await res.json();
@@ -66,8 +72,12 @@ export default function FahrzeugePage() {
         setFormError(json.error ?? "Fahrzeug konnte nicht angelegt werden.");
         return;
       }
+      if (alsoInTablet) {
+        setFormNotice("Fahrzeug angelegt — wird an das Tablet übertragen (kurze Verzögerung möglich).");
+      }
       await refetch();
       setShowForm(false);
+      setAlsoInTablet(false);
       event.currentTarget.reset();
     } catch {
       setFormError("Verbindung zum Server fehlgeschlagen.");
@@ -160,7 +170,43 @@ export default function FahrzeugePage() {
               ))}
             </select>
           </div>
+
+          <div className="sm:col-span-2 lg:col-span-4">
+            <label className="flex items-center gap-2 text-xs font-medium text-navy-800">
+              <input
+                type="checkbox"
+                checked={alsoInTablet}
+                onChange={(e) => setAlsoInTablet(e.target.checked)}
+                className="h-4 w-4 rounded border-navy-900/25"
+              />
+              Auch im Tablet (im Spiel) anlegen
+            </label>
+            {alsoInTablet ? (
+              <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field
+                  label="Tablet-Anzeigename"
+                  name="tabletName"
+                  placeholder="z. B. MAN TGX Fernverkehr"
+                  required={alsoInTablet}
+                />
+                <div>
+                  <Field
+                    label="Tablet-Fahrzeugmodell (Spawn-Code)"
+                    name="tabletModel"
+                    placeholder="z. B. packer"
+                    required={alsoInTablet}
+                  />
+                  <p className="mt-1 text-xs text-navy-700/50">
+                    Der interne FiveM-Modellname des Fahrzeugs — &bdquo;Typ&ldquo; oben wird dabei als
+                    Fahrzeugklasse im Tablet übernommen.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
           {formError ? <p className="text-sm text-red-600 sm:col-span-2 lg:col-span-4">{formError}</p> : null}
+          {formNotice ? <p className="text-sm text-navy-700 sm:col-span-2 lg:col-span-4">{formNotice}</p> : null}
           <div className="sm:col-span-2 lg:col-span-4">
             <Button type="submit" icon={false} className={submitting ? "opacity-60" : ""}>
               {submitting ? "Wird angelegt…" : "Fahrzeug speichern"}

@@ -555,7 +555,20 @@ export async function getVehicles(): Promise<VehicleRecord[]> {
   return db.vehicles;
 }
 
-export async function createVehicle(data: Omit<VehicleRecord, "activeDriver" | "activeSince">): Promise<VehicleRecord> {
+/**
+ * `tabletLink` (nur "Auch im Tablet anlegen" auf der Website): legt das
+ * Fahrzeug zusätzlich im Tablet an (create_vehicle-Befehl, siehe dortiges
+ * README). `name`/`model` sind reine Tablet-Konzepte (Anzeigename bzw.
+ * FiveM-Spawn-Modell) und werden hier nicht gespeichert; `data.type` dient
+ * dort als Fahrzeugklasse. Die Rückverknüpfung läuft automatisch über das
+ * Kennzeichen (siehe upsertVehicleFromTablet) - kein Konflikt-Risiko wie
+ * beim Mitarbeiter-Sync, da hier immer per Kennzeichen gesucht wird statt
+ * einer erst später bekannten Tablet-ID.
+ */
+export async function createVehicle(
+  data: Omit<VehicleRecord, "activeDriver" | "activeSince">,
+  tabletLink?: { name: string; model: string },
+): Promise<VehicleRecord> {
   const db = await readDb();
   if (db.vehicles.some((v) => v.plate === data.plate)) {
     throw new Error("Ein Fahrzeug mit diesem Kennzeichen existiert bereits.");
@@ -563,6 +576,17 @@ export async function createVehicle(data: Omit<VehicleRecord, "activeDriver" | "
   const vehicle: VehicleRecord = { ...data, activeDriver: null, activeSince: null };
   db.vehicles.push(vehicle);
   await writeDb(db);
+
+  if (tabletLink) {
+    await enqueueCommand("create_vehicle", {
+      plate: vehicle.plate,
+      name: tabletLink.name,
+      model: tabletLink.model,
+      vehicleClass: vehicle.type,
+      mileage: vehicle.mileage,
+    });
+  }
+
   return vehicle;
 }
 
@@ -597,8 +621,16 @@ export async function deleteVehicle(plate: string): Promise<boolean> {
   const db = await readDb();
   const index = db.vehicles.findIndex((v) => v.plate === plate);
   if (index === -1) return false;
-  db.vehicles.splice(index, 1);
+  const [removed] = db.vehicles.splice(index, 1);
   await writeDb(db);
+
+  // War das Fahrzeug mit dem Tablet verknüpft, dort ebenfalls entfernen -
+  // als Archivieren, kein hartes SQL-Löschen (siehe createVehicle-Kommentar
+  // zu tabletLink, gleiche Begründung wie bei deleteEmployee).
+  if (removed.tabletVehicleId) {
+    await enqueueCommand("archive_vehicle", { plate: removed.plate });
+  }
+
   return true;
 }
 
