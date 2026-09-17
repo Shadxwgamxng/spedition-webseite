@@ -15,7 +15,7 @@ import {
   TruckIcon,
   WarehouseIcon,
 } from "@/components/ui/icons";
-import { getFleetCategories, getJobs, getNews, getPartners, getReviews, getServices } from "@/lib/server/store";
+import { getCompany, getFleetCategories, getJobs, getNews, getPartners, getReviews, getServices } from "@/lib/server/store";
 
 export const dynamic = "force-dynamic";
 
@@ -28,15 +28,9 @@ const serviceIcons = {
   clock: ClockIcon,
 };
 
-const stats = [
-  { value: "Seit 2007", label: "Am Start im Ostseeraum" },
-  { value: "Falkenwalde", label: "Unser Standort" },
-  { value: "National & International", label: "Einsatzgebiet" },
-  { value: "Persönlich", label: "Direkter Draht zur Disposition" },
-];
-
 export default async function HomePage() {
-  const [fleet, jobs, news, partners, reviews, services] = await Promise.all([
+  const [company, fleet, jobs, news, partners, reviews, services] = await Promise.all([
+    getCompany(),
     getFleetCategories(),
     getJobs(),
     getNews(),
@@ -46,6 +40,12 @@ export default async function HomePage() {
   ]);
   const totalVehicles = fleet.reduce((sum, item) => sum + item.count, 0);
   const avgRating = reviews.length ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : "0.0";
+  const stats = [
+    { value: `Seit ${company.founded}`, label: "Am Start im Ostseeraum" },
+    { value: "Falkenwalde", label: "Unser Standort" },
+    { value: "National & International", label: "Einsatzgebiet" },
+    { value: "Persönlich", label: "Direkter Draht zur Disposition" },
+  ];
 
   return (
     <>
@@ -57,7 +57,7 @@ export default async function HomePage() {
         <Container className="relative py-24 sm:py-32">
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
             <div className="max-w-2xl">
-              <Eyebrow>Spedition &amp; Logistik seit 2007</Eyebrow>
+              <Eyebrow>Spedition &amp; Logistik seit {company.founded}</Eyebrow>
               <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-6xl">
                 Ihre Ladung. Unsere Route.
                 <span className="block text-amber-400">Zuverlässig im Ostseeraum unterwegs.</span>
