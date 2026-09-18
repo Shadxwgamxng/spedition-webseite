@@ -59,7 +59,7 @@ async function pollCommandResult(id: string, timeoutMs = 30000, intervalMs = 200
 export function useTabletCommand(onSettled?: () => Promise<void> | void) {
   const [commandNotice, setCommandNotice] = useState<string | null>(null);
 
-  async function enqueueTabletCommand(type: string, data: Record<string, unknown>) {
+  async function enqueueTabletCommand(type: string, data: Record<string, unknown>): Promise<TabletCommandResult> {
     setCommandNotice("Befehl wird an das Tablet gesendet…");
     try {
       const res = await fetch("/api/tablet/commands", {
@@ -71,7 +71,7 @@ export function useTabletCommand(onSettled?: () => Promise<void> | void) {
       const commandId = json?.command?.id as string | undefined;
       if (!commandId) {
         setCommandNotice("Befehl konnte nicht an die Website-Warteschlange übergeben werden.");
-        return;
+        return null;
       }
       const result = await pollCommandResult(commandId);
       if (result === null) {
@@ -83,6 +83,7 @@ export function useTabletCommand(onSettled?: () => Promise<void> | void) {
       } else {
         setCommandNotice(`Aktion im Tablet fehlgeschlagen: ${translateOrderCommandError(result.error)}`);
       }
+      return result;
     } finally {
       await onSettled?.();
     }

@@ -105,7 +105,22 @@ export default function DispositionPage() {
         return;
       }
       if (!window.confirm(`Auftrag ${order.id} im Spiel abbrechen?`)) return;
-      await enqueueTabletCommand("cancel_order", { tabletOrderId: order.tabletOrderId });
+      const result = await enqueueTabletCommand("cancel_order", { tabletOrderId: order.tabletOrderId });
+      // Existiert der Auftrag im Tablet gar nicht mehr (z. B. Altlast von
+      // einem früheren/getrennten Server, oder durch den Reset beim
+      // Ressourcenstart bereits entfernt) oder antwortet das Tablet gar
+      // nicht, bleibt der Datensatz sonst für immer in der Website-Liste
+      // hängen - biete in diesem Fall an, ihn nur lokal zu entfernen.
+      if (result === null || (!result.ok && result.error === "order_not_found")) {
+        if (
+          window.confirm(
+            `Auftrag ${order.id} konnte im Tablet nicht gefunden werden (evtl. alter/getrennter Server). Trotzdem nur aus der Website-Liste entfernen?`,
+          )
+        ) {
+          await fetch(`/api/orders/${order.id}`, { method: "DELETE" });
+          await orders.refetch();
+        }
+      }
       return;
     }
     if (!window.confirm(`Auftrag ${order.id} wirklich unwiderruflich löschen?`)) return;
