@@ -88,9 +88,9 @@ export async function Footer() {
         <div className="container-page flex flex-col gap-3 py-6 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Baltic Freight GmbH, Falkenwalde. Alle Rechte vorbehalten.</p>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
-            <Link href="/impressum" className="hover:text-white">
+            <a href="https://nord-verband.de/impressum" target="_blank" rel="noopener noreferrer" className="hover:text-white">
               Impressum
-            </Link>
+            </a>
             <Link href="/datenschutz" className="hover:text-white">
               Datenschutz
             </Link>
