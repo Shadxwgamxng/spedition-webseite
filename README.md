@@ -467,11 +467,13 @@ meldet einmalig beim Tablet-Ressourcenstart die gültigen Standortnamen/Frachtar
   Auftrags (ab Tablet-Version 1.9.0, siehe „Auftragspool" oben). Löst zwei Benachrichtigungen aus (siehe
   „Benachrichtigungen" oben): einen neuen, noch unzugewiesenen Pool-Auftrag an alle Dispositions-Rollen, und —
   sobald `driverName` neu gesetzt wird — eine gezielte „Dir wurde ein Auftrag zugewiesen" an genau diesen Fahrer.
-- `orders.reset` (bei jedem Tablet-Ressourcenstart, ab Tablet-Version 1.10.0) trägt `survivingTabletOrderIds` —
-  die `tabletOrderId` der von der Website selbst angelegten Aufträge, die den Neustart im Tablet überlebt haben.
+- `orders.reset` (bei jedem Tablet-Ressourcenstart, ab Tablet-Version 1.10.1) trägt `survivingTabletOrderIds` —
+  die `tabletOrderId` aller Aufträge, die den Neustart im Tablet überlebt haben: von der Website selbst
+  angelegte UND bereits im Spiel abgeschlossene (ein Tablet mit älterer Version als 1.10.1 meldet hier nur die
+  von der Website angelegten — abgeschlossene Aufträge werden dort weiterhin bei jedem Neustart gelöscht).
   `pruneStaleTabletOrders` entfernt daraufhin jeden `origin: "tablet"`-Auftrag, der NICHT in dieser Liste steht —
-  ohne das blieben automatisch generierte oder im Spiel abgebrochene Aufträge nach jedem Neustart für immer in
-  der Disposition stehen, obwohl sie im Tablet längst gelöscht sind.
+  ohne das blieben automatisch generierte, unbearbeitete oder im Spiel abgebrochene Aufträge nach jedem Neustart
+  für immer in der Disposition stehen, obwohl sie im Tablet längst gelöscht sind.
 - `vehicle.upsert` trägt seit Tablet-Version 1.9.0 zusätzlich `driverName`/`activeSince` mit (aktuelle
   Fahrzeug-Fahrer-Zuweisung aus dem Spiel, siehe „Fahrer-Login → Fahrzeug → Disposition" oben) — mit einer
   älteren Tablet-Version bleiben diese beiden Felder leer und „Aktive Fahrzeuge" zeigt für Tablet-Fahrzeuge
