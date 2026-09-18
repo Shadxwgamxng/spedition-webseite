@@ -1096,6 +1096,19 @@ export async function pruneStaleTabletOrders(survivingTabletOrderIds: number[]):
 export async function enqueueCommand(type: string, data: Record<string, unknown>): Promise<TabletCommandRecord> {
   return withSyncLock(async () => {
     const db = await readDb();
+
+    // Abgeschlossene Befehle blieben bisher für immer in db.json stehen -
+    // db.json wird bei JEDEM Schreibvorgang komplett neu serialisiert, ein
+    // über Wochen/Monate unbegrenzt wachsendes pendingCommands (z.B. durch
+    // eine Zeit, in der das Tablet nicht geackt hat) macht so JEDEN
+    // Tablet-Sync-Schreibvorgang zunehmend langsamer, bis hin zu
+    // Gateway-Timeouts. Abgeschlossene Befehle werden deshalb nur noch 24h
+    // aufbewahrt (fürs Nachvollziehen im Fehlerfall), danach entfernt.
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    db.pendingCommands = db.pendingCommands.filter(
+      (c) => !c.resolvedAt || new Date(c.resolvedAt).getTime() > cutoff,
+    );
+
     const command: TabletCommandRecord = {
       id: makeId(type),
       type,
