@@ -636,20 +636,27 @@ export async function updateVehicle(
   plate: string,
   data: { maintenanceStatus?: VehicleRecord["maintenanceStatus"]; mileage?: number },
 ): Promise<VehicleRecord | null> {
-  return withSyncLock(async () => {
+  // enqueueCommand() ist selbst withSyncLock-gewrappt - von HIER (innerhalb
+  // eines eigenen withSyncLock-Blocks) aufgerufen, entsteht eine zirkuläre
+  // Promise-Abhängigkeit über die gemeinsame syncQueue, die sich nie auflöst
+  // (echter Deadlock, kein Timing-Problem) und ab dann JEDEN weiteren
+  // Tablet-Sync-Aufruf der ganzen App auf ewig hängen lässt. Der
+  // Fahrzeug-Schreibvorgang läuft deshalb im Lock, das Enqueue erst danach.
+  const vehicle = await withSyncLock(async () => {
     const db = await readDb();
     const vehicle = db.vehicles.find((v) => v.plate === plate);
     if (!vehicle) return null;
     if (data.maintenanceStatus !== undefined) vehicle.maintenanceStatus = data.maintenanceStatus;
     if (data.mileage !== undefined) vehicle.mileage = data.mileage;
     await writeDb(db);
-
-    if (vehicle.tabletVehicleId) {
-      const tabletStatus = data.maintenanceStatus === "Einsatzbereit" ? "verfuegbar" : "wartung";
-      await enqueueCommand("update_vehicle", { plate, status: tabletStatus, mileage: vehicle.mileage });
-    }
     return vehicle;
   });
+
+  if (vehicle?.tabletVehicleId) {
+    const tabletStatus = data.maintenanceStatus === "Einsatzbereit" ? "verfuegbar" : "wartung";
+    await enqueueCommand("update_vehicle", { plate, status: tabletStatus, mileage: vehicle.mileage });
+  }
+  return vehicle;
 }
 
 export async function deleteVehicle(plate: string): Promise<boolean> {
@@ -1097,16 +1104,23 @@ export async function enqueueCommand(type: string, data: Record<string, unknown>
   return withSyncLock(async () => {
     const db = await readDb();
 
-    // Abgeschlossene Befehle blieben bisher für immer in db.json stehen -
-    // db.json wird bei JEDEM Schreibvorgang komplett neu serialisiert, ein
-    // über Wochen/Monate unbegrenzt wachsendes pendingCommands (z.B. durch
-    // eine Zeit, in der das Tablet nicht geackt hat) macht so JEDEN
-    // Tablet-Sync-Schreibvorgang zunehmend langsamer, bis hin zu
-    // Gateway-Timeouts. Abgeschlossene Befehle werden deshalb nur noch 24h
-    // aufbewahrt (fürs Nachvollziehen im Fehlerfall), danach entfernt.
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    db.pendingCommands = db.pendingCommands.filter(
-      (c) => !c.resolvedAt || new Date(c.resolvedAt).getTime() > cutoff,
+    // Befehle blieben bisher für immer in db.json stehen (abgeschlossene UND
+    // nie geackte) - db.json wird bei JEDEM Schreibvorgang komplett neu
+    // serialisiert, ein über Wochen/Monate unbegrenzt wachsendes
+    // pendingCommands (z.B. durch eine Zeit, in der das Tablet nicht geackt
+    // hat) macht so JEDEN Tablet-Sync-Schreibvorgang zunehmend langsamer, bis
+    // hin zu Gateway-Timeouts. Ein Befehl, der seit über einer Stunde weder
+    // abgeschlossen noch geackt wurde, kommt vom Tablet realistisch nie mehr
+    // zurück (Config.Website.pollIntervalMs liegt im Sekundenbereich) - würde
+    // sonst außerdem beim nächsten erfolgreichen Poll als riesiger,
+    // veralteter Rückstau auf einmal an das Tablet ausgeliefert.
+    // Abgeschlossene Befehle bleiben 24h (fürs Nachvollziehen im Fehlerfall).
+    const resolvedCutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const unresolvedCutoff = Date.now() - 60 * 60 * 1000;
+    db.pendingCommands = db.pendingCommands.filter((c) =>
+      c.resolvedAt
+        ? new Date(c.resolvedAt).getTime() > resolvedCutoff
+        : new Date(c.createdAt).getTime() > unresolvedCutoff,
     );
 
     const command: TabletCommandRecord = {
