@@ -9,6 +9,8 @@ export const company = {
   email: "",
   disposition_email: "",
   karriere_email: "",
+  /** Einladungslink zum Discord-Server, erscheint im Footer. Editierbar unter Verwaltung → Unternehmensdaten. */
+  discordUrl: "http://discord.baltic-freight.de/",
   /** Editable under Verwaltung → Unternehmensdaten; shown on /standort under "Erreichbarkeit". */
   businessHours: [
     { day: "Montag – Freitag", time: "06:00 – 20:00 Uhr" },

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Logo } from "@/components/site/logo";
 import { navLinks } from "@/lib/data";
 import { getCompany } from "@/lib/server/store";
-import { MailIcon, MapPinIcon, PhoneIcon } from "@/components/ui/icons";
+import { DiscordIcon, MailIcon, MapPinIcon, PhoneIcon } from "@/components/ui/icons";
 
 const serviceLinks = [
   { href: "/leistungen", label: "Unsere Leistungen" },
@@ -43,6 +43,14 @@ export async function Footer() {
                 <MailIcon className="h-4 w-4 shrink-0 text-amber-400" />
                 <a href={`mailto:${company.email}`} className="hover:text-white">
                   {company.email}
+                </a>
+              </li>
+            ) : null}
+            {company.discordUrl ? (
+              <li className="flex items-center gap-2.5">
+                <DiscordIcon className="h-4 w-4 shrink-0 text-amber-400" />
+                <a href={company.discordUrl} target="_blank" rel="noopener noreferrer" className="hover:text-white">
+                  Discord-Server
                 </a>
               </li>
             ) : null}

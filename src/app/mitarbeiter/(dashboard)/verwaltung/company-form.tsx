@@ -18,6 +18,7 @@ const fields: Array<{ key: keyof CompanyInfo; label: string; type?: string }> = 
   { key: "email", label: "E-Mail (allgemein)", type: "email" },
   { key: "disposition_email", label: "E-Mail Disposition", type: "email" },
   { key: "karriere_email", label: "E-Mail Karriere", type: "email" },
+  { key: "discordUrl", label: "Discord-Server-Link" },
 ];
 
 type BusinessHour = { day: string; time: string };
