@@ -1,4 +1,4 @@
-import { getTabletFinance } from "@/lib/server/store";
+import { getTabletFinance, resetTabletFinance } from "@/lib/server/store";
 
 /**
  * Firmenkonto-Saldo und -Buchungen aus dem Tablet, gepusht via
@@ -8,4 +8,10 @@ import { getTabletFinance } from "@/lib/server/store";
 export async function GET() {
   const data = await getTabletFinance();
   return Response.json(data);
+}
+
+/** Löscht den gespiegelten Ingame-Umsatz komplett (siehe resetTabletFinance in store.ts) — z. B. nach einem Serverumzug mit neuer Tablet-Datenbank. */
+export async function DELETE() {
+  await resetTabletFinance();
+  return Response.json({ ok: true });
 }

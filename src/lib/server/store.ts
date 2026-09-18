@@ -1182,6 +1182,23 @@ export async function getTabletFinance(): Promise<{ balance: number; transaction
   return { balance: db.tabletCompanyBalance, transactions: db.tabletTransactions };
 }
 
+/**
+ * Löscht den gesamten gespiegelten Ingame-Umsatz (z. B. nach einem Umzug des
+ * Tablets von einem Testserver auf den Hauptserver, mit eigener, komplett
+ * getrennter Datenbank dort — die Website hat davon nichts automatisch
+ * mitbekommen, alte Test-Buchungen blieben sonst stehen). Löscht NUR den
+ * Tablet-Spiegel (tabletTransactions/tabletCompanyBalance), nicht die echten
+ * Rechnungen — die beiden Quellen sind schon immer unabhängig voneinander
+ * (siehe finanzen/page.tsx). Der nächste 'finance.transaction'-Push vom
+ * Tablet baut die Liste ganz normal wieder auf.
+ */
+export async function resetTabletFinance(): Promise<void> {
+  const db = await readDb();
+  db.tabletTransactions = [];
+  db.tabletCompanyBalance = 0;
+  await writeDb(db);
+}
+
 // ---------------------------------------------------------------------------
 // Driver cards
 // ---------------------------------------------------------------------------

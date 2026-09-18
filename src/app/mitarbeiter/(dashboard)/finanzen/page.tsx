@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { EmployeePageHeader, StatCard } from "@/components/employee/page-header";
 import { Badge } from "@/components/ui/primitives";
 import { usePolling } from "@/lib/use-polling";
+import { useAuth } from "@/lib/auth";
 
 type InvoiceStatus = "Offen" | "Bezahlt" | "Überfällig";
 type Invoice = { number: string; customer: string; date: string; total: number; status: InvoiceStatus };
@@ -54,15 +55,36 @@ function startOfMonth(d: Date): Date {
 }
 
 export default function FinanzenPage() {
+  const { user } = useAuth();
+  const canResetTabletFinance = user?.roleKey === "geschaeftsfuehrung" || user?.roleKey === "prokurist";
+  const [resetting, setResetting] = useState(false);
+
   const { data } = usePolling<{ invoices: Invoice[] }>("/api/invoices", 5000);
   const invoices = useMemo(() => data?.invoices ?? [], [data]);
 
-  const { data: tabletData } = usePolling<{ balance: number; transactions: TabletTransaction[] }>(
-    "/api/finance/tablet",
-    5000,
-  );
+  const { data: tabletData, refetch: refetchTabletData } = usePolling<{
+    balance: number;
+    transactions: TabletTransaction[];
+  }>("/api/finance/tablet", 5000);
   const tabletBalance = tabletData?.balance ?? 0;
   const tabletTransactions = useMemo(() => tabletData?.transactions ?? [], [tabletData]);
+
+  async function resetTabletFinance() {
+    if (
+      !window.confirm(
+        "Ingame-Umsatz wirklich komplett zurücksetzen? Löscht alle bisher vom Tablet übertragenen Buchungen und setzt den Saldo auf € 0 — z. B. nach einem Serverumzug mit neuer Tablet-Datenbank. Die Rechnungen oben sind davon nicht betroffen.",
+      )
+    ) {
+      return;
+    }
+    setResetting(true);
+    try {
+      await fetch("/api/finance/tablet", { method: "DELETE" });
+      await refetchTabletData();
+    } finally {
+      setResetting(false);
+    }
+  }
 
   const { openTotal, paidTotal, overdueCount } = useMemo(() => {
     let openTotal = 0;
@@ -154,9 +176,21 @@ export default function FinanzenPage() {
         </table>
       </div>
 
-      <h2 className="mb-3 mt-10 text-sm font-semibold uppercase tracking-wide text-navy-700/60">
-        Ingame-Umsatz (Tablet-Firmenkonto)
-      </h2>
+      <div className="mb-3 mt-10 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-navy-700/60">
+          Ingame-Umsatz (Tablet-Firmenkonto)
+        </h2>
+        {canResetTabletFinance && tabletTransactions.length > 0 ? (
+          <button
+            type="button"
+            onClick={resetTabletFinance}
+            disabled={resetting}
+            className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+          >
+            {resetting ? "Wird zurückgesetzt…" : "Ingame-Umsatz zurücksetzen"}
+          </button>
+        ) : null}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Firmenkonto-Saldo" value={`€ ${tabletBalance.toLocaleString("de-DE", { minimumFractionDigits: 2 })}`} tone="good" />
