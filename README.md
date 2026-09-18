@@ -296,7 +296,15 @@ Ein Konto ohne Tablet-Verknüpfung nutzt weiterhin die eigenen Website-Buttons w
 Über „Auftrag einreichen" eingehende Anfragen landen mit Status „Angefragt" direkt bei der Disposition
 (Panel „Neue Anfragen von der Website"), die sie annehmen (inkl. Bestätigung des Liefertermins) oder ablehnen
 kann. Jeder Auftrag in der Disposition lässt sich zudem über einen „Löschen"-Button je Zeile endgültig entfernen
-(`DELETE /api/orders/[id]`).
+(`DELETE /api/orders/[id]`). Bei einem `origin: "tablet"`-Auftrag zeigt dieser Button, solange der Auftrag im
+Spiel noch läuft, stattdessen „Im Spiel abbrechen" (siehe „Tablet-Sync" unten); erst sobald er dort einen
+Endstatus erreicht hat (Zugestellt/Abgelehnt), wird daraus „Aus der Liste entfernen" — ein reiner
+Website-seitiger Löschvorgang ohne Tablet-Befehl, weil im Spiel für diesen Auftrag ohnehin nichts mehr passiert.
+
+Zusätzlich räumt sich die Disposition bei jedem Tablet-Ressourcenstart automatisch auf: Aufträge, die im Spiel
+beim Neustart zurückgesetzt wurden (`orders.reset`-Webhook, siehe „Tablet-Sync" unten), verschwinden auch aus
+der Website — ohne das blieben automatisch generierte oder im Spiel abgebrochene Aufträge für immer als
+Karteileichen stehen.
 
 ### Aktuelle Aufträge & Chat mit der Disposition
 
@@ -448,7 +456,7 @@ Website übernimmt nur noch, statt eine zweite unabhängige Erfassung zu führen
 
 **Push (Tablet → Website)**: `POST /api/tablet/webhook` — das Tablet meldet Änderungen (`employee.upsert`,
 `order.upsert`, `vehicle.upsert`, `driver_hours.report`, `driver_shift.update`, `timeclock.update`, `trip.report`,
-`finance.transaction`, `locations.sync`) in Echtzeit. Verknüpfung läuft über
+`finance.transaction`, `locations.sync`, `orders.reset`) in Echtzeit. Verknüpfung läuft über
 `tabletEmployeeId`/`tabletOrderId`/`tabletVehicleId` (bzw. das Kennzeichen bei Fahrzeugen) — bestehende Datensätze
 werden aktualisiert, unbekannte neu angelegt. `locations.sync` ist ein Sonderfall: kein Datensatz-Upsert, sondern
 meldet einmalig beim Tablet-Ressourcenstart die gültigen Standortnamen/Frachtarten
@@ -459,6 +467,11 @@ meldet einmalig beim Tablet-Ressourcenstart die gültigen Standortnamen/Frachtar
   Auftrags (ab Tablet-Version 1.9.0, siehe „Auftragspool" oben). Löst zwei Benachrichtigungen aus (siehe
   „Benachrichtigungen" oben): einen neuen, noch unzugewiesenen Pool-Auftrag an alle Dispositions-Rollen, und —
   sobald `driverName` neu gesetzt wird — eine gezielte „Dir wurde ein Auftrag zugewiesen" an genau diesen Fahrer.
+- `orders.reset` (bei jedem Tablet-Ressourcenstart, ab Tablet-Version 1.10.0) trägt `survivingTabletOrderIds` —
+  die `tabletOrderId` der von der Website selbst angelegten Aufträge, die den Neustart im Tablet überlebt haben.
+  `pruneStaleTabletOrders` entfernt daraufhin jeden `origin: "tablet"`-Auftrag, der NICHT in dieser Liste steht —
+  ohne das blieben automatisch generierte oder im Spiel abgebrochene Aufträge nach jedem Neustart für immer in
+  der Disposition stehen, obwohl sie im Tablet längst gelöscht sind.
 - `vehicle.upsert` trägt seit Tablet-Version 1.9.0 zusätzlich `driverName`/`activeSince` mit (aktuelle
   Fahrzeug-Fahrer-Zuweisung aus dem Spiel, siehe „Fahrer-Login → Fahrzeug → Disposition" oben) — mit einer
   älteren Tablet-Version bleiben diese beiden Felder leer und „Aktive Fahrzeuge" zeigt für Tablet-Fahrzeuge

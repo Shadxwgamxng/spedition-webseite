@@ -1063,6 +1063,27 @@ export async function upsertOrderFromTablet(payload: {
   });
 }
 
+/**
+ * Entfernt jeden `origin: "tablet"`-Auftrag, dessen `tabletOrderId` NICHT in
+ * `survivingTabletOrderIds` steht — Reaktion auf den `orders.reset`-Webhook,
+ * den das Tablet bei JEDEM Ressourcenstart schickt (siehe
+ * server/sv_orders.lua im Tablet-Repo: `DELETE FROM st_orders WHERE source
+ * != 'website'`). Ohne das blieben automatisch generierte oder im Spiel
+ * abgebrochene Aufträge nach einem Neustart für immer in der
+ * Website-Disposition stehen, obwohl sie im Tablet längst gelöscht sind.
+ */
+export async function pruneStaleTabletOrders(survivingTabletOrderIds: number[]): Promise<void> {
+  return withSyncLock(async () => {
+    const db = await readDb();
+    const surviving = new Set(survivingTabletOrderIds);
+    const before = db.orders.length;
+    db.orders = db.orders.filter(
+      (o) => o.origin !== "tablet" || (o.tabletOrderId != null && surviving.has(o.tabletOrderId)),
+    );
+    if (db.orders.length !== before) await writeDb(db);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Command queue: Disposition-Aktionen auf "tablet"-Aufträgen/-Fahrzeugen
 // (Website → Tablet) landen hier statt eines direkten `updateOrder`, weil ein

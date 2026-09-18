@@ -3,6 +3,7 @@ import {
   applyDriverHoursReport,
   applyDriverShiftUpdate,
   applyTimeclockUpdate,
+  pruneStaleTabletOrders,
   upsertEmployeeFromTablet,
   upsertOrderFromTablet,
   upsertTabletLocations,
@@ -205,6 +206,14 @@ export async function POST(request: Request) {
           newBalance: num(data.newBalance),
         });
         return Response.json({ ok: true, transaction });
+      }
+
+      case "orders.reset": {
+        const survivingIds = Array.isArray(data.survivingTabletOrderIds)
+          ? (data.survivingTabletOrderIds as unknown[]).map((n) => Number(n)).filter((n) => Number.isFinite(n))
+          : [];
+        await pruneStaleTabletOrders(survivingIds);
+        return Response.json({ ok: true });
       }
 
       case "locations.sync": {

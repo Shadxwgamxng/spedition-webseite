@@ -88,8 +88,22 @@ export default function DispositionPage() {
     await orders.refetch();
   }
 
+  // Ein "tablet"-Auftrag in Endstatus (Zugestellt/Abgelehnt) ist im Spiel
+  // bereits abgeschlossen bzw. abgebrochen — löschen betrifft dann nur noch
+  // die Website-Anzeige, kein "Im Spiel abbrechen" mehr nötig/möglich.
+  function isTabletOrderFinished(order: OrderRecord) {
+    return order.status === "Zugestellt" || order.status === "Abgelehnt";
+  }
+
   async function deleteOrderRow(order: OrderRecord) {
     if (order.origin === "tablet") {
+      if (isTabletOrderFinished(order)) {
+        if (!window.confirm(`Auftrag ${order.id} aus der Liste entfernen? Er ist im Spiel bereits erledigt/abgebrochen.`))
+          return;
+        await fetch(`/api/orders/${order.id}`, { method: "DELETE" });
+        await orders.refetch();
+        return;
+      }
       if (!window.confirm(`Auftrag ${order.id} im Spiel abbrechen?`)) return;
       await enqueueTabletCommand("cancel_order", { tabletOrderId: order.tabletOrderId });
       return;
@@ -386,7 +400,11 @@ export default function DispositionPage() {
                             onClick={() => deleteOrderRow(order)}
                             className="text-xs font-semibold text-red-600 hover:text-red-700"
                           >
-                            {order.origin === "tablet" ? "Im Spiel abbrechen" : "Löschen"}
+                            {order.origin === "tablet"
+                              ? isTabletOrderFinished(order)
+                                ? "Aus der Liste entfernen"
+                                : "Im Spiel abbrechen"
+                              : "Löschen"}
                           </button>
                         </td>
                       </tr>
