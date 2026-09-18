@@ -277,6 +277,18 @@ export function UsersIcon(props: IconProps) {
   );
 }
 
+export function CookieIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 2a10 10 0 1 0 9.8 12 1.3 1.3 0 0 0-1.5-1.5 3.2 3.2 0 0 1-3.7-3.7 1.3 1.3 0 0 0-1.5-1.5 3.2 3.2 0 0 1-3.6-3.6A1.3 1.3 0 0 0 10 2.2 10 10 0 0 0 12 2Z" />
+      <circle cx="8.5" cy="10.5" r="0.75" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="15" r="0.75" fill="currentColor" stroke="none" />
+      <circle cx="15.5" cy="11" r="0.75" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="15.5" r="0.75" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 /** The Discord logo mark — filled, not one of this file's stroke-based line icons, so it doesn't spread `base`. */
 export function DiscordIcon(props: IconProps) {
   return (

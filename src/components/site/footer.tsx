@@ -3,6 +3,7 @@ import { Logo } from "@/components/site/logo";
 import { navLinks } from "@/lib/data";
 import { getCompany } from "@/lib/server/store";
 import { DiscordIcon, MailIcon, MapPinIcon, PhoneIcon } from "@/components/ui/icons";
+import { CookieSettingsLink } from "@/components/site/cookie-consent";
 
 const serviceLinks = [
   { href: "/leistungen", label: "Unsere Leistungen" },
@@ -97,6 +98,7 @@ export async function Footer() {
             <Link href="/standort" className="hover:text-white">
               Standort
             </Link>
+            <CookieSettingsLink className="hover:text-white" />
           </div>
         </div>
       </div>
