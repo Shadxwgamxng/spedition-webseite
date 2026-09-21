@@ -24,6 +24,13 @@ const TABLET_ORDER_ERRORS: Record<string, string> = {
 
 export function translateOrderCommandError(error?: string): string {
   if (!error) return "Unbekannter Fehler.";
+  // Das Tablet hängt bei vehicle_missing_trailer das benötigte Anhänger-Label
+  // per ":" an den Fehlercode an (siehe server/sv_orders.lua im Tablet-Repo),
+  // damit hier steht, WELCHER Anhänger gebraucht wird statt nur des rohen Codes.
+  if (error.startsWith("vehicle_missing_trailer:")) {
+    const needed = error.slice("vehicle_missing_trailer:".length);
+    return `Am gewählten Fahrzeug hängt im Tablet kein passender Anhänger — benötigt wird: ${needed}.`;
+  }
   return TABLET_ORDER_ERRORS[error] ?? error;
 }
 
