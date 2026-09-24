@@ -10,10 +10,14 @@ export function TeamPersonCard({
   collection: CollectionName;
 }) {
   const hasContact = Boolean(person.phone || person.email || person.discord);
-  // Bild als großes Banner über die volle Kartenbreite (Card hat p-6 padding,
-  // -mx-6 -mt-6 zieht das Bild bis an die Kartenkanten, w-[calc(100%+3rem)]
-  // gleicht die dadurch "verlorene" Breite wieder aus).
-  const photoClassName = "-mx-6 -mt-6 mb-1 h-72 w-[calc(100%+3rem)] max-w-none object-cover";
+  // Bild als großes 4:5-Hochformat-Banner über die volle Kartenbreite (Card hat
+  // p-6 padding, -mx-6 -mt-6 zieht das Bild bis an die Kartenkanten,
+  // w-[calc(100%+3rem)] gleicht die dadurch "verlorene" Breite wieder aus).
+  // aspect-[4/5] statt einer festen Höhe, damit das Seitenverhältnis über alle
+  // Breakpoints hinweg exakt dem des Zuschneide-Werkzeugs in der Verwaltung
+  // entspricht (photo-crop-modal.tsx) - ein dort zugeschnittenes Foto wird
+  // hier dann NICHT nochmal automatisch (und ggf. anders) beschnitten.
+  const photoClassName = "-mx-6 -mt-6 mb-1 aspect-[4/5] w-[calc(100%+3rem)] max-w-none object-cover";
   return (
     <Card className="flex flex-col items-start overflow-hidden">
       {person.photoMimeType ? (

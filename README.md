@@ -327,9 +327,13 @@ Abteilung, Kurzprofil, Kürzel) plus drei optionale Kontaktfelder (Telefon, E-Ma
 in der Eintragsliste der Verwaltung (`CollectionManager`-Prop `photoUpload`), Bytes landen — wie das Firmenlogo —
 als eigene Datei unter `.data/uploads/<collection>--<id>` statt in `.data/db.json`, nur `photoMimeType` wird am
 Datensatz vermerkt. Ohne Foto zeigt die Karte weiterhin das Kürzel in einem farbigen Quadrat (Fallback,
-`src/components/site/team-person-card.tsx`). Foto-Upload läuft über die neue generische Route
-`src/app/api/admin/[collection]/[id]/photo/route.ts` (GET/POST/DELETE, max. 3 MB, genau wie
-`/api/company/logo` — siehe unten).
+`src/components/site/team-person-card.tsx`, Bild-Seitenverhältnis 4:5 über `aspect-[4/5]`). Foto-Upload läuft über
+die neue generische Route `src/app/api/admin/[collection]/[id]/photo/route.ts` (GET/POST/DELETE, max. 3 MB, genau
+wie `/api/company/logo` — siehe unten). **Zuschneiden vor dem Hochladen:** direkt nach der Dateiauswahl öffnet sich
+ein Zuschneide-Dialog (`src/components/employee/photo-crop-modal.tsx`) — per Ziehen verschieben, per Regler
+zoomen, exakt im 4:5-Format der Team-Karte, damit später auf der Website niemandem der Kopf abgeschnitten wird.
+Reines Client-seitiges `<canvas>`-Zuschneiden (Export als JPEG, 800×1000px), keine zusätzliche Bibliothek nötig —
+erst das zugeschnittene Ergebnis geht als Upload an die Foto-Route.
 Das Firmenlogo unter „Unternehmensdaten" (als Bild hochgeladen, max. 1,5 MB, als eigene Datei unter
 `.data/uploads/company-logo` hinterlegt — nur ein kleiner Verweis `logoMimeType` steht in `.data/db.json`, siehe
 „Firmenlogo"-Hinweis unten) erscheint automatisch im Briefkopf generierter Dokumente wie dem Arbeitsvertrag

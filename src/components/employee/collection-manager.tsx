@@ -4,6 +4,7 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import { usePolling } from "@/lib/use-polling";
 import { Button } from "@/components/ui/primitives";
 import { CheckIcon, UploadIcon, UsersIcon } from "@/components/ui/icons";
+import { PhotoCropModal } from "@/components/employee/photo-crop-modal";
 
 export type FieldConfig = {
   key: string;
@@ -48,16 +49,24 @@ export function CollectionManager({
   const [photoBusyId, setPhotoBusyId] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [photoNonce, setPhotoNonce] = useState<Record<string, number>>({});
+  const [cropTarget, setCropTarget] = useState<{ id: string; file: File } | null>(null);
 
-  async function handlePhotoSelect(id: string, event: ChangeEvent<HTMLInputElement>) {
+  function handlePhotoSelect(id: string, event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
     setPhotoError(null);
+    // Zuschneiden passiert VOR dem Hochladen (siehe PhotoCropModal) - erst nach
+    // Bestätigen dort geht das zugeschnittene Ergebnis an uploadPhoto().
+    setCropTarget({ id, file });
+  }
+
+  async function uploadPhoto(id: string, blob: Blob) {
+    setPhotoError(null);
     setPhotoBusyId(id);
     try {
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", blob, "foto.jpg");
       const res = await fetch(`/api/admin/${collection}/${id}/photo`, { method: "POST", body: form });
       const json = await res.json().catch(() => null);
       if (!res.ok || json?.ok === false) {
@@ -299,6 +308,18 @@ export function CollectionManager({
           })
         )}
       </div>
+
+      {cropTarget ? (
+        <PhotoCropModal
+          file={cropTarget.file}
+          onCancel={() => setCropTarget(null)}
+          onCropped={(blob) => {
+            const target = cropTarget;
+            setCropTarget(null);
+            if (target) void uploadPhoto(target.id, blob);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
