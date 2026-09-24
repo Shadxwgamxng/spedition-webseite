@@ -3,6 +3,7 @@ import {
   services as servicesSeed,
   management as managementSeed,
   keyPositions as keyPositionsSeed,
+  team as teamSeed,
   news as newsSeed,
   jobs as jobsSeed,
   reviews as reviewsSeed,
@@ -470,6 +471,7 @@ export type Db = {
   services: ServiceRecord[];
   management: TeamMemberRecord[];
   keyPositions: TeamMemberRecord[];
+  team: TeamMemberRecord[];
   fleetCategories: FleetCategoryRecord[];
   reviews: ReviewRecord[];
   partners: PartnerRecord[];
@@ -503,6 +505,7 @@ export const COLLECTION_ID_FIELD = {
   services: "slug",
   management: "id",
   keyPositions: "id",
+  team: "id",
   fleetCategories: "id",
   reviews: "id",
   partners: "id",
@@ -526,6 +529,7 @@ export const CMS_COLLECTIONS = [
   "services",
   "management",
   "keyPositions",
+  "team",
   "fleetCategories",
   "reviews",
   "partners",
@@ -588,6 +592,7 @@ export function seedDb(): Db {
     services: servicesSeed,
     management: withIds(managementSeed, (m) => m.name),
     keyPositions: withIds(keyPositionsSeed, (m) => m.name),
+    team: withIds(teamSeed, (m) => m.name),
     fleetCategories: withIds(fleetSeed, (f) => f.category),
     reviews: withIds(reviewsSeed, (r) => `${r.author}-${r.company}`),
     partners: withIds(partnersSeed, (p) => p.name),

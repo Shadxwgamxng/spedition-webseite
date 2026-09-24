@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { usePolling } from "@/lib/use-polling";
 import { Button } from "@/components/ui/primitives";
-import { CheckIcon } from "@/components/ui/icons";
+import { CheckIcon, UploadIcon, UsersIcon } from "@/components/ui/icons";
 
 export type FieldConfig = {
   key: string;
@@ -28,6 +28,7 @@ export function CollectionManager({
   subtitleField,
   emptyLabel,
   newLabel,
+  photoUpload,
 }: {
   collection: string;
   idField: string;
@@ -36,12 +37,53 @@ export function CollectionManager({
   subtitleField?: string;
   emptyLabel: string;
   newLabel: string;
+  /** Zeigt pro Eintrag ein Foto-Thumbnail mit Hochladen/Entfernen (PATCH-Feld "photoMimeType" markiert das Vorhandensein). */
+  photoUpload?: boolean;
 }) {
   const { data, refetch } = usePolling<{ items: Item[] }>(`/api/admin/${collection}`, 6000);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [photoBusyId, setPhotoBusyId] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoNonce, setPhotoNonce] = useState<Record<string, number>>({});
+
+  async function handlePhotoSelect(id: string, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setPhotoError(null);
+    setPhotoBusyId(id);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`/api/admin/${collection}/${id}/photo`, { method: "POST", body: form });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.ok === false) {
+        setPhotoError(json?.error ?? "Foto konnte nicht hochgeladen werden.");
+        return;
+      }
+      setPhotoNonce((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+      await refetch();
+    } catch {
+      setPhotoError("Verbindung zum Server fehlgeschlagen.");
+    } finally {
+      setPhotoBusyId(null);
+    }
+  }
+
+  async function handlePhotoRemove(id: string) {
+    setPhotoError(null);
+    setPhotoBusyId(id);
+    try {
+      await fetch(`/api/admin/${collection}/${id}/photo`, { method: "DELETE" });
+      setPhotoNonce((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+      await refetch();
+    } finally {
+      setPhotoBusyId(null);
+    }
+  }
 
   const items = data?.items ?? [];
   const editingItem = editingId && editingId !== NEW ? items.find((i) => String(i[idField]) === editingId) : null;
@@ -174,24 +216,68 @@ export function CollectionManager({
         </form>
       ) : null}
 
+      {photoUpload && photoError ? <p className="mt-3 text-sm text-red-600">{photoError}</p> : null}
+
       <div className="mt-4 space-y-2">
         {items.length === 0 ? (
           <p className="rounded-2xl border border-navy-900/8 bg-white p-6 text-sm text-navy-700/60">{emptyLabel}</p>
         ) : (
           items.map((item) => {
             const id = String(item[idField]);
+            const hasPhoto = photoUpload && Boolean(item.photoMimeType);
             return (
               <div
                 key={id}
                 className="flex items-center justify-between gap-4 rounded-xl border border-navy-900/8 bg-white px-4 py-3"
               >
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-navy-900">{String(item[titleField] ?? id)}</div>
-                  {subtitleField ? (
-                    <div className="truncate text-xs text-navy-700/60">{String(item[subtitleField] ?? "")}</div>
+                <div className="flex min-w-0 items-center gap-3">
+                  {photoUpload ? (
+                    hasPhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded photo served from our own /api/admin/.../photo route, not a static site asset
+                      <img
+                        src={`/api/admin/${collection}/${id}/photo?v=${photoNonce[id] ?? 0}`}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy-900/5 text-navy-700/40">
+                        <UsersIcon className="h-4 w-4" />
+                      </div>
+                    )
                   ) : null}
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-navy-900">{String(item[titleField] ?? id)}</div>
+                    {subtitleField ? (
+                      <div className="truncate text-xs text-navy-700/60">{String(item[subtitleField] ?? "")}</div>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
+                  {photoUpload ? (
+                    <>
+                      <label className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-navy-700 hover:text-navy-900">
+                        <UploadIcon className="h-3.5 w-3.5" />
+                        {photoBusyId === id ? "…" : hasPhoto ? "Foto ändern" : "Foto hochladen"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={photoBusyId === id}
+                          onChange={(event) => handlePhotoSelect(id, event)}
+                        />
+                      </label>
+                      {hasPhoto ? (
+                        <button
+                          type="button"
+                          disabled={photoBusyId === id}
+                          onClick={() => handlePhotoRemove(id)}
+                          className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                        >
+                          Foto entfernen
+                        </button>
+                      ) : null}
+                    </>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => setEditingId(id)}

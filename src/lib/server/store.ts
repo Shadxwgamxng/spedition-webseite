@@ -460,6 +460,57 @@ export async function deleteCollectionItem(name: CollectionName, id: string): Pr
 }
 
 // ---------------------------------------------------------------------------
+// Per-item photo upload for CMS collections (currently management/
+// keyPositions/team) - same disk-not-db.json pattern as the company logo:
+// only a `photoMimeType` marker lives on the record, the bytes live under
+// .data/uploads keyed by collection+id so different collections can't collide.
+// ---------------------------------------------------------------------------
+
+const MAX_ITEM_PHOTO_BYTES = 3 * 1024 * 1024;
+
+function collectionPhotoFileId(name: CollectionName, id: string): string {
+  return `${name}--${id}`;
+}
+
+export async function setCollectionItemPhoto(
+  name: CollectionName,
+  id: string,
+  bytes: Uint8Array,
+  mimeType: string,
+): Promise<Record<string, unknown> | null> {
+  if (bytes.byteLength > MAX_ITEM_PHOTO_BYTES) {
+    throw new Error("Foto ist zu groß (maximal 3 MB).");
+  }
+  const item = await getCollectionItem<Record<string, unknown>>(name, id);
+  if (!item) return null;
+  await writeDocumentFile(collectionPhotoFileId(name, id), bytes);
+  return updateCollectionItem(name, id, { photoMimeType: mimeType });
+}
+
+export async function removeCollectionItemPhoto(
+  name: CollectionName,
+  id: string,
+): Promise<Record<string, unknown> | null> {
+  await deleteDocumentFile(collectionPhotoFileId(name, id));
+  return updateCollectionItem(name, id, { photoMimeType: null });
+}
+
+export async function getCollectionItemPhoto(
+  name: CollectionName,
+  id: string,
+): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
+  const item = await getCollectionItem<Record<string, unknown>>(name, id);
+  const mimeType = item?.photoMimeType as string | null | undefined;
+  if (!mimeType) return null;
+  try {
+    const bytes = await fs.readFile(path.join(UPLOADS_DIR, collectionPhotoFileId(name, id)));
+    return { bytes, mimeType };
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Typed convenience getters for the CMS content collections, used by the
 // public-facing pages (Server Components call these directly — no HTTP hop).
 // ---------------------------------------------------------------------------
@@ -482,6 +533,10 @@ export async function getManagementTeam() {
 
 export async function getKeyPositions() {
   return listCollection<TeamMemberRecord>("keyPositions");
+}
+
+export async function getTeam() {
+  return listCollection<TeamMemberRecord>("team");
 }
 
 export async function getFleetCategories() {

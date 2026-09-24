@@ -99,6 +99,7 @@ export const legalContact = {
 export const navLinks = [
   { href: "/leistungen", label: "Leistungen" },
   { href: "/ueber-uns", label: "Über uns" },
+  { href: "/team", label: "Team" },
   { href: "/fuhrpark", label: "Fuhrpark" },
   { href: "/news", label: "News" },
   { href: "/karriere", label: "Karriere" },
@@ -179,6 +180,12 @@ export type TeamMember = {
   department: string;
   bio: string;
   initials: string;
+  /** Alle drei optional - werden im Team-Reiter der Verwaltung gepflegt. */
+  phone?: string;
+  email?: string;
+  discord?: string;
+  /** Gesetzt, sobald ein Foto hochgeladen wurde (Bytes liegen auf der Platte, siehe store.ts). */
+  photoMimeType?: string | null;
 };
 
 export const management: TeamMember[] = [
@@ -199,6 +206,9 @@ export const management: TeamMember[] = [
 ];
 
 export const keyPositions: TeamMember[] = [];
+
+/** Das gesamte Team (nicht nur Geschäftsführung/Schlüsselpositionen) - Reiter "Team" in der Verwaltung. */
+export const team: TeamMember[] = [];
 
 export type FleetVehicle = {
   category: string;

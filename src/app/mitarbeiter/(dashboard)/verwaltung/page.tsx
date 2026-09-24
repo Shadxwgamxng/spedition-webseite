@@ -13,7 +13,10 @@ const teamFields: FieldConfig[] = [
   { key: "role", label: "Position", required: true },
   { key: "department", label: "Abteilung", required: true },
   { key: "bio", label: "Kurzprofil", type: "textarea", required: true },
-  { key: "initials", label: "Kürzel", required: true, placeholder: "z. B. TW", help: "2 Buchstaben" },
+  { key: "initials", label: "Kürzel", required: true, placeholder: "z. B. TW", help: "2 Buchstaben - Platzhalter, solange kein Foto hinterlegt ist" },
+  { key: "phone", label: "Telefon", placeholder: "optional" },
+  { key: "email", label: "E-Mail", placeholder: "optional" },
+  { key: "discord", label: "Discord-Name", placeholder: "optional" },
 ];
 
 const ABOUT_ICON_OPTIONS = ["shield", "truck", "globe", "users", "clock", "check", "warehouse", "route"];
@@ -25,6 +28,7 @@ const tabs = [
   { key: "ueberUns", label: "Über uns" },
   { key: "management", label: "Geschäftsführung" },
   { key: "keyPositions", label: "Wichtige Positionen" },
+  { key: "team", label: "Team" },
   { key: "fleetCategories", label: "Fuhrpark (Kategorien)" },
   { key: "reviews", label: "Rezensionen" },
   { key: "partners", label: "Partner" },
@@ -193,6 +197,7 @@ export default function VerwaltungPage() {
             emptyLabel="Noch keine Einträge."
             newLabel="Mitglied hinzufügen"
             fields={teamFields}
+            photoUpload
           />
         ) : null}
 
@@ -205,6 +210,20 @@ export default function VerwaltungPage() {
             emptyLabel="Noch keine Einträge."
             newLabel="Position hinzufügen"
             fields={teamFields}
+            photoUpload
+          />
+        ) : null}
+
+        {tab === "team" ? (
+          <CollectionManager
+            collection="team"
+            idField="id"
+            titleField="name"
+            subtitleField="role"
+            emptyLabel="Noch keine Team-Mitglieder."
+            newLabel="Teammitglied hinzufügen"
+            fields={teamFields}
+            photoUpload
           />
         ) : null}
 

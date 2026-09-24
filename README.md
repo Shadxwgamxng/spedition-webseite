@@ -20,7 +20,7 @@ Anleitung zum Hosten auf Living-Bots.net: siehe [`LIVING-BOTS-HOSTING.md`](./LIV
 
 ## Öffentlicher Bereich
 
-Startseite, Unsere Leistungen, Über uns, Geschäftsführung, News, Fuhrpark, Standort, Stellenangebote,
+Startseite, Unsere Leistungen, Über uns, Geschäftsführung, Team, News, Fuhrpark, Standort, Stellenangebote,
 Bewerbungsportal, Auftrag einreichen, Kunden-Login für Bestandskunden, Rezensionen, Partner sowie
 Impressum/Datenschutz.
 
@@ -315,9 +315,21 @@ Auftragstabelle aufklappen und antworten (`src/components/employee/order-chat.ts
 ### Verwaltung (nur Geschäftsführer/Prokurist)
 
 Eigener Reiter zur Pflege **aller** öffentlichen Inhalte — News, Stellenangebote, Leistungen, Geschäftsführung,
-Wichtige Positionen, Fuhrpark-Kategorien, Rezensionen, Partner sowie Unternehmensdaten (Adresse, Telefon,
+Wichtige Positionen, **Team**, Fuhrpark-Kategorien, Rezensionen, Partner sowie Unternehmensdaten (Adresse, Telefon,
 E-Mail, **Firmenlogo** …). Änderungen erscheinen sofort auf der öffentlichen Website, ganz ohne Neustart/Deploy
 (`src/app/mitarbeiter/(dashboard)/verwaltung/`, generische CRUD-API unter `src/app/api/admin/[collection]/*`).
+
+**Team-Reiter (`team`, öffentliche Seite `/team`):** eigene Collection neben „Geschäftsführung"/„Wichtige
+Positionen" für **alle** Mitarbeitenden, nicht nur Führungspositionen — dieselben Felder (Name, Position,
+Abteilung, Kurzprofil, Kürzel) plus drei optionale Kontaktfelder (Telefon, E-Mail, Discord-Name), die auf der
+öffentlichen Karte nur angezeigt werden, wenn sie ausgefüllt sind. Alle drei Personen-Collections
+(`management`/`keyPositions`/`team`) unterstützen zusätzlich ein **Foto** je Eintrag: Hochladen/Entfernen direkt
+in der Eintragsliste der Verwaltung (`CollectionManager`-Prop `photoUpload`), Bytes landen — wie das Firmenlogo —
+als eigene Datei unter `.data/uploads/<collection>--<id>` statt in `.data/db.json`, nur `photoMimeType` wird am
+Datensatz vermerkt. Ohne Foto zeigt die Karte weiterhin das Kürzel in einem farbigen Quadrat (Fallback,
+`src/components/site/team-person-card.tsx`). Foto-Upload läuft über die neue generische Route
+`src/app/api/admin/[collection]/[id]/photo/route.ts` (GET/POST/DELETE, max. 3 MB, genau wie
+`/api/company/logo` — siehe unten).
 Das Firmenlogo unter „Unternehmensdaten" (als Bild hochgeladen, max. 1,5 MB, als eigene Datei unter
 `.data/uploads/company-logo` hinterlegt — nur ein kleiner Verweis `logoMimeType` steht in `.data/db.json`, siehe
 „Firmenlogo"-Hinweis unten) erscheint automatisch im Briefkopf generierter Dokumente wie dem Arbeitsvertrag

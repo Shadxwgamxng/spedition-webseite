@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/site/page-hero";
-import { Card, Container, Section, SectionHeading } from "@/components/ui/primitives";
+import { Container, Section, SectionHeading } from "@/components/ui/primitives";
+import { TeamPersonCard } from "@/components/site/team-person-card";
 import { getCompany, getKeyPositions, getManagementTeam } from "@/lib/server/store";
-import type { TeamMemberRecord } from "@/lib/server/db-types";
 import { MailIcon } from "@/components/ui/icons";
 
 export const dynamic = "force-dynamic";
@@ -11,20 +11,6 @@ export const metadata: Metadata = {
   title: "Geschäftsführung",
   description: "Die Geschäftsführung und wichtige Positionen der Baltic Freight GmbH.",
 };
-
-function PersonCard({ person }: { person: TeamMemberRecord }) {
-  return (
-    <Card className="flex flex-col items-start">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-navy-900 text-lg font-bold text-amber-400">
-        {person.initials}
-      </div>
-      <h3 className="mt-4 text-lg font-semibold text-navy-900">{person.name}</h3>
-      <div className="text-sm font-medium text-amber-600">{person.role}</div>
-      <div className="mt-0.5 text-xs uppercase tracking-wide text-navy-700/50">{person.department}</div>
-      <p className="mt-3 text-sm leading-relaxed text-navy-700/75">{person.bio}</p>
-    </Card>
-  );
-}
 
 export default async function GeschaeftsfuehrungPage() {
   const [management, keyPositions, company] = await Promise.all([getManagementTeam(), getKeyPositions(), getCompany()]);
@@ -41,7 +27,7 @@ export default async function GeschaeftsfuehrungPage() {
           <SectionHeading eyebrow="Geschäftsleitung" title="Geschäftsführung" />
           <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2">
             {management.map((person) => (
-              <PersonCard key={person.id} person={person} />
+              <TeamPersonCard key={person.id} person={person} collection="management" />
             ))}
           </div>
         </Container>
@@ -57,7 +43,7 @@ export default async function GeschaeftsfuehrungPage() {
             />
             <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {keyPositions.map((person) => (
-                <PersonCard key={person.id} person={person} />
+                <TeamPersonCard key={person.id} person={person} collection="keyPositions" />
               ))}
             </div>
           </Container>
