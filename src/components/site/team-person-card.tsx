@@ -10,17 +10,17 @@ export function TeamPersonCard({
   collection: CollectionName;
 }) {
   const hasContact = Boolean(person.phone || person.email || person.discord);
+  // Bild als großes Banner über die volle Kartenbreite (Card hat p-6 padding,
+  // -mx-6 -mt-6 zieht das Bild bis an die Kartenkanten, w-[calc(100%+3rem)]
+  // gleicht die dadurch "verlorene" Breite wieder aus).
+  const photoClassName = "-mx-6 -mt-6 mb-1 h-72 w-[calc(100%+3rem)] max-w-none object-cover";
   return (
-    <Card className="flex flex-col items-start">
+    <Card className="flex flex-col items-start overflow-hidden">
       {person.photoMimeType ? (
         // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded photo served from our own API route, not a static site asset
-        <img
-          src={`/api/admin/${collection}/${person.id}/photo`}
-          alt={person.name}
-          className="h-16 w-16 rounded-2xl object-cover"
-        />
+        <img src={`/api/admin/${collection}/${person.id}/photo`} alt={person.name} className={photoClassName} />
       ) : (
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-navy-900 text-lg font-bold text-amber-400">
+        <div className={`flex items-center justify-center bg-navy-900 text-4xl font-bold text-amber-400 ${photoClassName}`}>
           {person.initials}
         </div>
       )}
