@@ -467,6 +467,7 @@ function PersonnelDisciplinary({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function describeDm(json: { [key: string]: unknown }, kindLabel: string) {
     const letter = json.letter as { discordDm?: { ok: boolean; error?: string } } | undefined;
@@ -526,14 +527,15 @@ function PersonnelDisciplinary({
   }
 
   type HistoryEntry =
-    | { kind: "warning"; date: string; reason: string; issuedBy: string; documentId: string | null; extra?: string }
-    | { kind: "termination"; date: string; reason: string; issuedBy: string; documentId: string | null; extra?: string };
+    | { kind: "warning"; id: string; date: string; reason: string; issuedBy: string; documentId: string | null; extra?: string }
+    | { kind: "termination"; id: string; date: string; reason: string; issuedBy: string; documentId: string | null; extra?: string };
 
   const history: HistoryEntry[] = [
-    ...file.warnings.map((w): HistoryEntry => ({ kind: "warning", date: w.date, reason: w.reason, issuedBy: w.issuedBy, documentId: w.documentId })),
+    ...file.warnings.map((w): HistoryEntry => ({ kind: "warning", id: w.id, date: w.date, reason: w.reason, issuedBy: w.issuedBy, documentId: w.documentId })),
     ...file.terminations.map(
       (t): HistoryEntry => ({
         kind: "termination",
+        id: t.id,
         date: t.date,
         reason: t.reason,
         issuedBy: t.issuedBy,
@@ -542,6 +544,19 @@ function PersonnelDisciplinary({
       }),
     ),
   ].sort((a, b) => b.date.localeCompare(a.date));
+
+  async function handleDeleteEntry(entry: HistoryEntry) {
+    const label = entry.kind === "termination" ? "Kündigung" : "Abmahnung";
+    if (!window.confirm(`${label} wirklich unwiderruflich löschen? Das zugehörige PDF wird ebenfalls entfernt.`)) return;
+    setDeletingId(entry.id);
+    try {
+      const path = entry.kind === "termination" ? "terminations" : "warnings";
+      await fetch(`/api/personnel-files/${file.employeeId}/${path}/${entry.id}`, { method: "DELETE" });
+      await onChanged();
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="mt-6 border-t border-navy-900/8 pt-4">
@@ -573,8 +588,8 @@ function PersonnelDisciplinary({
         {history.length === 0 ? (
           <p className="text-sm text-navy-700/50">Noch keine Abmahnungen oder Kündigungen.</p>
         ) : (
-          history.map((entry, i) => (
-            <div key={i} className="rounded-lg border border-navy-900/8 bg-mist-50 px-3 py-2.5">
+          history.map((entry) => (
+            <div key={entry.id} className="rounded-lg border border-navy-900/8 bg-mist-50 px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-xs font-semibold text-navy-900">
                   <span className={entry.kind === "termination" ? "text-red-600" : "text-amber-600"}>
@@ -583,14 +598,25 @@ function PersonnelDisciplinary({
                   <span className="text-navy-700/50">{formatDateOnly(entry.date)}</span>
                   {entry.extra ? <span className="text-navy-700/50">· {entry.extra}</span> : null}
                 </div>
-                {entry.documentId ? (
-                  <a
-                    href={`/api/personnel-files/${file.employeeId}/documents/${entry.documentId}`}
-                    className="text-xs font-semibold text-navy-700 hover:text-amber-600"
+                <div className="flex shrink-0 items-center gap-3">
+                  {entry.documentId ? (
+                    <a
+                      href={`/api/personnel-files/${file.employeeId}/documents/${entry.documentId}`}
+                      className="text-xs font-semibold text-navy-700 hover:text-amber-600"
+                    >
+                      PDF öffnen
+                    </a>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={deletingId === entry.id}
+                    onClick={() => handleDeleteEntry(entry)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
                   >
-                    PDF öffnen
-                  </a>
-                ) : null}
+                    <TrashIcon className="h-3.5 w-3.5" />
+                    {deletingId === entry.id ? "Löscht…" : "Löschen"}
+                  </button>
+                </div>
               </div>
               <p className="mt-1.5 text-sm text-navy-800">{entry.reason}</p>
               <p className="mt-1 text-xs text-navy-700/50">erstellt von {entry.issuedBy || "—"}</p>

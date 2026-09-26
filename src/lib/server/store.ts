@@ -2285,6 +2285,44 @@ export async function addPersonnelTermination(
   return record;
 }
 
+/** Deletes an Abmahnung from the Akte's history, including its generated PDF (if any) from documents[]. */
+export async function deletePersonnelWarning(employeeId: string, warningId: string): Promise<boolean> {
+  const db = await readDb();
+  const file = db.personnelFiles.find((f) => f.employeeId === employeeId);
+  if (!file) return false;
+  const index = file.warnings.findIndex((w) => w.id === warningId);
+  if (index === -1) return false;
+  const [removed] = file.warnings.splice(index, 1);
+  if (removed.documentId) {
+    const docIndex = file.documents.findIndex((d) => d.id === removed.documentId);
+    if (docIndex !== -1) {
+      file.documents.splice(docIndex, 1);
+      await deleteDocumentFile(removed.documentId);
+    }
+  }
+  await writeDb(db);
+  return true;
+}
+
+/** Same as deletePersonnelWarning, but for a Kündigung. */
+export async function deletePersonnelTermination(employeeId: string, terminationId: string): Promise<boolean> {
+  const db = await readDb();
+  const file = db.personnelFiles.find((f) => f.employeeId === employeeId);
+  if (!file) return false;
+  const index = file.terminations.findIndex((t) => t.id === terminationId);
+  if (index === -1) return false;
+  const [removed] = file.terminations.splice(index, 1);
+  if (removed.documentId) {
+    const docIndex = file.documents.findIndex((d) => d.id === removed.documentId);
+    if (docIndex !== -1) {
+      file.documents.splice(docIndex, 1);
+      await deleteDocumentFile(removed.documentId);
+    }
+  }
+  await writeDb(db);
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Bewerbungen (Bewerbungsportal)
 // ---------------------------------------------------------------------------

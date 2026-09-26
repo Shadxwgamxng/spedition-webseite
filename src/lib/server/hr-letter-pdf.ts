@@ -216,19 +216,22 @@ export function generateHrLetterPdf(input: {
   y += 6;
   doc.text("Mit freundlichen Grüßen", MARGIN_X, y);
 
-  // --- Signature ---
+  // --- Signatures (beide Seiten unterschreiben automatisch) ---
   y += 22;
   applySignatureFont(doc, 20);
   doc.setTextColor(...NAVY_900);
   doc.text(issuedBy || company.name, MARGIN_X + 2, y - 3, { maxWidth: 66 });
+  doc.text(employeeName, PAGE_RIGHT - 68, y - 3, { maxWidth: 66 });
   doc.setDrawColor(...NAVY_900);
   doc.setLineWidth(0.4);
   doc.line(MARGIN_X, y, MARGIN_X + 70, y);
+  doc.line(PAGE_RIGHT - 70, y, PAGE_RIGHT, y);
   y += 5;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...NAVY_900);
   doc.text(issuedBy ? `${issuedBy} - ${company.name} (Geschäftsführung)` : `${company.name} (Geschäftsführung)`, MARGIN_X, y);
+  doc.text(`${employeeName} (Kenntnisnahme)`, PAGE_RIGHT - 70, y);
 
   const pageCount = doc.getNumberOfPages();
   for (let page = 1; page <= pageCount; page++) {

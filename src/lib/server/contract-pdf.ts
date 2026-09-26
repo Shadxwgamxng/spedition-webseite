@@ -370,12 +370,11 @@ export function generateContractPdf(input: {
   doc.setTextColor(...BODY_GRAY);
   doc.text(`${company.city}, den ${formatDate(new Date().toISOString())}`, MARGIN_X, y);
   y += 22;
-  // Arbeitgeber-Seite unterschreibt automatisch (Firmenname in Unterschrift-
-  // Schriftart) - die Arbeitnehmer-Seite bleibt bewusst unsigniert, da eine
-  // Person nicht automatisch für einen anderen Menschen unterschreiben kann.
+  // Beide Seiten unterschreiben automatisch (Name in Unterschrift-Schriftart).
   applySignatureFont(doc, 20);
   doc.setTextColor(...NAVY_900);
   doc.text(company.name, MARGIN_X + 2, y - 3, { maxWidth: 66 });
+  doc.text(employeeName, PAGE_RIGHT - 68, y - 3, { maxWidth: 66 });
   doc.setDrawColor(...NAVY_900);
   doc.setLineWidth(0.4);
   doc.line(MARGIN_X, y, MARGIN_X + 70, y);

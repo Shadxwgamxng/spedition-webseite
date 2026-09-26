@@ -183,12 +183,12 @@ geändert haben. Anders als die automatische Erstellung ist dieser Button nicht 
 /api/personnel-files/[employeeId]/contract`, gemeinsame Logik mit der Automatik in
 `src/lib/server/contract-generation.ts`).
 
-**Unterschrift**: Arbeitsvertrag, Abmahnung und Kündigung unterschreiben sich automatisch auf der Arbeitgeber-Seite
-— der Firmenname (Arbeitsvertrag) bzw. die ausstellende Person (Abmahnung/Kündigung, `issuedBy`) wird in einer
-Handschrift-Schriftart („Alex Brush", SIL Open Font License, `src/lib/server/fonts/`) über die Unterschriftslinie
-gerendert, kein Zeichnen/Hochladen nötig (`src/lib/server/signature-font.ts`, `registerSignatureFont`/
-`applySignatureFont`, in jsPDF eingebettet). Die Arbeitnehmer-Seite im Arbeitsvertrag bleibt bewusst unsigniert —
-das kann die Website nicht automatisch für eine andere Person übernehmen.
+**Unterschrift**: Arbeitsvertrag, Abmahnung und Kündigung unterschreiben sich automatisch auf **beiden** Seiten —
+Firmenname/ausstellende Person (Arbeitgeber-Seite, `issuedBy` bei Abmahnung/Kündigung) und der Name aus der Akte
+(Arbeitnehmer-Seite, bei Abmahnung/Kündigung mit Zusatz „(Kenntnisnahme)") werden je in einer
+Handschrift-Schriftart („Alex Brush", SIL Open Font License, `src/lib/server/fonts/`) über die jeweilige
+Unterschriftslinie gerendert, kein Zeichnen/Hochladen nötig (`src/lib/server/signature-font.ts`,
+`registerSignatureFont`/`applySignatureFont`, in jsPDF eingebettet).
 
 **Abmahnung/Kündigung erstellen**: Jede Akte hat einen eigenen Abschnitt „Abmahnungen & Kündigungen" mit zwei
 Buttons, die je einen Dialog öffnen (Datum + Grund für die Abmahnung; zusätzlich „Wirksam zum" und Art
@@ -199,8 +199,10 @@ Discord-DM (`generateAndDistributeWarning`/`generateAndDistributeTermination` in
 `src/lib/server/hr-letter-generation.ts`, `POST /api/personnel-files/[employeeId]/warnings` bzw. `.../terminations`
 — gleiches Muster wie beim Arbeitsvertrag, inkl. Verhalten bei fehlgeschlagenem DM-Versand). Zusätzlich zum PDF wird
 ein strukturierter Verlaufseintrag gespeichert (Datum, Grund, erstellt von — `PersonnelFileRecord.warnings[]`/
-`.terminations[]`), der direkt in der Akte als Liste angezeigt wird, mit Link zum jeweiligen PDF. Beliebig oft
-auslösbar, keine Vollständigkeitsprüfung wie beim Arbeitsvertrag.
+`.terminations[]`), der direkt in der Akte als Liste angezeigt wird, mit Link zum jeweiligen PDF und einem
+„Löschen"-Button je Eintrag (`DELETE /api/personnel-files/[employeeId]/warnings/[warningId]` bzw.
+`.../terminations/[terminationId]` — entfernt sowohl den Verlaufseintrag als auch das zugehörige PDF-Dokument aus
+der Akte). Beliebig oft auslösbar, keine Vollständigkeitsprüfung wie beim Arbeitsvertrag.
 
 ### Bewerbungen (nur Geschäftsführer/Prokurist)
 
