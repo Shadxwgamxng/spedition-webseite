@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import type { CompanyInfo, PersonnelFileRecord } from "@/lib/server/db-types";
+import { applySignatureFont, registerSignatureFont } from "@/lib/server/signature-font";
 
 // Same brand palette as the website (src/app/globals.css) — navy for text/
 // structure, the signal-blue accent (sampled from the logo) for highlights.
@@ -128,6 +129,7 @@ export function generateContractPdf(input: {
 }): Uint8Array {
   const { company, employeeName, roleLabel, department, file, logo } = input;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  registerSignatureFont(doc);
   let y = 20;
 
   // Soft cover tint behind the letterhead/title/summary card, drawn first so
@@ -368,11 +370,18 @@ export function generateContractPdf(input: {
   doc.setTextColor(...BODY_GRAY);
   doc.text(`${company.city}, den ${formatDate(new Date().toISOString())}`, MARGIN_X, y);
   y += 22;
+  // Arbeitgeber-Seite unterschreibt automatisch (Firmenname in Unterschrift-
+  // Schriftart) - die Arbeitnehmer-Seite bleibt bewusst unsigniert, da eine
+  // Person nicht automatisch für einen anderen Menschen unterschreiben kann.
+  applySignatureFont(doc, 20);
+  doc.setTextColor(...NAVY_900);
+  doc.text(company.name, MARGIN_X + 2, y - 3, { maxWidth: 66 });
   doc.setDrawColor(...NAVY_900);
   doc.setLineWidth(0.4);
   doc.line(MARGIN_X, y, MARGIN_X + 70, y);
   doc.line(PAGE_RIGHT - 70, y, PAGE_RIGHT, y);
   y += 5;
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...NAVY_900);
   doc.text("Arbeitgeber", MARGIN_X, y);

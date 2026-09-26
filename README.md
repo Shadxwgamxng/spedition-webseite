@@ -183,6 +183,13 @@ geändert haben. Anders als die automatische Erstellung ist dieser Button nicht 
 /api/personnel-files/[employeeId]/contract`, gemeinsame Logik mit der Automatik in
 `src/lib/server/contract-generation.ts`).
 
+**Unterschrift**: Arbeitsvertrag, Abmahnung und Kündigung unterschreiben sich automatisch auf der Arbeitgeber-Seite
+— der Firmenname (Arbeitsvertrag) bzw. die ausstellende Person (Abmahnung/Kündigung, `issuedBy`) wird in einer
+Handschrift-Schriftart („Alex Brush", SIL Open Font License, `src/lib/server/fonts/`) über die Unterschriftslinie
+gerendert, kein Zeichnen/Hochladen nötig (`src/lib/server/signature-font.ts`, `registerSignatureFont`/
+`applySignatureFont`, in jsPDF eingebettet). Die Arbeitnehmer-Seite im Arbeitsvertrag bleibt bewusst unsigniert —
+das kann die Website nicht automatisch für eine andere Person übernehmen.
+
 **Abmahnung/Kündigung erstellen**: Jede Akte hat einen eigenen Abschnitt „Abmahnungen & Kündigungen" mit zwei
 Buttons, die je einen Dialog öffnen (Datum + Grund für die Abmahnung; zusätzlich „Wirksam zum" und Art
 „Ordentlich"/„Fristlos" für die Kündigung). Beim Bestätigen erzeugt der Server ein einseitiges PDF-Schreiben im

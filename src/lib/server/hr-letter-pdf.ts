@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import type { CompanyInfo, PersonnelFileRecord } from "@/lib/server/db-types";
+import { applySignatureFont, registerSignatureFont } from "@/lib/server/signature-font";
 
 // Same brand palette/letterhead treatment as contract-pdf.ts (Arbeitsvertrag)
 // — kept as a small, deliberate duplication rather than sharing helpers
@@ -81,9 +82,12 @@ export function generateHrLetterPdf(input: {
   reason: string;
   effectiveDate?: string;
   terminationType?: "ordentlich" | "fristlos";
+  /** Name der Person, die das Schreiben ausstellt (aus der Sitzung) - erscheint als Unterschrift; leer -> nur der Firmenname wird unterschrieben. */
+  issuedBy?: string;
 }): Uint8Array {
-  const { kind, company, employeeName, file, logo, date, reason, effectiveDate, terminationType } = input;
+  const { kind, company, employeeName, file, logo, date, reason, effectiveDate, terminationType, issuedBy } = input;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  registerSignatureFont(doc);
   let y = 20;
 
   // --- Letterhead: logo (aspect-ratio preserved) left, company details right ---
@@ -214,13 +218,17 @@ export function generateHrLetterPdf(input: {
 
   // --- Signature ---
   y += 22;
+  applySignatureFont(doc, 20);
+  doc.setTextColor(...NAVY_900);
+  doc.text(issuedBy || company.name, MARGIN_X + 2, y - 3, { maxWidth: 66 });
   doc.setDrawColor(...NAVY_900);
   doc.setLineWidth(0.4);
   doc.line(MARGIN_X, y, MARGIN_X + 70, y);
   y += 5;
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...NAVY_900);
-  doc.text(`${company.name} (Geschäftsführung)`, MARGIN_X, y);
+  doc.text(issuedBy ? `${issuedBy} - ${company.name} (Geschäftsführung)` : `${company.name} (Geschäftsführung)`, MARGIN_X, y);
 
   const pageCount = doc.getNumberOfPages();
   for (let page = 1; page <= pageCount; page++) {

@@ -42,6 +42,7 @@ export async function generateAndDistributeWarning(
     logo,
     date: input.date,
     reason: input.reason,
+    issuedBy: input.issuedBy,
   });
   const fileName = `Abmahnung_${employee.name.replace(/\s+/g, "_")}_${input.date}.pdf`;
 
@@ -80,6 +81,7 @@ export async function generateAndDistributeTermination(
     reason: input.reason,
     effectiveDate: input.effectiveDate,
     terminationType: input.terminationType,
+    issuedBy: input.issuedBy,
   });
   const fileName = `Kuendigung_${employee.name.replace(/\s+/g, "_")}_${input.date}.pdf`;
 
