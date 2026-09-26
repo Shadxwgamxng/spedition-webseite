@@ -115,6 +115,37 @@ export type PersonnelDocumentRecord = {
 };
 
 /**
+ * An Abmahnung (written warning) issued to an employee — created via the
+ * "Abmahnung erstellen" button in the Personalakte. `documentId` points at
+ * the generated PDF's entry in the same file's `documents` array (see
+ * generateAndDistributeWarning in server/hr-letter-generation.ts).
+ */
+export type PersonnelWarningRecord = {
+  id: string;
+  /** Ausstellungsdatum (YYYY-MM-DD). */
+  date: string;
+  reason: string;
+  /** Name der Person, die die Abmahnung erstellt hat (aus der Sitzung, nicht verifiziert - siehe README). */
+  issuedBy: string;
+  createdAt: string;
+  documentId: string | null;
+};
+
+/** A Kündigung (termination notice) issued to an employee — same idea as PersonnelWarningRecord. */
+export type PersonnelTerminationRecord = {
+  id: string;
+  /** Ausstellungsdatum (YYYY-MM-DD). */
+  date: string;
+  /** Datum, zu dem das Arbeitsverhältnis endet. */
+  effectiveDate: string;
+  terminationType: "ordentlich" | "fristlos";
+  reason: string;
+  issuedBy: string;
+  createdAt: string;
+  documentId: string | null;
+};
+
+/**
  * A Mitarbeiter's Personalakte — created automatically alongside their
  * EmployeeRecord (`id` matches the employee's `id`, 1:1) and never through the
  * generic CMS routes. `documents` only holds metadata; the uploaded bytes
@@ -139,6 +170,8 @@ export type PersonnelFileRecord = {
   /** ISO timestamp once the Arbeitsvertrag has been auto-generated for this file, or null. Set once, never re-triggered. */
   contractGeneratedAt: string | null;
   documents: PersonnelDocumentRecord[];
+  warnings: PersonnelWarningRecord[];
+  terminations: PersonnelTerminationRecord[];
 };
 
 /**
@@ -184,6 +217,8 @@ export function makeEmptyPersonnelFile(employeeId: string): PersonnelFileRecord 
     notes: "",
     contractGeneratedAt: null,
     documents: [],
+    warnings: [],
+    terminations: [],
   };
 }
 

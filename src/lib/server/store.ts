@@ -27,6 +27,8 @@ import {
   type PartnerRecord,
   type PersonnelDocumentRecord,
   type PersonnelFileRecord,
+  type PersonnelTerminationRecord,
+  type PersonnelWarningRecord,
   type PublicCustomer,
   type PublicEmployee,
   type ReminderEntry,
@@ -170,6 +172,14 @@ async function readDb(): Promise<Db> {
     }
     if (record.contractGeneratedAt === undefined) {
       record.contractGeneratedAt = null;
+      changed = true;
+    }
+    if (!Array.isArray(record.warnings)) {
+      record.warnings = [];
+      changed = true;
+    }
+    if (!Array.isArray(record.terminations)) {
+      record.terminations = [];
       changed = true;
     }
   }
@@ -2220,6 +2230,59 @@ export async function getPersonnelDocument(
   const record = file?.documents.find((d) => d.id === documentId);
   if (!record) return null;
   return { record, filePath: path.join(UPLOADS_DIR, documentId) };
+}
+
+/** Appends an Abmahnung to the Akte's history — the generated PDF itself is stored separately via addPersonnelDocument, `documentId` just links the two. */
+export async function addPersonnelWarning(
+  employeeId: string,
+  input: { date: string; reason: string; issuedBy: string; documentId: string | null },
+): Promise<PersonnelWarningRecord> {
+  const db = await readDb();
+  const file = db.personnelFiles.find((f) => f.employeeId === employeeId);
+  if (!file) throw new Error("Personalakte nicht gefunden.");
+
+  const record: PersonnelWarningRecord = {
+    id: makeId(`abmahnung-${input.date}`),
+    date: input.date,
+    reason: input.reason,
+    issuedBy: input.issuedBy,
+    createdAt: new Date().toISOString(),
+    documentId: input.documentId,
+  };
+  file.warnings.push(record);
+  await writeDb(db);
+  return record;
+}
+
+/** Appends a Kündigung to the Akte's history — same pattern as addPersonnelWarning. */
+export async function addPersonnelTermination(
+  employeeId: string,
+  input: {
+    date: string;
+    effectiveDate: string;
+    terminationType: "ordentlich" | "fristlos";
+    reason: string;
+    issuedBy: string;
+    documentId: string | null;
+  },
+): Promise<PersonnelTerminationRecord> {
+  const db = await readDb();
+  const file = db.personnelFiles.find((f) => f.employeeId === employeeId);
+  if (!file) throw new Error("Personalakte nicht gefunden.");
+
+  const record: PersonnelTerminationRecord = {
+    id: makeId(`kuendigung-${input.date}`),
+    date: input.date,
+    effectiveDate: input.effectiveDate,
+    terminationType: input.terminationType,
+    reason: input.reason,
+    issuedBy: input.issuedBy,
+    createdAt: new Date().toISOString(),
+    documentId: input.documentId,
+  };
+  file.terminations.push(record);
+  await writeDb(db);
+  return record;
 }
 
 // ---------------------------------------------------------------------------

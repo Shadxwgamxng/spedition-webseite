@@ -96,6 +96,22 @@ export function buildContractDm(name: string): string {
   );
 }
 
+export function buildWarningDm(name: string): string {
+  return (
+    `Hallo ${name},\n\n` +
+    `die Geschäftsführung hat eine Abmahnung für dich erstellt — anbei erhältst du sie als PDF.\n\n` +
+    `Bei Rückfragen wende dich bitte an die Geschäftsführung.`
+  );
+}
+
+export function buildTerminationDm(name: string): string {
+  return (
+    `Hallo ${name},\n\n` +
+    `die Geschäftsführung hat eine Kündigung deines Arbeitsverhältnisses erstellt — anbei erhältst du sie als PDF.\n\n` +
+    `Bei Rückfragen wende dich bitte an die Geschäftsführung.`
+  );
+}
+
 const APPLICATION_STATUS_TEXT: Record<string, string> = {
   Neu: "Deine Bewerbung ist bei uns eingegangen und wird in Kürze gesichtet.",
   "In Prüfung": "Deine Bewerbung wird aktuell von unserem Recruiting-Team geprüft. Wir melden uns zeitnah bei dir.",

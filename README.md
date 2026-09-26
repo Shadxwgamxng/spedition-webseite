@@ -183,6 +183,18 @@ geändert haben. Anders als die automatische Erstellung ist dieser Button nicht 
 /api/personnel-files/[employeeId]/contract`, gemeinsame Logik mit der Automatik in
 `src/lib/server/contract-generation.ts`).
 
+**Abmahnung/Kündigung erstellen**: Jede Akte hat einen eigenen Abschnitt „Abmahnungen & Kündigungen" mit zwei
+Buttons, die je einen Dialog öffnen (Datum + Grund für die Abmahnung; zusätzlich „Wirksam zum" und Art
+„Ordentlich"/„Fristlos" für die Kündigung). Beim Bestätigen erzeugt der Server ein einseitiges PDF-Schreiben im
+selben Briefkopf-Stil wie der Arbeitsvertrag (`src/lib/server/hr-letter-pdf.ts`, Empfängeradresse aus der Akte, der
+eingetragene Grund in einem hervorgehobenen Kasten), legt es als Dokument in der Akte ab und verschickt es per
+Discord-DM (`generateAndDistributeWarning`/`generateAndDistributeTermination` in
+`src/lib/server/hr-letter-generation.ts`, `POST /api/personnel-files/[employeeId]/warnings` bzw. `.../terminations`
+— gleiches Muster wie beim Arbeitsvertrag, inkl. Verhalten bei fehlgeschlagenem DM-Versand). Zusätzlich zum PDF wird
+ein strukturierter Verlaufseintrag gespeichert (Datum, Grund, erstellt von — `PersonnelFileRecord.warnings[]`/
+`.terminations[]`), der direkt in der Akte als Liste angezeigt wird, mit Link zum jeweiligen PDF. Beliebig oft
+auslösbar, keine Vollständigkeitsprüfung wie beim Arbeitsvertrag.
+
 ### Bewerbungen (nur Geschäftsführer/Prokurist)
 
 Das öffentliche Bewerbungsportal (`/bewerbung`) hat jetzt ein echtes Backend: eingehende Bewerbungen landen

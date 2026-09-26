@@ -2,12 +2,23 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { usePolling } from "@/lib/use-polling";
-import { CheckIcon, FolderIcon, InvoiceIcon, TrashIcon, UploadIcon } from "@/components/ui/icons";
-import type { EmployeeUser } from "@/lib/auth";
+import { CheckIcon, FolderIcon, InvoiceIcon, LockIcon, MessageIcon, TrashIcon, UploadIcon } from "@/components/ui/icons";
+import { useAuth, type EmployeeUser } from "@/lib/auth";
 import { parseJsonResponse } from "@/lib/parse-json-response";
 
 type Employee = EmployeeUser & { id: string };
 type PersonnelDocument = { id: string; fileName: string; mimeType: string; size: number; uploadedAt: string };
+type PersonnelWarning = { id: string; date: string; reason: string; issuedBy: string; createdAt: string; documentId: string | null };
+type PersonnelTermination = {
+  id: string;
+  date: string;
+  effectiveDate: string;
+  terminationType: "ordentlich" | "fristlos";
+  reason: string;
+  issuedBy: string;
+  createdAt: string;
+  documentId: string | null;
+};
 type PersonnelFile = {
   id: string;
   employeeId: string;
@@ -26,6 +37,8 @@ type PersonnelFile = {
   notes: string;
   contractGeneratedAt: string | null;
   documents: PersonnelDocument[];
+  warnings: PersonnelWarning[];
+  terminations: PersonnelTermination[];
 };
 
 function formatBytes(bytes: number): string {
@@ -38,7 +51,13 @@ function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+function formatDateOnly(value: string): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 export function PersonnelFilesManager() {
+  const { user } = useAuth();
   const employees = usePolling<{ employees: Employee[] }>("/api/employees", 6000);
   const files = usePolling<{ personnelFiles: PersonnelFile[] }>("/api/personnel-files", 6000);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -89,6 +108,7 @@ export function PersonnelFilesManager() {
                 {open && file ? (
                   <div className="border-t border-navy-900/8 p-4">
                     <PersonnelFileForm file={file} onSaved={refetchAll} />
+                    <PersonnelDisciplinary file={file} issuedBy={user?.name ?? ""} onChanged={refetchAll} />
                     <PersonnelDocuments file={file} onChanged={refetchAll} />
                   </div>
                 ) : null}
@@ -255,6 +275,339 @@ function RegenerateContractButton({ file, onSaved }: { file: PersonnelFile; onSa
       </button>
       {error ? <p className="mt-1.5 text-xs text-red-600">{error}</p> : null}
       {notice ? <p className="mt-1.5 text-xs text-navy-700">{notice}</p> : null}
+    </div>
+  );
+}
+
+function WarningDialog({
+  onConfirm,
+  onCancel,
+  saving,
+}: {
+  onConfirm: (input: { date: string; reason: string }) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reason, setReason] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/60 p-4" onClick={onCancel}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-sm font-semibold text-navy-900">Abmahnung erstellen</h3>
+        <p className="mt-1.5 text-xs text-navy-700/60">
+          Erzeugt ein PDF-Schreiben, legt es in der Akte ab und verschickt es per Discord-DM, falls ein Account
+          verknüpft ist.
+        </p>
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-navy-800" htmlFor="warning-date">
+              Datum
+            </label>
+            <input
+              id="warning-date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-navy-800" htmlFor="warning-reason">
+              Grund
+            </label>
+            <textarea
+              id="warning-reason"
+              rows={4}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Was ist vorgefallen?"
+              className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-full px-3.5 py-2 text-xs font-medium text-navy-700 hover:bg-mist-100"
+          >
+            Abbrechen
+          </button>
+          <button
+            type="button"
+            disabled={!date || !reason.trim() || saving}
+            onClick={() => onConfirm({ date, reason: reason.trim() })}
+            className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-4 py-2 text-xs font-semibold text-navy-950 hover:bg-amber-400 disabled:opacity-50"
+          >
+            <MessageIcon className="h-3.5 w-3.5" />
+            {saving ? "Erstellt…" : "Abmahnung erstellen"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TerminationDialog({
+  onConfirm,
+  onCancel,
+  saving,
+}: {
+  onConfirm: (input: { date: string; effectiveDate: string; terminationType: "ordentlich" | "fristlos"; reason: string }) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(today);
+  const [effectiveDate, setEffectiveDate] = useState(today);
+  const [terminationType, setTerminationType] = useState<"ordentlich" | "fristlos">("ordentlich");
+  const [reason, setReason] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/60 p-4" onClick={onCancel}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-sm font-semibold text-navy-900">Kündigung erstellen</h3>
+        <p className="mt-1.5 text-xs text-navy-700/60">
+          Erzeugt ein PDF-Schreiben, legt es in der Akte ab und verschickt es per Discord-DM, falls ein Account
+          verknüpft ist.
+        </p>
+
+        <div className="mt-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-navy-800" htmlFor="termination-date">
+                Datum
+              </label>
+              <input
+                id="termination-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-navy-800" htmlFor="termination-effective">
+                Wirksam zum
+              </label>
+              <input
+                id="termination-effective"
+                type="date"
+                value={effectiveDate}
+                onChange={(e) => setEffectiveDate(e.target.value)}
+                className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-navy-800" htmlFor="termination-type">
+              Art
+            </label>
+            <select
+              id="termination-type"
+              value={terminationType}
+              onChange={(e) => setTerminationType(e.target.value === "fristlos" ? "fristlos" : "ordentlich")}
+              className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+            >
+              <option value="ordentlich">Ordentlich (mit Frist)</option>
+              <option value="fristlos">Außerordentlich / fristlos</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-navy-800" htmlFor="termination-reason">
+              Grund
+            </label>
+            <textarea
+              id="termination-reason"
+              rows={4}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Warum wird das Arbeitsverhältnis beendet?"
+              className="w-full rounded-lg border border-navy-900/15 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-full px-3.5 py-2 text-xs font-medium text-navy-700 hover:bg-mist-100"
+          >
+            Abbrechen
+          </button>
+          <button
+            type="button"
+            disabled={!date || !effectiveDate || !reason.trim() || saving}
+            onClick={() => onConfirm({ date, effectiveDate, terminationType, reason: reason.trim() })}
+            className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+          >
+            <LockIcon className="h-3.5 w-3.5" />
+            {saving ? "Erstellt…" : "Kündigung erstellen"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PersonnelDisciplinary({
+  file,
+  issuedBy,
+  onChanged,
+}: {
+  file: PersonnelFile;
+  issuedBy: string;
+  onChanged: () => Promise<void>;
+}) {
+  const [dialog, setDialog] = useState<"warning" | "termination" | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  function describeDm(json: { [key: string]: unknown }, kindLabel: string) {
+    const letter = json.letter as { discordDm?: { ok: boolean; error?: string } } | undefined;
+    return letter?.discordDm?.ok
+      ? `${kindLabel} wurde erstellt, in der Akte abgelegt und per Discord-DM verschickt.`
+      : `${kindLabel} wurde erstellt und in der Akte abgelegt, aber die Discord-DM konnte nicht verschickt werden: ${letter?.discordDm?.error ?? "unbekannter Fehler"}`;
+  }
+
+  async function submitWarning(input: { date: string; reason: string }) {
+    setError(null);
+    setNotice(null);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/personnel-files/${file.employeeId}/warnings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...input, issuedBy }),
+      });
+      const json = await parseJsonResponse(res);
+      if (!res.ok || json.ok === false) {
+        setError(json.error ?? "Abmahnung konnte nicht erstellt werden.");
+        return;
+      }
+      setNotice(describeDm(json, "Abmahnung"));
+      setDialog(null);
+      await onChanged();
+    } catch {
+      setError("Verbindung zum Server fehlgeschlagen.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitTermination(input: { date: string; effectiveDate: string; terminationType: "ordentlich" | "fristlos"; reason: string }) {
+    setError(null);
+    setNotice(null);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/personnel-files/${file.employeeId}/terminations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...input, issuedBy }),
+      });
+      const json = await parseJsonResponse(res);
+      if (!res.ok || json.ok === false) {
+        setError(json.error ?? "Kündigung konnte nicht erstellt werden.");
+        return;
+      }
+      setNotice(describeDm(json, "Kündigung"));
+      setDialog(null);
+      await onChanged();
+    } catch {
+      setError("Verbindung zum Server fehlgeschlagen.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  type HistoryEntry =
+    | { kind: "warning"; date: string; reason: string; issuedBy: string; documentId: string | null; extra?: string }
+    | { kind: "termination"; date: string; reason: string; issuedBy: string; documentId: string | null; extra?: string };
+
+  const history: HistoryEntry[] = [
+    ...file.warnings.map((w): HistoryEntry => ({ kind: "warning", date: w.date, reason: w.reason, issuedBy: w.issuedBy, documentId: w.documentId })),
+    ...file.terminations.map(
+      (t): HistoryEntry => ({
+        kind: "termination",
+        date: t.date,
+        reason: t.reason,
+        issuedBy: t.issuedBy,
+        documentId: t.documentId,
+        extra: `${t.terminationType === "fristlos" ? "Fristlos" : "Ordentlich"} · wirksam zum ${formatDateOnly(t.effectiveDate)}`,
+      }),
+    ),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+
+  return (
+    <div className="mt-6 border-t border-navy-900/8 pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-navy-700/60">
+          Abmahnungen &amp; Kündigungen
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setDialog("warning")}
+            className="inline-flex items-center gap-1.5 rounded-full border border-navy-900/15 px-3.5 py-1.5 text-xs font-semibold text-navy-800 hover:bg-mist-100"
+          >
+            <MessageIcon className="h-3.5 w-3.5" />
+            Abmahnung erstellen
+          </button>
+          <button
+            type="button"
+            onClick={() => setDialog("termination")}
+            className="inline-flex items-center gap-1.5 rounded-full border border-red-600/30 px-3.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+          >
+            <LockIcon className="h-3.5 w-3.5" />
+            Kündigung erstellen
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {history.length === 0 ? (
+          <p className="text-sm text-navy-700/50">Noch keine Abmahnungen oder Kündigungen.</p>
+        ) : (
+          history.map((entry, i) => (
+            <div key={i} className="rounded-lg border border-navy-900/8 bg-mist-50 px-3 py-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-navy-900">
+                  <span className={entry.kind === "termination" ? "text-red-600" : "text-amber-600"}>
+                    {entry.kind === "termination" ? "Kündigung" : "Abmahnung"}
+                  </span>
+                  <span className="text-navy-700/50">{formatDateOnly(entry.date)}</span>
+                  {entry.extra ? <span className="text-navy-700/50">· {entry.extra}</span> : null}
+                </div>
+                {entry.documentId ? (
+                  <a
+                    href={`/api/personnel-files/${file.employeeId}/documents/${entry.documentId}`}
+                    className="text-xs font-semibold text-navy-700 hover:text-amber-600"
+                  >
+                    PDF öffnen
+                  </a>
+                ) : null}
+              </div>
+              <p className="mt-1.5 text-sm text-navy-800">{entry.reason}</p>
+              <p className="mt-1 text-xs text-navy-700/50">erstellt von {entry.issuedBy || "—"}</p>
+            </div>
+          ))
+        )}
+      </div>
+
+      {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+      {notice ? <p className="mt-2 text-sm text-navy-700">{notice}</p> : null}
+
+      {dialog === "warning" ? (
+        <WarningDialog saving={saving} onCancel={() => setDialog(null)} onConfirm={submitWarning} />
+      ) : null}
+      {dialog === "termination" ? (
+        <TerminationDialog saving={saving} onCancel={() => setDialog(null)} onConfirm={submitTermination} />
+      ) : null}
     </div>
   );
 }

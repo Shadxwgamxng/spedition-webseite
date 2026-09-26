@@ -2,7 +2,10 @@ import { isPersonnelFileComplete, type PersonnelFileRecord } from "@/lib/server/
 import { getPersonnelFile, updatePersonnelFile } from "@/lib/server/store";
 import { generateAndDistributeContract, type ContractGenerationResult } from "@/lib/server/contract-generation";
 
-const TEXT_FIELDS: (keyof Omit<PersonnelFileRecord, "id" | "employeeId" | "documents" | "contractGeneratedAt">)[] = [
+const TEXT_FIELDS: (keyof Omit<
+  PersonnelFileRecord,
+  "id" | "employeeId" | "documents" | "contractGeneratedAt" | "warnings" | "terminations"
+>)[] = [
   "birthDate",
   "birthPlace",
   "nationality",
