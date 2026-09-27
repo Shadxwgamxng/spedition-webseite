@@ -459,6 +459,32 @@ export type TabletLocationRecord = {
   destCargo?: string[];
 };
 
+/** Live-Karte: Position eines gerade eingestempelten Fahrers, gepusht via 'driver_position.update'/'.remove' (server/sv_tracking.lua im Tablet-Repo). */
+export type DriverPositionRecord = {
+  tabletEmployeeId: number;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  vehiclePlate: string | null;
+  vehicleLabel: string | null;
+  order: {
+    cargo: string;
+    startLocation: string;
+    endLocation: string;
+    status: string;
+  } | null;
+  updatedAt: string;
+};
+
+/** Live-Karte: Weltkoordinaten-Grenzen für die Umrechnung in Kartenbild-Prozent - vom Tablet kalibriert und per 'live_map.bounds' gepusht (Config.LiveMap.bounds), statt hier hartkodiert zu sein. */
+export type LiveMapBoundsRecord = {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
+
 function slugify(input: string): string {
   return input
     .toLowerCase()

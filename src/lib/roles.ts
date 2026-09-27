@@ -65,6 +65,7 @@ export function isDriverLicenseKey(value: string): value is DriverLicenseKey {
 const GESCHAEFTSFUEHRUNG_MODULES = [
   "disposition",
   "auftragspool",
+  "live-karte",
   "lager",
   "fahrzeuge",
   "fahrtenbuch",
@@ -102,6 +103,7 @@ export const roleModuleAccess: Record<RoleKey, string[]> = {
   betriebsleiter: [
     "disposition",
     "auftragspool",
+    "live-karte",
     "lager",
     "fahrzeuge",
     "fahrtenbuch",
@@ -110,8 +112,8 @@ export const roleModuleAccess: Record<RoleKey, string[]> = {
     "anfragen",
     "stempeluhr",
   ],
-  chefdisponent: ["disposition", "auftragspool", "fahrzeuge", "fahrerkarte", "kundenstammbaum", "anfragen", "stempeluhr"],
-  disponent: ["disposition", "auftragspool", "kundenstammbaum", "anfragen", "stempeluhr"],
+  chefdisponent: ["disposition", "auftragspool", "live-karte", "fahrzeuge", "fahrerkarte", "kundenstammbaum", "anfragen", "stempeluhr"],
+  disponent: ["disposition", "auftragspool", "live-karte", "kundenstammbaum", "anfragen", "stempeluhr"],
   lager: ["lager", "stempeluhr"],
   fuhrpark: ["fahrzeuge", "fahrtenbuch", "stempeluhr"],
   buchhaltung: ["rechnungen", "finanzen", "stempeluhr"],

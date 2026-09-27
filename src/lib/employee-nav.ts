@@ -7,6 +7,7 @@ import {
   IdCardIcon,
   InvoiceIcon,
   MailIcon,
+  MapPinIcon,
   MessageIcon,
   PhoneIcon,
   RouteIcon,
@@ -30,6 +31,13 @@ export const employeeModules = [
     label: "Auftragspool",
     description: "Offene, noch unzugewiesene Aufträge aus dem Spiel direkt von der Website disponieren.",
     icon: BoxIcon,
+  },
+  {
+    key: "live-karte",
+    href: "/mitarbeiter/live-karte",
+    label: "Live-Karte",
+    description: "Position, Fahrzeug und Auftrag jedes eingestempelten Fahrers in Echtzeit.",
+    icon: MapPinIcon,
   },
   {
     key: "lager",

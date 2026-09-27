@@ -39,9 +39,9 @@ durchgesetzt in `DashboardShell`).
 | --- | --- |
 | Geschäftsführer | **Alles**, inkl. Verwaltung, Personalakten, Bewerbungen und Anfragen; einzige Rolle mit Fahrzeuge anlegen/löschen |
 | Prokurist | **Identisch zum Geschäftsführer** — beide Rollen teilen sich dieselbe Berechtigungsliste (`src/lib/roles.ts`) |
-| Betriebsleiter | Disposition, Auftragspool, Lagerverwaltung, Fahrzeugverwaltung, Fahrtenbuch, Fahrerkarte (aller Fahrer), Kundenstammbaum, Anfragen, Stempeluhr (inkl. Team-Übersicht) |
-| Chefdisponent | Disposition, Auftragspool, Fahrzeugverwaltung, Fahrerkarte (aller Fahrer, inkl. Erinnerungen senden), Kundenstammbaum, Anfragen, Stempeluhr |
-| Disponent | Disposition, Auftragspool, Kundenstammbaum, Anfragen, Stempeluhr |
+| Betriebsleiter | Disposition, Auftragspool, Live-Karte, Lagerverwaltung, Fahrzeugverwaltung, Fahrtenbuch, Fahrerkarte (aller Fahrer), Kundenstammbaum, Anfragen, Stempeluhr (inkl. Team-Übersicht) |
+| Chefdisponent | Disposition, Auftragspool, Live-Karte, Fahrzeugverwaltung, Fahrerkarte (aller Fahrer, inkl. Erinnerungen senden), Kundenstammbaum, Anfragen, Stempeluhr |
+| Disponent | Disposition, Auftragspool, Live-Karte, Kundenstammbaum, Anfragen, Stempeluhr |
 | Lager | Lagerverwaltung & Inventuren, Stempeluhr |
 | Fuhrpark & Werkstatt | Fahrzeugverwaltung (nur lesend), Digitales Fahrtenbuch, Stempeluhr |
 | Buchhaltung | Rechnungserstellung (inkl. PDF-Export), Finanzbuchhaltung, Stempeluhr |
@@ -493,7 +493,8 @@ Website übernimmt nur noch, statt eine zweite unabhängige Erfassung zu führen
 
 **Push (Tablet → Website)**: `POST /api/tablet/webhook` — das Tablet meldet Änderungen (`employee.upsert`,
 `order.upsert`, `vehicle.upsert`, `driver_hours.report`, `driver_shift.update`, `timeclock.update`, `trip.report`,
-`finance.transaction`, `locations.sync`, `orders.reset`) in Echtzeit. Verknüpfung läuft über
+`finance.transaction`, `locations.sync`, `orders.reset`, `driver_position.update`, `driver_position.remove`,
+`live_map.bounds`) in Echtzeit. Verknüpfung läuft über
 `tabletEmployeeId`/`tabletOrderId`/`tabletVehicleId` (bzw. das Kennzeichen bei Fahrzeugen) — bestehende Datensätze
 werden aktualisiert, unbekannte neu angelegt. `locations.sync` ist ein Sonderfall: kein Datensatz-Upsert, sondern
 meldet einmalig beim Tablet-Ressourcenstart die gültigen Standortnamen/Frachtarten
@@ -534,6 +535,17 @@ meldet einmalig beim Tablet-Ressourcenstart die gültigen Standortnamen/Frachtar
   in `tabletTransactions` an (`upsertTabletTransactionFromTablet`, gekeyt auf `tabletTransactionId`) und
   aktualisiert den gecachten `tabletCompanyBalance`. Grundlage für den Abschnitt "Ingame-Umsatz" auf der
   Finanzbuchhaltung-Seite (`GET /api/finance/tablet`).
+- `driver_position.update`/`driver_position.remove` (alle 3s, ausschließlich für gerade eingestempelte Fahrer;
+  sofort statt verzögert bei Schichtende/Disconnect) speisen die Live-Karte (`/mitarbeiter/live-karte`,
+  `GET /api/live-map`) — Position, Fahrzeug und laufender Auftrag jedes Fahrers. Bewusst **nicht** in `db.json`
+  persistiert (In-Memory-`Map`, `listDriverPositions`/`upsertDriverPosition`/`removeDriverPosition` in
+  `src/lib/server/store.ts`) — ändert sich zu häufig für den datei-basierten Store, baut sich nach einem
+  Website-Neustart einfach innerhalb eines Tracking-Intervalls neu auf. Einträge ohne Update seit 4 Minuten gelten
+  als veraltet und werden beim Auslesen verworfen (Sicherheitsnetz gegen verpasste `.remove`-Events).
+- `live_map.bounds` (einmalig beim Tablet-Ressourcenstart) meldet die im Tablet kalibrierten
+  Weltkoordinaten-Grenzen (`Config.LiveMap.bounds`) — die Live-Karte-Seite verwendet sie für dieselbe
+  Weltkoordinaten→Kartenbild-Prozent-Umrechnung wie das Tablet, statt eine eigene, potenziell abweichende Kopie
+  hart zu hinterlegen. Ist noch keine gepusht worden, verwendet die Seite einen groben Standard-Fallback.
 
 **Pull (Website → Tablet)**: Dispositionsaktionen landen nicht als direkter Datenbank-Patch, sondern in einer
 Befehls-Queue (`POST /api/tablet/commands`) — das Tablet pollt `GET /api/tablet/commands` alle paar Sekunden, führt

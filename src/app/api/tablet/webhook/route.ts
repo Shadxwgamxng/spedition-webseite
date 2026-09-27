@@ -4,6 +4,9 @@ import {
   applyDriverShiftUpdate,
   applyTimeclockUpdate,
   pruneStaleTabletOrders,
+  removeDriverPosition,
+  setLiveMapBounds,
+  upsertDriverPosition,
   upsertEmployeeFromTablet,
   upsertOrderFromTablet,
   upsertTabletLocations,
@@ -12,7 +15,7 @@ import {
   upsertVehicleFromTablet,
 } from "@/lib/server/store";
 import type { VehicleRecord } from "@/lib/fleet-data";
-import type { TabletLocationRecord, TabletTransactionType } from "@/lib/server/db-types";
+import type { DriverPositionRecord, TabletLocationRecord, TabletTransactionType } from "@/lib/server/db-types";
 
 const TABLET_TRANSACTION_TYPES: TabletTransactionType[] = ["einnahme", "auszahlung", "einzahlung", "gehalt"];
 
@@ -220,6 +223,52 @@ export async function POST(request: Request) {
         const locations = Array.isArray(data.locations) ? (data.locations as TabletLocationRecord[]) : [];
         const cargoTypes = Array.isArray(data.cargoTypes) ? (data.cargoTypes as string[]) : [];
         await upsertTabletLocations(locations, cargoTypes);
+        return Response.json({ ok: true });
+      }
+
+      case "driver_position.update": {
+        const tabletEmployeeId = num(data.tabletEmployeeId);
+        const name = str(data.name);
+        if (!tabletEmployeeId || !name) {
+          return Response.json({ ok: false, error: "tabletEmployeeId und name sind erforderlich." }, { status: 400 });
+        }
+        const rawOrder = data.order as Record<string, unknown> | null | undefined;
+        const order: DriverPositionRecord["order"] = rawOrder
+          ? {
+              cargo: str(rawOrder.cargo),
+              startLocation: str(rawOrder.startLocation),
+              endLocation: str(rawOrder.endLocation),
+              status: str(rawOrder.status),
+            }
+          : null;
+        upsertDriverPosition({
+          tabletEmployeeId,
+          name,
+          x: num(data.x),
+          y: num(data.y),
+          z: num(data.z),
+          vehiclePlate: typeof data.vehiclePlate === "string" ? data.vehiclePlate : null,
+          vehicleLabel: typeof data.vehicleLabel === "string" ? data.vehicleLabel : null,
+          order,
+        });
+        return Response.json({ ok: true });
+      }
+
+      case "driver_position.remove": {
+        const tabletEmployeeId = num(data.tabletEmployeeId);
+        if (!tabletEmployeeId) {
+          return Response.json({ ok: false, error: "tabletEmployeeId ist erforderlich." }, { status: 400 });
+        }
+        removeDriverPosition(tabletEmployeeId);
+        return Response.json({ ok: true });
+      }
+
+      case "live_map.bounds": {
+        const bounds = data.bounds as Record<string, unknown> | undefined;
+        if (!bounds) {
+          return Response.json({ ok: false, error: "bounds ist erforderlich." }, { status: 400 });
+        }
+        setLiveMapBounds({ minX: num(bounds.minX), maxX: num(bounds.maxX), minY: num(bounds.minY), maxY: num(bounds.maxY) });
         return Response.json({ ok: true });
       }
 
