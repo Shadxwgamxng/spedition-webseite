@@ -152,18 +152,26 @@ export function generateHrLetterPdf(input: {
   doc.setLineWidth(1);
   doc.line(MARGIN_X, y, MARGIN_X + 24, y);
 
-  // --- Subject line ---
+  // --- Subject line: nur die Details, die der große Titel (KIND_TITLE)
+  // direkt darüber noch nicht sagt - sonst stünde "Abmahnung"/"Kündigung"
+  // zweimal untereinander (einmal als Titel, einmal als "Betreff: ..."-
+  // Wiederholung desselben Worts). Bei der Abmahnung gibt es nichts, was
+  // der Titel nicht schon sagt, daher entfällt die Zeile dort komplett.
   y += 9;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(...BODY_GRAY);
   const subject =
-    kind === "abmahnung"
-      ? "Betreff: Abmahnung"
-      : `Betreff: ${terminationType === "fristlos" ? "Außerordentliche, fristlose Kündigung" : "Ordentliche Kündigung"} des Arbeitsverhältnisses${effectiveDate ? ` zum ${formatDate(effectiveDate)}` : ""}`;
-  const wrappedSubject = doc.splitTextToSize(subject, PAGE_RIGHT - MARGIN_X);
-  doc.text(wrappedSubject, MARGIN_X, y);
-  y += wrappedSubject.length * 5 + 8;
+    kind === "kuendigung"
+      ? `${terminationType === "fristlos" ? "Außerordentlich, fristlos" : "Ordentlich"}${effectiveDate ? ` · wirksam zum ${formatDate(effectiveDate)}` : ""}`
+      : null;
+  if (subject) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...BODY_GRAY);
+    const wrappedSubject = doc.splitTextToSize(subject, PAGE_RIGHT - MARGIN_X);
+    doc.text(wrappedSubject, MARGIN_X, y);
+    y += wrappedSubject.length * 5 + 8;
+  } else {
+    y += 6;
+  }
 
   // --- Salutation ---
   doc.setFont("helvetica", "normal");

@@ -42,6 +42,21 @@ export type AboutValueRecord = WithId<AboutValue>;
 export type AboutHighlightRecord = WithId<AboutHighlight>;
 export type AboutPageInfo = typeof aboutPageSeed;
 
+/**
+ * Verfahrensanweisung (internes Arbeitsanweisungs-Dokument, z. B. Abläufe
+ * für Be-/Entladung, Unfallmeldung, o. Ä.) - anders als news/jobs/etc. KEIN
+ * öffentlicher Website-Inhalt, sondern nur im Mitarbeiter-Dashboard sichtbar
+ * (Lesen: alle Rollen, Schreiben: Geschäftsführung/Prokurist über
+ * Verwaltung, s. roles.ts/employee-nav.ts). `body` ist Rich-Text-HTML aus
+ * rich-text-editor.tsx, vor dem Speichern serverseitig über
+ * sanitizeRichText() gehärtet (s. store.ts).
+ */
+export type ProcedureRecord = {
+  id: string;
+  title: string;
+  body: string;
+};
+
 export type ReminderEntry = { id: string; text: string; at: string; read: boolean };
 
 // (OrderMessage re-exported above from fleet-data.ts, kept there to avoid a
@@ -541,6 +556,7 @@ export type Db = {
   aboutMilestones: AboutMilestoneRecord[];
   aboutValues: AboutValueRecord[];
   aboutHighlights: AboutHighlightRecord[];
+  procedures: ProcedureRecord[];
   /** Control-direction command queue for the FiveM Speditions-Tablet — see TabletCommandRecord. */
   pendingCommands: TabletCommandRecord[];
   /** Gültige Tablet-Standorte/Frachtarten, gepusht via 'locations.sync' — siehe TabletLocationRecord. */
@@ -573,6 +589,7 @@ export const COLLECTION_ID_FIELD = {
   aboutMilestones: "id",
   aboutValues: "id",
   aboutHighlights: "id",
+  procedures: "id",
 } as const;
 
 export type CollectionName = keyof typeof COLLECTION_ID_FIELD;
@@ -597,6 +614,7 @@ export const CMS_COLLECTIONS = [
   "aboutMilestones",
   "aboutValues",
   "aboutHighlights",
+  "procedures",
 ] as const;
 
 export type CmsCollectionName = (typeof CMS_COLLECTIONS)[number];
@@ -662,6 +680,7 @@ export function seedDb(): Db {
     aboutMilestones: withIds(aboutMilestonesSeed, (m) => m.year),
     aboutValues: withIds(aboutValuesSeed, (v) => v.title),
     aboutHighlights: withIds(aboutHighlightsSeed, (h) => h.title),
+    procedures: [],
     pendingCommands: [],
     tabletLocations: [],
     tabletCargoTypes: [],

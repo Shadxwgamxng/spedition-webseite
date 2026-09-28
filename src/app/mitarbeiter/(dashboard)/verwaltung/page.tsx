@@ -32,6 +32,7 @@ const tabs = [
   { key: "fleetCategories", label: "Fuhrpark (Kategorien)" },
   { key: "reviews", label: "Rezensionen" },
   { key: "partners", label: "Partner" },
+  { key: "procedures", label: "Verfahrensanweisungen" },
   { key: "unternehmen", label: "Unternehmensdaten" },
   { key: "mitarbeiter", label: "Mitarbeiter-Konten" },
 ] as const;
@@ -275,6 +276,27 @@ export default function VerwaltungPage() {
               { key: "category", label: "Kategorie", required: true, placeholder: "z. B. Transportnetzwerk" },
             ]}
           />
+        ) : null}
+
+        {tab === "procedures" ? (
+          <div>
+            <p className="mb-4 text-xs text-navy-700/50">
+              Interne Arbeitsanweisungen (z. B. Abläufe für Be-/Entladung, Unfallmeldung) - für alle Mitarbeiter unter{" "}
+              <code className="text-navy-700/70">Verfahrensanweisungen</code> im Dashboard sichtbar, keine öffentlichen
+              Website-Inhalte.
+            </p>
+            <CollectionManager
+              collection="procedures"
+              idField="id"
+              titleField="title"
+              emptyLabel="Noch keine Verfahrensanweisungen."
+              newLabel="Verfahrensanweisung erstellen"
+              fields={[
+                { key: "title", label: "Titel", required: true, placeholder: "z. B. Ablauf Unfallmeldung" },
+                { key: "body", label: "Inhalt", type: "richtext", placeholder: "Text der Verfahrensanweisung…" },
+              ]}
+            />
+          </div>
         ) : null}
 
         {tab === "unternehmen" ? <CompanyForm /> : null}

@@ -29,6 +29,7 @@ import {
   type PersonnelFileRecord,
   type PersonnelTerminationRecord,
   type PersonnelWarningRecord,
+  type ProcedureRecord,
   type PublicCustomer,
   type PublicEmployee,
   type ReminderEntry,
@@ -41,6 +42,7 @@ import {
   type TripRecord,
 } from "@/lib/server/db-types";
 import type { OrderMessage, OrderRecord, OrderStatus, VehicleRecord } from "@/lib/fleet-data";
+import { sanitizeRichText } from "@/lib/server/sanitize-html";
 import { canAccessModule, isRoleKey, roleKeys, roleLabels, isDriverLicenseKey, type RoleKey } from "@/lib/roles";
 import type {
   DriverPositionRecord,
@@ -433,13 +435,34 @@ export async function getCollectionItem<T = unknown>(name: CollectionName, id: s
   return (items.find((item) => item[idField] === id) as T) ?? null;
 }
 
+/**
+ * Rich-Text-Felder je CMS-Collection, die vor dem Speichern durch
+ * sanitizeRichText() müssen - der generische CRUD-Layer hier kennt sonst
+ * keine Feldsemantik (alles ist "unknown"), daher diese kleine, explizite
+ * Ausnahmeliste statt versteckter Annahmen pro Feldname.
+ */
+const RICH_TEXT_FIELDS: Partial<Record<CollectionName, readonly string[]>> = {
+  procedures: ["body"],
+};
+
+function sanitizeRichTextFields<T extends Record<string, unknown>>(name: CollectionName, data: T): T {
+  const fields = RICH_TEXT_FIELDS[name];
+  if (!fields) return data;
+  const out: Record<string, unknown> = { ...data };
+  for (const field of fields) {
+    if (typeof out[field] === "string") out[field] = sanitizeRichText(out[field] as string);
+  }
+  return out as T;
+}
+
 export async function createCollectionItem<T extends Record<string, unknown>>(
   name: CollectionName,
   data: T,
 ): Promise<T> {
   const db = await readDb();
   const idField = COLLECTION_ID_FIELD[name];
-  const item: T = data[idField] ? data : ({ ...data, [idField]: makeId(String(Object.values(data)[0] ?? "item")) } as T);
+  const clean = sanitizeRichTextFields(name, data);
+  const item: T = clean[idField] ? clean : ({ ...clean, [idField]: makeId(String(Object.values(clean)[0] ?? "item")) } as T);
   (db[name] as unknown as T[]).push(item);
   await writeDb(db);
   return item;
@@ -455,7 +478,7 @@ export async function updateCollectionItem<T extends Record<string, unknown>>(
   const items = db[name] as unknown as T[];
   const item = items.find((i) => i[idField] === id);
   if (!item) return null;
-  Object.assign(item, patch);
+  Object.assign(item, sanitizeRichTextFields(name, patch as Record<string, unknown>));
   await writeDb(db);
   return item;
 }
@@ -529,6 +552,10 @@ export async function getCollectionItemPhoto(
 
 export async function getNews() {
   return listCollection<NewsRecord>("news");
+}
+
+export async function getProcedures() {
+  return listCollection<ProcedureRecord>("procedures");
 }
 
 export async function getJobs() {

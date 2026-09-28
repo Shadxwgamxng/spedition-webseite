@@ -12,6 +12,7 @@ import {
   PhoneIcon,
   RouteIcon,
   SettingsIcon,
+  ShieldIcon,
   TruckIcon,
   UsersIcon,
   WarehouseIcon,
@@ -122,6 +123,13 @@ export const employeeModules = [
     label: "Anfragen",
     description: "Kontaktanfragen von der Website sichten und per Discord beantworten.",
     icon: PhoneIcon,
+  },
+  {
+    key: "verfahrensanweisungen",
+    href: "/mitarbeiter/verfahrensanweisungen",
+    label: "Verfahrensanweisungen",
+    description: "Interne Arbeitsanweisungen nachlesen (Erstellen/Bearbeiten unter Verwaltung).",
+    icon: ShieldIcon,
   },
   {
     key: "verwaltung",

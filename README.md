@@ -47,6 +47,9 @@ durchgesetzt in `DashboardShell`).
 | Buchhaltung | Rechnungserstellung (inkl. PDF-Export), Finanzbuchhaltung, Stempeluhr |
 | Fahrer | Nur eigene Fahrerkarte, „Aktuelle Aufträge" (Chat mit der Disposition) und Stempeluhr |
 
+Verfahrensanweisungen ist wie Stempeluhr bei **jeder** Rolle in der Sichtbarkeitsliste (nur lesend) — geschrieben
+werden sie ausschließlich von Geschäftsführung/Prokurist unter Verwaltung (siehe „Verfahrensanweisungen" unten).
+
 Stempeluhr ist bei **jeder** Rolle in der Sichtbarkeitsliste, weil sich jeder Mitarbeiter ein- und ausstempelt —
 die Team-Übersicht über alle Mitarbeiter zeigt die Seite aber nur Geschäftsführung, Prokurist und Betriebsleitung
 (siehe „Stempeluhr" unten). Kundenstammbaum und Anfragen sind wie Personalakten nach Aufgabenbereich beschränkt:
@@ -203,6 +206,26 @@ ein strukturierter Verlaufseintrag gespeichert (Datum, Grund, erstellt von — `
 „Löschen"-Button je Eintrag (`DELETE /api/personnel-files/[employeeId]/warnings/[warningId]` bzw.
 `.../terminations/[terminationId]` — entfernt sowohl den Verlaufseintrag als auch das zugehörige PDF-Dokument aus
 der Akte). Beliebig oft auslösbar, keine Vollständigkeitsprüfung wie beim Arbeitsvertrag.
+
+Das PDF zeigte Abmahnung/Kündigung früher zweimal untereinander (großer Titel **und** eine „Betreff: Abmahnung"-
+bzw. „Betreff: ... Kündigung ..."-Zeile direkt darunter, die denselben Begriff wörtlich wiederholte) — die
+Betreff-Zeile bringt jetzt nur noch die Details, die der Titel nicht schon sagt (bei der Kündigung: Art
+ordentlich/fristlos + Datum), bei der Abmahnung entfällt sie ganz, da der Titel dort bereits alles sagt
+(`src/lib/server/hr-letter-pdf.ts`).
+
+### Verfahrensanweisungen
+
+Internes Reglement/Arbeitsanweisungen (z. B. Ablauf Be-/Entladung, Unfallmeldung) — anders als News/Jobs/etc. **kein**
+öffentlicher Website-Inhalt, sondern nur im Mitarbeiter-Dashboard sichtbar. Geschrieben/bearbeitet wird unter
+**Verwaltung → Verfahrensanweisungen** (Geschäftsführung, generische `CollectionManager`-CRUD über die
+`procedures`-Collection, s. „Verwaltung" unten) mit einem einfachen, abhängigkeitsfreien Rich-Text-Editor
+(Fett/Kursiv/Unterstrichen/Listen, `src/components/ui/rich-text-editor.tsx`, `document.execCommand` + verstecktes
+Formularfeld — kein npm-Paket wie Tiptap/Quill nötig). Gelesen wird von **jeder** Rolle im eigenen Sidebar-Modul
+**„Verfahrensanweisungen"** (`/mitarbeiter/verfahrensanweisungen`, Liste zum Auf-/Zuklappen). Der HTML-Inhalt wird
+serverseitig vor dem Speichern über einen engen Allowlist-Sanitizer gehärtet (`sanitizeRichText` in
+`src/lib/server/sanitize-html.ts` — nur Fett/Kursiv/Unterstrichen/Listen-Tags bleiben erhalten, sämtliche
+Tag-Attribute werden komplett entfernt), zusätzlich fügt der Editor eingefügten Zwischenablage-Inhalt clientseitig
+nur als Klartext ein.
 
 ### Bewerbungen (nur Geschäftsführer/Prokurist)
 

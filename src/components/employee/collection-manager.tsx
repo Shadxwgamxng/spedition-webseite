@@ -5,11 +5,12 @@ import { usePolling } from "@/lib/use-polling";
 import { Button } from "@/components/ui/primitives";
 import { CheckIcon, UploadIcon, UsersIcon } from "@/components/ui/icons";
 import { PhotoCropModal } from "@/components/employee/photo-crop-modal";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 export type FieldConfig = {
   key: string;
   label: string;
-  type?: "text" | "textarea" | "number" | "date" | "select" | "list";
+  type?: "text" | "textarea" | "number" | "date" | "select" | "list" | "richtext";
   options?: string[];
   required?: boolean;
   placeholder?: string;
@@ -170,12 +171,17 @@ export function CollectionManager({
           className="mt-4 grid grid-cols-1 gap-3 rounded-2xl border border-navy-900/8 bg-white p-5 shadow-sm shadow-navy-950/5 sm:grid-cols-2"
         >
           {fields.map((field) => (
-            <div key={field.key} className={field.type === "textarea" || field.type === "list" ? "sm:col-span-2" : ""}>
+            <div
+              key={field.key}
+              className={field.type === "textarea" || field.type === "list" || field.type === "richtext" ? "sm:col-span-2" : ""}
+            >
               <label className="mb-1.5 block text-xs font-medium text-navy-800" htmlFor={field.key}>
                 {field.label}
                 {field.help ? <span className="ml-1 font-normal text-navy-700/50">({field.help})</span> : null}
               </label>
-              {field.type === "textarea" || field.type === "list" ? (
+              {field.type === "richtext" ? (
+                <RichTextEditor name={field.key} defaultValue={fieldDefaultValue(field)} placeholder={field.placeholder} />
+              ) : field.type === "textarea" || field.type === "list" ? (
                 <textarea
                   id={field.key}
                   name={field.key}

@@ -79,6 +79,7 @@ const GESCHAEFTSFUEHRUNG_MODULES = [
   "personalakten",
   "bewerbungen",
   "verwaltung",
+  "verfahrensanweisungen",
 ];
 
 /**
@@ -111,13 +112,24 @@ export const roleModuleAccess: Record<RoleKey, string[]> = {
     "kundenstammbaum",
     "anfragen",
     "stempeluhr",
+    "verfahrensanweisungen",
   ],
-  chefdisponent: ["disposition", "auftragspool", "live-karte", "fahrzeuge", "fahrerkarte", "kundenstammbaum", "anfragen", "stempeluhr"],
-  disponent: ["disposition", "auftragspool", "live-karte", "kundenstammbaum", "anfragen", "stempeluhr"],
-  lager: ["lager", "stempeluhr"],
-  fuhrpark: ["fahrzeuge", "fahrtenbuch", "stempeluhr"],
-  buchhaltung: ["rechnungen", "finanzen", "stempeluhr"],
-  fahrer: ["fahrerkarte", "auftraege", "stempeluhr"],
+  chefdisponent: [
+    "disposition",
+    "auftragspool",
+    "live-karte",
+    "fahrzeuge",
+    "fahrerkarte",
+    "kundenstammbaum",
+    "anfragen",
+    "stempeluhr",
+    "verfahrensanweisungen",
+  ],
+  disponent: ["disposition", "auftragspool", "live-karte", "kundenstammbaum", "anfragen", "stempeluhr", "verfahrensanweisungen"],
+  lager: ["lager", "stempeluhr", "verfahrensanweisungen"],
+  fuhrpark: ["fahrzeuge", "fahrtenbuch", "stempeluhr", "verfahrensanweisungen"],
+  buchhaltung: ["rechnungen", "finanzen", "stempeluhr", "verfahrensanweisungen"],
+  fahrer: ["fahrerkarte", "auftraege", "stempeluhr", "verfahrensanweisungen"],
 };
 
 /** Roles that see the all-employees overview on Stempeluhr and manage Kundenstammbaum. */
