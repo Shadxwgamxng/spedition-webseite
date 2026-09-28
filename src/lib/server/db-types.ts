@@ -55,6 +55,8 @@ export type ProcedureRecord = {
   id: string;
   title: string;
   body: string;
+  /** Name aus der Sitzung dessen, der die Anweisung zuletzt gespeichert hat - erscheint als Unterschrift im PDF-Export. */
+  issuedBy?: string;
 };
 
 export type ReminderEntry = { id: string; text: string; at: string; read: boolean };

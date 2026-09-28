@@ -227,6 +227,14 @@ serverseitig vor dem Speichern über einen engen Allowlist-Sanitizer gehärtet (
 Tag-Attribute werden komplett entfernt), zusätzlich fügt der Editor eingefügten Zwischenablage-Inhalt clientseitig
 nur als Klartext ein.
 
+**PDF-Export**: Jede Verfahrensanweisung lässt sich über **„PDF speichern"** (Leseansicht) als eigenständiges,
+mehrseitiges PDF im selben Briefkopf-Stil wie Arbeitsvertrag/Abmahnung/Kündigung herunterladen
+(`GET /api/procedures/[id]/pdf`, `src/lib/server/procedure-pdf.ts`) - inklusive Fett/Kursiv/Unterstrichen/Listen
+(ein schlanker eigener HTML-zu-jsPDF-Tokenizer, da Node kein `DOMParser` mitbringt) und einer
+Handschrift-Unterschrift (`registerSignatureFont`/`applySignatureFont`, gleiche Technik wie bei Abmahnung/
+Kündigung) der Person, die die Anweisung zuletzt gespeichert hat (`ProcedureRecord.issuedBy`, automatisch aus der
+Sitzung befüllt - `CollectionManager`s neues `hiddenDefaults`-Prop, kein eigenes Formularfeld dafür nötig).
+
 ### Bewerbungen (nur Geschäftsführer/Prokurist)
 
 Das öffentliche Bewerbungsportal (`/bewerbung`) hat jetzt ein echtes Backend: eingehende Bewerbungen landen

@@ -295,6 +295,7 @@ export default function VerwaltungPage() {
                 { key: "title", label: "Titel", required: true, placeholder: "z. B. Ablauf Unfallmeldung" },
                 { key: "body", label: "Inhalt", type: "richtext", placeholder: "Text der Verfahrensanweisung…" },
               ]}
+              hiddenDefaults={{ issuedBy: user?.name ?? "" }}
             />
           </div>
         ) : null}

@@ -5,9 +5,9 @@ import { useAuth } from "@/lib/auth";
 import { canAccessModule } from "@/lib/roles";
 import { usePolling } from "@/lib/use-polling";
 import { EmployeePageHeader } from "@/components/employee/page-header";
-import { ShieldIcon } from "@/components/ui/icons";
+import { BookIcon, InvoiceIcon } from "@/components/ui/icons";
 
-type ProcedureRecord = { id: string; title: string; body: string };
+type ProcedureRecord = { id: string; title: string; body: string; issuedBy?: string };
 
 export default function VerfahrensanweisungenPage() {
   const { user } = useAuth();
@@ -37,17 +37,28 @@ export default function VerfahrensanweisungenPage() {
             const open = openId === procedure.id;
             return (
               <div key={procedure.id} className="overflow-hidden rounded-2xl border border-navy-900/8 bg-white shadow-sm shadow-navy-950/5">
-                <button
-                  type="button"
-                  onClick={() => setOpenId(open ? null : procedure.id)}
-                  className="flex w-full items-center gap-3 px-5 py-4 text-left"
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-700">
-                    <ShieldIcon className="h-4 w-4" />
-                  </span>
-                  <span className="flex-1 text-sm font-semibold text-navy-900">{procedure.title}</span>
-                  <span className="text-xs font-semibold text-navy-700/50">{open ? "Zuklappen" : "Öffnen"}</span>
-                </button>
+                <div className="flex w-full items-center gap-3 px-5 py-4 text-left">
+                  <button type="button" onClick={() => setOpenId(open ? null : procedure.id)} className="flex flex-1 items-center gap-3 text-left">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-700">
+                      <BookIcon className="h-4 w-4" />
+                    </span>
+                    <span className="flex-1 text-sm font-semibold text-navy-900">{procedure.title}</span>
+                  </button>
+                  <a
+                    href={`/api/procedures/${procedure.id}/pdf`}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-navy-900/15 px-3 py-1.5 text-xs font-semibold text-navy-700 hover:bg-mist-100"
+                  >
+                    <InvoiceIcon className="h-3.5 w-3.5" />
+                    PDF speichern
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(open ? null : procedure.id)}
+                    className="shrink-0 text-xs font-semibold text-navy-700/50"
+                  >
+                    {open ? "Zuklappen" : "Öffnen"}
+                  </button>
+                </div>
                 {open ? (
                   <div
                     className="border-t border-navy-900/8 px-5 py-4 text-sm leading-relaxed text-navy-800 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"

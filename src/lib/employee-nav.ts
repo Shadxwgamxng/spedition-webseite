@@ -1,4 +1,5 @@
 import {
+  BookIcon,
   BoxIcon,
   ChartIcon,
   ClipboardIcon,
@@ -12,7 +13,6 @@ import {
   PhoneIcon,
   RouteIcon,
   SettingsIcon,
-  ShieldIcon,
   TruckIcon,
   UsersIcon,
   WarehouseIcon,
@@ -129,7 +129,7 @@ export const employeeModules = [
     href: "/mitarbeiter/verfahrensanweisungen",
     label: "Verfahrensanweisungen",
     description: "Interne Arbeitsanweisungen nachlesen (Erstellen/Bearbeiten unter Verwaltung).",
-    icon: ShieldIcon,
+    icon: BookIcon,
   },
   {
     key: "verwaltung",

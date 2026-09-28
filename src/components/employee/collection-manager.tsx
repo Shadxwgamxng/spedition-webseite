@@ -31,6 +31,7 @@ export function CollectionManager({
   emptyLabel,
   newLabel,
   photoUpload,
+  hiddenDefaults,
 }: {
   collection: string;
   idField: string;
@@ -41,6 +42,8 @@ export function CollectionManager({
   newLabel: string;
   /** Zeigt pro Eintrag ein Foto-Thumbnail mit Hochladen/Entfernen (PATCH-Feld "photoMimeType" markiert das Vorhandensein). */
   photoUpload?: boolean;
+  /** Zusätzliche Felder, die bei jedem Speichern (Erstellen & Bearbeiten) ohne eigenes Formularfeld in den Payload gemischt werden - z. B. issuedBy aus der aktuellen Sitzung (s. Verfahrensanweisungen). */
+  hiddenDefaults?: Record<string, unknown>;
 }) {
   const { data, refetch } = usePolling<{ items: Item[] }>(`/api/admin/${collection}`, 6000);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -124,6 +127,7 @@ export function CollectionManager({
         payload[field.key] = String(raw ?? "");
       }
     }
+    if (hiddenDefaults) Object.assign(payload, hiddenDefaults);
 
     try {
       const isNew = editingId === NEW;
