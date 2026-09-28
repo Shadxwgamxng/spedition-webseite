@@ -42,7 +42,7 @@ export function CollectionManager({
   newLabel: string;
   /** Zeigt pro Eintrag ein Foto-Thumbnail mit Hochladen/Entfernen (PATCH-Feld "photoMimeType" markiert das Vorhandensein). */
   photoUpload?: boolean;
-  /** Zusätzliche Felder, die bei jedem Speichern (Erstellen & Bearbeiten) ohne eigenes Formularfeld in den Payload gemischt werden - z. B. issuedBy aus der aktuellen Sitzung (s. Verfahrensanweisungen). */
+  /** Zusätzliche Felder, die nur beim Neu-Erstellen (nicht beim Bearbeiten) ohne eigenes Formularfeld in den Payload gemischt werden - z. B. issuedBy aus der aktuellen Sitzung, damit die Unterschrift dauerhaft die des ursprünglichen Erstellers bleibt (s. Verfahrensanweisungen). */
   hiddenDefaults?: Record<string, unknown>;
 }) {
   const { data, refetch } = usePolling<{ items: Item[] }>(`/api/admin/${collection}`, 6000);
@@ -127,10 +127,10 @@ export function CollectionManager({
         payload[field.key] = String(raw ?? "");
       }
     }
-    if (hiddenDefaults) Object.assign(payload, hiddenDefaults);
+    const isNew = editingId === NEW;
+    if (hiddenDefaults && isNew) Object.assign(payload, hiddenDefaults);
 
     try {
-      const isNew = editingId === NEW;
       const res = await fetch(isNew ? `/api/admin/${collection}` : `/api/admin/${collection}/${editingId}`, {
         method: isNew ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },

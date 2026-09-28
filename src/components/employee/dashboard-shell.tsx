@@ -87,7 +87,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       <div className="flex h-16 items-center border-b border-white/10 px-5">
         <Logo light />
       </div>
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav className="scrollbar-dark flex-1 space-y-1 overflow-y-auto px-3 py-4">
         <Link
           href="/mitarbeiter"
           onClick={() => setMobileOpen(false)}
