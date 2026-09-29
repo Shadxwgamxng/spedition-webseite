@@ -54,7 +54,10 @@ export default function KrankmeldungUrlaubPage() {
         }
       />
 
-      <SubmitForm refetch={refetch} />
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+        <SubmitForm refetch={refetch} />
+        {isManager ? <AbsenceCalendar requests={requests} /> : null}
+      </div>
 
       <OwnRequests requests={own} refetch={refetch} />
 
@@ -163,6 +166,137 @@ function SubmitForm({ refetch }: { refetch: () => Promise<void> }) {
         <CalendarIcon className="h-4 w-4" />
         {saving ? "Wird eingereicht…" : kind === "krankmeldung" ? "Krankmeldung absenden" : "Urlaub beantragen"}
       </button>
+    </div>
+  );
+}
+
+const WEEKDAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+
+/** YYYY-MM-DD aus lokalen Datumsanteilen — bewusst kein toISOString() (das würde bei Zeiten nahe Mitternacht durch die UTC-Umrechnung auf den falschen Tag springen). */
+function toDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+type AbsentEntry = { employeeName: string; kind: AbsenceRequestKind };
+
+/**
+ * Monatsübersicht für die Führung: pro Tag, wer krankgemeldet oder (genehmigt)
+ * im Urlaub ist. Ein noch nicht genehmigter Urlaubsantrag taucht hier bewusst
+ * nicht auf — er ist ja noch nicht bestätigt — steht aber weiterhin in der
+ * Tabelle "Alle Mitarbeiter" darunter zur Prüfung.
+ */
+function AbsenceCalendar({ requests }: { requests: AbsenceRequestRecord[] }) {
+  const today = new Date();
+  const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+
+  const relevant = requests.filter((r) => r.kind === "krankmeldung" || r.status === "genehmigt");
+
+  const byDay = new Map<string, AbsentEntry[]>();
+  for (const r of relevant) {
+    if (!r.startDate || !r.endDate) continue;
+    const cur = new Date(`${r.startDate}T00:00:00`);
+    const end = new Date(`${r.endDate}T00:00:00`);
+    while (cur <= end) {
+      const key = toDateKey(cur);
+      const list = byDay.get(key) ?? [];
+      list.push({ employeeName: r.employeeName, kind: r.kind });
+      byDay.set(key, list);
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+
+  const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+  const firstWeekday = (monthStart.getDay() + 6) % 7; // Montag = 0
+  const gridStart = new Date(monthStart);
+  gridStart.setDate(gridStart.getDate() - firstWeekday);
+  const days = Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(gridStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  const todayKey = toDateKey(today);
+  const monthLabel = cursor.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+
+  return (
+    <div className="w-full max-w-xl rounded-2xl border border-navy-900/8 bg-white p-6 shadow-sm shadow-navy-950/5 xl:ml-auto">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-semibold capitalize text-navy-900">{monthLabel}</div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
+            aria-label="Vorheriger Monat"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-navy-700 hover:bg-mist-100"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))}
+            className="rounded-full px-2.5 py-1 text-xs font-medium text-navy-700 hover:bg-mist-100"
+          >
+            Heute
+          </button>
+          <button
+            type="button"
+            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
+            aria-label="Nächster Monat"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-navy-700 hover:bg-mist-100"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[11px] font-medium uppercase tracking-wide text-navy-700/50">
+        {WEEKDAY_LABELS.map((w) => (
+          <div key={w}>{w}</div>
+        ))}
+      </div>
+
+      <div className="mt-1 grid grid-cols-7 gap-1">
+        {days.map((d) => {
+          const key = toDateKey(d);
+          const inMonth = d.getMonth() === cursor.getMonth();
+          const entries = byDay.get(key) ?? [];
+          const shown = entries.slice(0, 2);
+          const extra = entries.length - shown.length;
+          return (
+            <div
+              key={key}
+              className={`min-h-[64px] rounded-lg border p-1 text-left ${
+                key === todayKey ? "border-amber-400 bg-amber-400/10" : "border-navy-900/6"
+              } ${inMonth ? "" : "opacity-35"}`}
+            >
+              <div className="text-[11px] font-medium text-navy-700/70">{d.getDate()}</div>
+              <div className="mt-0.5 space-y-0.5">
+                {shown.map((e, i) => (
+                  <div
+                    key={i}
+                    title={`${e.employeeName} · ${KIND_LABEL[e.kind]}`}
+                    className={`truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight text-white ${
+                      e.kind === "krankmeldung" ? "bg-red-500" : "bg-emerald-600"
+                    }`}
+                  >
+                    {e.employeeName}
+                  </div>
+                ))}
+                {extra > 0 ? <div className="text-[10px] font-medium text-navy-700/50">+{extra} mehr</div> : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 flex items-center gap-4 text-xs text-navy-700/60">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Krankmeldung
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> Urlaub (genehmigt)
+        </div>
+      </div>
     </div>
   );
 }
