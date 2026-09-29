@@ -126,8 +126,12 @@ export function generateContractPdf(input: {
   department: string;
   file: PersonnelFileRecord;
   logo?: { bytes: Uint8Array; mimeType: string } | null;
+  /** Wer den Vertrag auf Arbeitgeberseite unterschreibt - immer alle aktuell
+   * in der Team-Verwaltung hinterlegten Geschäftsführer (src/lib/data.ts
+   * `management`), nicht nur ein einzelner Firmenname als Platzhalter. */
+  managementSignatories: Array<{ name: string; role?: string }>;
 }): Uint8Array {
-  const { company, employeeName, roleLabel, department, file, logo } = input;
+  const { company, employeeName, roleLabel, department, file, logo, managementSignatories } = input;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   registerSignatureFont(doc);
   let y = 20;
@@ -262,13 +266,14 @@ export function generateContractPdf(input: {
       title: "Beginn, Dauer und Probezeit",
       lines: [
         `Das Arbeitsverhältnis beginnt am ${formatDate(file.hireDate)} und wird auf unbestimmte Zeit geschlossen.`,
-        "Die ersten sechs Monate des Arbeitsverhältnisses gelten als Probezeit. Während der Probezeit kann das Arbeitsverhältnis von beiden Seiten mit einer Frist von zwei Wochen gekündigt werden.",
+        "Die ersten vier Wochen des Arbeitsverhältnisses gelten als Probezeit. Während der Probezeit kann das Arbeitsverhältnis von beiden Seiten fristlos, das heißt mit sofortiger Wirkung, gekündigt werden.",
       ],
     },
     {
       title: "Arbeitszeit",
       lines: [
         `Die Arbeitszeit richtet sich nach der vereinbarten Beschäftigungsart („${file.employmentType || "—"}") sowie den betrieblichen Erfordernissen des Arbeitgebers.`,
+        "Als Vollzeitbeschäftigung gilt eine wöchentliche Mindestarbeitszeit von 8 Stunden, als Teilzeitbeschäftigung eine wöchentliche Mindestarbeitszeit von 6 Stunden.",
         "Bei betrieblicher Notwendigkeit ist der Arbeitnehmer im Rahmen der gesetzlichen Vorschriften zur Ableistung von Mehrarbeit und Überstunden verpflichtet.",
       ],
     },
@@ -276,13 +281,14 @@ export function generateContractPdf(input: {
       title: "Vergütung",
       lines: [
         "Die Vergütung erfolgt nach gesonderter Vereinbarung zwischen den Vertragsparteien und wird monatlich nachträglich auf das vom Arbeitnehmer benannte Konto ausgezahlt.",
+        "Beim Abschluss größerer Aufträge entscheidet die Geschäftsführung nach eigenem Ermessen über eine Sonderzahlung in Höhe von 3 bis 5 % des jeweiligen Auftragswertes.",
         "Änderungen der Kontoverbindung sind dem Arbeitgeber unverzüglich mitzuteilen.",
       ],
     },
     {
       title: "Urlaub",
       lines: [
-        "Der Arbeitnehmer hat Anspruch auf den gesetzlichen Mindesturlaub gemäß Bundesurlaubsgesetz pro Kalenderjahr.",
+        "Der Arbeitnehmer hat Anspruch auf 25 Urlaubstage pro Kalenderjahr.",
         "Zeitpunkt und Dauer des Urlaubs richten sich nach den betrieblichen Möglichkeiten unter angemessener Berücksichtigung der Wünsche des Arbeitnehmers.",
       ],
     },
@@ -290,7 +296,7 @@ export function generateContractPdf(input: {
       title: "Arbeitsverhinderung und Krankmeldung",
       lines: [
         "Ist der Arbeitnehmer an der Erbringung seiner Arbeitsleistung verhindert, hat er den Arbeitgeber unverzüglich unter Angabe der voraussichtlichen Dauer zu informieren.",
-        "Im Krankheitsfall ist spätestens am vierten Kalendertag eine ärztliche Bescheinigung über die Arbeitsunfähigkeit vorzulegen; Gleiches gilt für Folgebescheinigungen.",
+        "Im Krankheitsfall ist spätestens ab dem dritten Krankheitstag eine ärztliche Bescheinigung über die Arbeitsunfähigkeit vorzulegen; Gleiches gilt für Folgebescheinigungen.",
       ],
     },
     {
@@ -328,7 +334,8 @@ export function generateContractPdf(input: {
     {
       title: "Kündigung",
       lines: [
-        "Für die Kündigung dieses Vertrags gelten die gesetzlichen Kündigungsfristen. Die Kündigung bedarf der Schriftform.",
+        "Außerhalb der Probezeit kann dieser Vertrag von beiden Seiten mit einer Frist von zwei Wochen gekündigt werden. Innerhalb der Probezeit gilt die in § 3 geregelte fristlose Kündigungsmöglichkeit.",
+        "Die Kündigung bedarf der Schriftform.",
         "Der Arbeitgeber kann den Arbeitnehmer bis zur Beendigung des Arbeitsverhältnisses unter Anrechnung noch bestehender Urlaubsansprüche von der Arbeitsleistung freistellen.",
       ],
     },
@@ -360,7 +367,13 @@ export function generateContractPdf(input: {
   });
 
   // --- Signatures ---
-  if (y > PAGE_BOTTOM - 45) {
+  // Arbeitgeberseite braucht ggf. mehrere gestapelte Unterschriftsblöcke
+  // (ein Block je Geschäftsführer), Arbeitnehmerseite bleibt bei einem -
+  // exakter Platzbedarf ab hier: 8 (Datumszeile) + 18 (Abstand zur ersten
+  // Unterschrift) + 20 je gestapeltem Arbeitgeber-Block, plus 6 Sicherheit.
+  const employerBlockCount = Math.max(1, managementSignatories.length);
+  const signatureSpaceNeeded = 8 + 18 + employerBlockCount * 20 + 6;
+  if (y > PAGE_BOTTOM - signatureSpaceNeeded) {
     doc.addPage();
     y = 20;
   }
@@ -369,22 +382,37 @@ export function generateContractPdf(input: {
   doc.setFontSize(10);
   doc.setTextColor(...BODY_GRAY);
   doc.text(`${company.city}, den ${formatDate(new Date().toISOString())}`, MARGIN_X, y);
-  y += 22;
-  // Beide Seiten unterschreiben automatisch (Name in Unterschrift-Schriftart).
-  applySignatureFont(doc, 20);
-  doc.setTextColor(...NAVY_900);
-  doc.text(company.name, MARGIN_X + 2, y - 3, { maxWidth: 66 });
-  doc.text(employeeName, PAGE_RIGHT - 68, y - 3, { maxWidth: 66 });
-  doc.setDrawColor(...NAVY_900);
-  doc.setLineWidth(0.4);
-  doc.line(MARGIN_X, y, MARGIN_X + 70, y);
-  doc.line(PAGE_RIGHT - 70, y, PAGE_RIGHT, y);
-  y += 5;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(...NAVY_900);
-  doc.text("Arbeitgeber", MARGIN_X, y);
-  doc.text("Arbeitnehmer", PAGE_RIGHT - 70, y);
+  y += 18;
+
+  const signatureStartY = y;
+  const colWidth = 70;
+
+  /** Ein Unterschriftsblock (Name in Unterschrift-Schriftart, Linie, Label) an x/y, gibt die Höhe des Blocks zurück. */
+  function drawSignatureLine(x: number, blockY: number, name: string, label: string): number {
+    applySignatureFont(doc, 18);
+    doc.setTextColor(...NAVY_900);
+    doc.text(name, x + 2, blockY, { maxWidth: colWidth - 4 });
+    doc.setDrawColor(...NAVY_900);
+    doc.setLineWidth(0.4);
+    doc.line(x, blockY + 3, x + colWidth, blockY + 3);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...NAVY_900);
+    doc.text(label, x, blockY + 8);
+    return blockY + 20;
+  }
+
+  // Arbeitgeberseite: ein Block je Geschäftsführer (immer alle, die
+  // aktuell in der Team-Verwaltung als Management hinterlegt sind).
+  let employerY = signatureStartY;
+  const signatories = managementSignatories.length > 0 ? managementSignatories : [{ name: company.name }];
+  for (const signatory of signatories) {
+    const label = signatory.role ? `Arbeitgeber – ${signatory.role}` : "Arbeitgeber";
+    employerY = drawSignatureLine(MARGIN_X, employerY, signatory.name, label);
+  }
+
+  // Arbeitnehmerseite
+  drawSignatureLine(PAGE_RIGHT - colWidth, signatureStartY, employeeName, "Arbeitnehmer");
 
   const pageCount = doc.getNumberOfPages();
   for (let page = 1; page <= pageCount; page++) {

@@ -6,6 +6,7 @@ import {
   getCompany,
   getCompanyLogo,
   getEmployeeById,
+  getManagementTeam,
   getPersonnelFile,
   updatePersonnelFile,
 } from "@/lib/server/store";
@@ -31,7 +32,7 @@ export async function generateAndDistributeContract(
   if (!employee) return { generated: false, error: "Mitarbeiter nicht gefunden." };
   if (!personnelFile) return { generated: false, error: "Personalakte nicht gefunden." };
 
-  const [company, logo] = await Promise.all([getCompany(), getCompanyLogo()]);
+  const [company, logo, managementTeam] = await Promise.all([getCompany(), getCompanyLogo(), getManagementTeam()]);
   const pdfBytes = generateContractPdf({
     company,
     employeeName: employee.name,
@@ -39,6 +40,7 @@ export async function generateAndDistributeContract(
     department: employee.department,
     file: personnelFile,
     logo,
+    managementSignatories: managementTeam.map((m) => ({ name: m.name, role: m.role })),
   });
   const dateSuffix = new Date().toISOString().slice(0, 10);
   const fileName = `Arbeitsvertrag_${employee.name.replace(/\s+/g, "_")}_${dateSuffix}.pdf`;
