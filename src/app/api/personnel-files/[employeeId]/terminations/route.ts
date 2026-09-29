@@ -9,12 +9,13 @@ export async function POST(request: Request, ctx: RouteContext<"/api/personnel-f
   const terminationType = body?.terminationType === "fristlos" ? "fristlos" : "ordentlich";
   const reason = typeof body?.reason === "string" ? body.reason.trim() : "";
   const issuedBy = typeof body?.issuedBy === "string" ? body.issuedBy : "";
+  const issuedByRole = typeof body?.issuedByRole === "string" ? body.issuedByRole : "";
 
   if (!date || !effectiveDate || !reason) {
     return Response.json({ ok: false, error: "Datum, Wirksam-zum und Grund sind erforderlich." }, { status: 400 });
   }
 
-  const result = await generateAndDistributeTermination(employeeId, { date, effectiveDate, terminationType, reason, issuedBy });
+  const result = await generateAndDistributeTermination(employeeId, { date, effectiveDate, terminationType, reason, issuedBy, issuedByRole });
   if (!result.generated) {
     return Response.json({ ok: false, error: result.error }, { status: 404 });
   }

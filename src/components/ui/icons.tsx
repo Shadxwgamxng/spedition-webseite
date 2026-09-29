@@ -300,6 +300,21 @@ export function CookieIcon(props: IconProps) {
 }
 
 /** The Discord logo mark — filled, not one of this file's stroke-based line icons, so it doesn't spread `base`. */
+export function CalendarIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="4.5" width="18" height="16" rx="2" />
+      <path d="M3 9.5h18" />
+      <path d="M8 2.5v4" />
+      <path d="M16 2.5v4" />
+      <path d="M8 13.5h2" />
+      <path d="M14 13.5h2" />
+      <path d="M8 17h2" />
+      <path d="M14 17h2" />
+    </svg>
+  );
+}
+
 export function DiscordIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>

@@ -27,7 +27,7 @@ type HrLetterGenerationError = { generated: false; error: string };
  */
 export async function generateAndDistributeWarning(
   employeeId: string,
-  input: { date: string; reason: string; issuedBy: string },
+  input: { date: string; reason: string; issuedBy: string; issuedByRole?: string },
 ): Promise<HrLetterGenerationResult | HrLetterGenerationError> {
   const [employee, personnelFile] = await Promise.all([getEmployeeById(employeeId), getPersonnelFile(employeeId)]);
   if (!employee) return { generated: false, error: "Mitarbeiter nicht gefunden." };
@@ -43,6 +43,7 @@ export async function generateAndDistributeWarning(
     date: input.date,
     reason: input.reason,
     issuedBy: input.issuedBy,
+    issuedByRole: input.issuedByRole,
   });
   const fileName = `Abmahnung_${employee.name.replace(/\s+/g, "_")}_${input.date}.pdf`;
 
@@ -64,7 +65,14 @@ export async function generateAndDistributeWarning(
 /** Same as generateAndDistributeWarning, but for a Kündigung. */
 export async function generateAndDistributeTermination(
   employeeId: string,
-  input: { date: string; effectiveDate: string; terminationType: "ordentlich" | "fristlos"; reason: string; issuedBy: string },
+  input: {
+    date: string;
+    effectiveDate: string;
+    terminationType: "ordentlich" | "fristlos";
+    reason: string;
+    issuedBy: string;
+    issuedByRole?: string;
+  },
 ): Promise<HrLetterGenerationResult | HrLetterGenerationError> {
   const [employee, personnelFile] = await Promise.all([getEmployeeById(employeeId), getPersonnelFile(employeeId)]);
   if (!employee) return { generated: false, error: "Mitarbeiter nicht gefunden." };
@@ -82,6 +90,7 @@ export async function generateAndDistributeTermination(
     effectiveDate: input.effectiveDate,
     terminationType: input.terminationType,
     issuedBy: input.issuedBy,
+    issuedByRole: input.issuedByRole,
   });
   const fileName = `Kuendigung_${employee.name.replace(/\s+/g, "_")}_${input.date}.pdf`;
 

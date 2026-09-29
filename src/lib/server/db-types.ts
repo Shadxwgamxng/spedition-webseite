@@ -57,6 +57,35 @@ export type ProcedureRecord = {
   body: string;
   /** Name aus der Sitzung dessen, der die Anweisung zuletzt gespeichert hat - erscheint als Unterschrift im PDF-Export. */
   issuedBy?: string;
+  /** Positions-Bezeichnung dieser Person (z. B. "Prokurist") - steuert das "ppa."-Kürzel vor der Unterschrift im PDF-Export. */
+  issuedByRole?: string;
+};
+
+export type AbsenceRequestKind = "krankmeldung" | "urlaub";
+
+/**
+ * Genehmigungsstatus: eine Krankmeldung ist reine Information (sie bleibt
+ * dauerhaft "eingereicht", es gibt für sie keinen Genehmigen/Ablehnen-Button
+ * - man kann sich nicht "krankmelden ablehnen") und wird nur zur
+ * Übersichtlichkeit über dasselbe Feld geführt wie Urlaub, der von der
+ * Führung tatsächlich genehmigt/abgelehnt werden muss.
+ */
+export type AbsenceRequestStatus = "eingereicht" | "genehmigt" | "abgelehnt";
+
+/** Eine Krankmeldung oder ein Urlaubsantrag eines Mitarbeiters - siehe "Krankmeldung und Urlaub einreichen" im Dashboard. */
+export type AbsenceRequestRecord = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  kind: AbsenceRequestKind;
+  /** YYYY-MM-DD, jeweils inklusive. */
+  startDate: string;
+  endDate: string;
+  note: string;
+  status: AbsenceRequestStatus;
+  createdAt: string;
+  decidedBy: string | null;
+  decidedAt: string | null;
 };
 
 export type ReminderEntry = { id: string; text: string; at: string; read: boolean };
@@ -436,7 +465,7 @@ export type ContactInquiryRecord = {
  */
 export type NotificationRecord = {
   id: string;
-  kind: "pool_order" | "order_assigned" | "application" | "inquiry" | "customer_order";
+  kind: "pool_order" | "order_assigned" | "application" | "inquiry" | "customer_order" | "absence_request";
   message: string;
   href: string;
   createdAt: string;
@@ -570,6 +599,8 @@ export type Db = {
   tabletCompanyBalance: number;
   /** In-App-Benachrichtigungen (Glocke im Dashboard) — siehe NotificationRecord. Neueste zuerst, auf NOTIFICATION_LIMIT gedeckelt. */
   notifications: NotificationRecord[];
+  /** Krankmeldungen/Urlaubsanträge — siehe AbsenceRequestRecord. */
+  absenceRequests: AbsenceRequestRecord[];
 };
 
 export const COLLECTION_ID_FIELD = {
@@ -689,5 +720,6 @@ export function seedDb(): Db {
     tabletTransactions: [],
     tabletCompanyBalance: 0,
     notifications: [],
+    absenceRequests: [],
   };
 }

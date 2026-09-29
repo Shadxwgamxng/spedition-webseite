@@ -408,7 +408,11 @@ export function generateContractPdf(input: {
   const signatories = managementSignatories.length > 0 ? managementSignatories : [{ name: company.name }];
   for (const signatory of signatories) {
     const label = signatory.role ? `Arbeitgeber – ${signatory.role}` : "Arbeitgeber";
-    employerY = drawSignatureLine(MARGIN_X, employerY, signatory.name, label);
+    // Ein Prokurist zeichnet rechtlich "per procura" statt als Organ der
+    // Gesellschaft - das Kürzel "ppa." gehört daher mit vor den Namen in die
+    // Unterschrift selbst, nicht nur in das Label darunter.
+    const signedName = signatory.role?.toLowerCase().includes("prokurist") ? `ppa. ${signatory.name}` : signatory.name;
+    employerY = drawSignatureLine(MARGIN_X, employerY, signedName, label);
   }
 
   // Arbeitnehmerseite

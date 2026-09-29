@@ -108,7 +108,7 @@ export function PersonnelFilesManager() {
                 {open && file ? (
                   <div className="border-t border-navy-900/8 p-4">
                     <PersonnelFileForm file={file} onSaved={refetchAll} />
-                    <PersonnelDisciplinary file={file} issuedBy={user?.name ?? ""} onChanged={refetchAll} />
+                    <PersonnelDisciplinary file={file} issuedBy={user?.name ?? ""} issuedByRole={user?.role ?? ""} onChanged={refetchAll} />
                     <PersonnelDocuments file={file} onChanged={refetchAll} />
                   </div>
                 ) : null}
@@ -457,10 +457,12 @@ function TerminationDialog({
 function PersonnelDisciplinary({
   file,
   issuedBy,
+  issuedByRole,
   onChanged,
 }: {
   file: PersonnelFile;
   issuedBy: string;
+  issuedByRole: string;
   onChanged: () => Promise<void>;
 }) {
   const [dialog, setDialog] = useState<"warning" | "termination" | null>(null);
@@ -484,7 +486,7 @@ function PersonnelDisciplinary({
       const res = await fetch(`/api/personnel-files/${file.employeeId}/warnings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...input, issuedBy }),
+        body: JSON.stringify({ ...input, issuedBy, issuedByRole }),
       });
       const json = await parseJsonResponse(res);
       if (!res.ok || json.ok === false) {
@@ -509,7 +511,7 @@ function PersonnelDisciplinary({
       const res = await fetch(`/api/personnel-files/${file.employeeId}/terminations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...input, issuedBy }),
+        body: JSON.stringify({ ...input, issuedBy, issuedByRole }),
       });
       const json = await parseJsonResponse(res);
       if (!res.ok || json.ok === false) {

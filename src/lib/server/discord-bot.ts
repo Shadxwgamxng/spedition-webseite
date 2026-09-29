@@ -46,6 +46,69 @@ export async function sendDiscordDm(discordId: string, content: string): Promise
   }
 }
 
+/**
+ * Posts a message directly into a Discord channel (as opposed to a DM) —
+ * used for internal Führungs-Benachrichtigungen (z. B. Krankmeldung/Urlaub),
+ * where the recipient is "whoever has the pinged role", not one specific
+ * verknüpfter Mitarbeiter. Same DISCORD_BOT_TOKEN requirement as the DM
+ * helpers; the bot additionally needs "Send Messages" + "Mention @everyone,
+ * @here, and All Roles" in that channel.
+ */
+export async function sendDiscordChannelMessage(
+  channelId: string,
+  content: string,
+  options?: { pingRoleId?: string },
+): Promise<DiscordDmResult> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) {
+    return { ok: false, error: "DISCORD_BOT_TOKEN ist serverseitig nicht konfiguriert." };
+  }
+
+  try {
+    const messageRes = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content,
+        allowed_mentions: options?.pingRoleId ? { roles: [options.pingRoleId] } : { parse: [] },
+      }),
+    });
+    if (!messageRes.ok) {
+      return { ok: false, error: `Discord-Nachricht konnte nicht gesendet werden (Status ${messageRes.status}).` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Verbindung zur Discord-API fehlgeschlagen." };
+  }
+}
+
+/**
+ * Channel/Rolle für die Krankmeldung/Urlaub-Benachrichtigung an die Führung —
+ * per Env-Var überschreibbar (siehe README), sonst die vom Nutzer fest
+ * vorgegebenen IDs des Führungs-Servers.
+ */
+const ABSENCE_NOTIFICATION_CHANNEL_ID = process.env.DISCORD_ABSENCE_CHANNEL_ID || "1554468305899622521";
+const ABSENCE_NOTIFICATION_ROLE_ID = process.env.DISCORD_ABSENCE_ROLE_ID || "1554468334945304636";
+
+function formatGermanDate(value: string): string {
+  return new Date(value).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+/** Meldet der Führung im konfigurierten Discord-Channel eine neue Krankmeldung oder einen neuen Urlaubsantrag. */
+export async function sendAbsenceRequestChannelMessage(input: {
+  employeeName: string;
+  kind: "krankmeldung" | "urlaub";
+  startDate: string;
+  endDate: string;
+}): Promise<DiscordDmResult> {
+  const kindLabel = input.kind === "krankmeldung" ? "sich krankgemeldet" : "Urlaub beantragt";
+  const content =
+    `<@&${ABSENCE_NOTIFICATION_ROLE_ID}> **${input.employeeName}** hat ${kindLabel} ` +
+    `(${formatGermanDate(input.startDate)} – ${formatGermanDate(input.endDate)}).\n` +
+    `Bitte im Dashboard unter „Krankmeldung und Urlaub" prüfen.`;
+  return sendDiscordChannelMessage(ABSENCE_NOTIFICATION_CHANNEL_ID, content, { pingRoleId: ABSENCE_NOTIFICATION_ROLE_ID });
+}
+
 /** Same as sendDiscordDm, but attaches a file (e.g. the generated Arbeitsvertrag-PDF). */
 export async function sendDiscordDmWithFile(
   discordId: string,

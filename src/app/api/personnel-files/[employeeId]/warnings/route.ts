@@ -7,12 +7,13 @@ export async function POST(request: Request, ctx: RouteContext<"/api/personnel-f
   const date = typeof body?.date === "string" ? body.date : "";
   const reason = typeof body?.reason === "string" ? body.reason.trim() : "";
   const issuedBy = typeof body?.issuedBy === "string" ? body.issuedBy : "";
+  const issuedByRole = typeof body?.issuedByRole === "string" ? body.issuedByRole : "";
 
   if (!date || !reason) {
     return Response.json({ ok: false, error: "Datum und Grund sind erforderlich." }, { status: 400 });
   }
 
-  const result = await generateAndDistributeWarning(employeeId, { date, reason, issuedBy });
+  const result = await generateAndDistributeWarning(employeeId, { date, reason, issuedBy, issuedByRole });
   if (!result.generated) {
     return Response.json({ ok: false, error: result.error }, { status: 404 });
   }

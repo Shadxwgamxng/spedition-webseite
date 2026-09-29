@@ -84,8 +84,11 @@ export function generateHrLetterPdf(input: {
   terminationType?: "ordentlich" | "fristlos";
   /** Name der Person, die das Schreiben ausstellt (aus der Sitzung) - erscheint als Unterschrift; leer -> nur der Firmenname wird unterschrieben. */
   issuedBy?: string;
+  /** Positions-Bezeichnung der unterzeichnenden Person (z. B. "Prokurist") - steuert das "ppa."-Kürzel vor der Unterschrift. */
+  issuedByRole?: string;
 }): Uint8Array {
-  const { kind, company, employeeName, file, logo, date, reason, effectiveDate, terminationType, issuedBy } = input;
+  const { kind, company, employeeName, file, logo, date, reason, effectiveDate, terminationType, issuedBy, issuedByRole } = input;
+  const isProkurist = issuedByRole?.toLowerCase().includes("prokurist") ?? false;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   registerSignatureFont(doc);
   let y = 20;
@@ -228,7 +231,7 @@ export function generateHrLetterPdf(input: {
   y += 22;
   applySignatureFont(doc, 20);
   doc.setTextColor(...NAVY_900);
-  doc.text(issuedBy || company.name, MARGIN_X + 2, y - 3, { maxWidth: 66 });
+  doc.text(issuedBy ? (isProkurist ? `ppa. ${issuedBy}` : issuedBy) : company.name, MARGIN_X + 2, y - 3, { maxWidth: 66 });
   doc.text(employeeName, PAGE_RIGHT - 68, y - 3, { maxWidth: 66 });
   doc.setDrawColor(...NAVY_900);
   doc.setLineWidth(0.4);
@@ -238,7 +241,11 @@ export function generateHrLetterPdf(input: {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...NAVY_900);
-  doc.text(issuedBy ? `${issuedBy} - ${company.name} (Geschäftsführung)` : `${company.name} (Geschäftsführung)`, MARGIN_X, y);
+  doc.text(
+    issuedBy ? `${issuedBy} - ${company.name} (${isProkurist ? "Prokura" : "Geschäftsführung"})` : `${company.name} (Geschäftsführung)`,
+    MARGIN_X,
+    y,
+  );
   doc.text(`${employeeName} (Kenntnisnahme)`, PAGE_RIGHT - 70, y);
 
   const pageCount = doc.getNumberOfPages();

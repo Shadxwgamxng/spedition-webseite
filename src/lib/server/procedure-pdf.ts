@@ -201,8 +201,11 @@ export function generateProcedurePdf(input: {
   title: string;
   body: string;
   issuedBy?: string;
+  /** Positions-Bezeichnung der unterzeichnenden Person (z. B. "Prokurist") - steuert das "ppa."-Kürzel vor der Unterschrift. */
+  issuedByRole?: string;
 }): Uint8Array {
-  const { company, logo, title, body, issuedBy } = input;
+  const { company, logo, title, body, issuedBy, issuedByRole } = input;
+  const isProkurist = issuedByRole?.toLowerCase().includes("prokurist") ?? false;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   registerSignatureFont(doc);
   let y = 20;
@@ -274,7 +277,7 @@ export function generateProcedurePdf(input: {
   }
   applySignatureFont(doc, 18);
   doc.setTextColor(...NAVY_900);
-  doc.text(issuedBy || company.name, MARGIN_X + 2, y - 3, { maxWidth: 80 });
+  doc.text(issuedBy ? (isProkurist ? `ppa. ${issuedBy}` : issuedBy) : company.name, MARGIN_X + 2, y - 3, { maxWidth: 80 });
   doc.setDrawColor(...NAVY_900);
   doc.setLineWidth(0.4);
   doc.line(MARGIN_X, y, MARGIN_X + 80, y);
@@ -282,7 +285,11 @@ export function generateProcedurePdf(input: {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(...NAVY_900);
-  doc.text(issuedBy ? `${issuedBy} - ${company.name} (Geschäftsführung)` : `${company.name} (Geschäftsführung)`, MARGIN_X, y);
+  doc.text(
+    issuedBy ? `${issuedBy} - ${company.name} (${isProkurist ? "Prokura" : "Geschäftsführung"})` : `${company.name} (Geschäftsführung)`,
+    MARGIN_X,
+    y,
+  );
 
   const pageCount = doc.getNumberOfPages();
   for (let page = 1; page <= pageCount; page++) {

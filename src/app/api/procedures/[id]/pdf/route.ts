@@ -26,6 +26,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/api/procedures/
     title: procedure.title,
     body: procedure.body,
     issuedBy: procedure.issuedBy,
+    issuedByRole: procedure.issuedByRole,
   });
   const fileName = `Verfahrensanweisung_${procedure.title.replace(/\s+/g, "_")}.pdf`;
 

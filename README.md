@@ -88,6 +88,8 @@ Cookie. Der OAuth-Callback ist zusätzlich per signiertem `state`-Cookie gegen C
 | `OWNER_DISCORD_ID` | Deine eigene Discord-Nutzer-ID — wird beim allerersten Start automatisch als `discordId` des `admin`-Kontos gesetzt (löst das „Henne-Ei-Problem": ohne bestehendes Geschäftsführungs-Konto könnte sonst niemand ein erstes Konto verknüpfen) |
 | `DISCORD_BOT_TOKEN` | Bot-Token derselben Discord-Anwendung — wird genutzt, um neu angelegten Mitarbeitenden automatisch eine Willkommens-DM mit Login-Link zu schicken (siehe unten). Optional: Ohne diese Variable werden Konten weiterhin ganz normal angelegt, nur die DM entfällt. |
 | `TABLET_API_KEY` | Geteiltes Geheimnis mit dem FiveM Speditions-Tablet für die `/api/tablet/*`-Sync-Routen (siehe „Tablet-Sync" unten). Optional: Ohne diese Variable sind die Routen komplett gesperrt (fail closed), der Rest der Website läuft unverändert weiter. |
+| `DISCORD_ABSENCE_CHANNEL_ID` | Discord-Channel-ID, in die bei einer neuen Krankmeldung/einem neuen Urlaubsantrag gepostet wird (siehe „Krankmeldung und Urlaub" unten). Optional: Ohne diese Variable wird die Standard-ID aus dem Quellcode verwendet. |
+| `DISCORD_ABSENCE_ROLE_ID` | Rollen-ID, die in dieser Nachricht gepingt wird. Optional: Ohne diese Variable wird die Standard-ID aus dem Quellcode verwendet. |
 
 **Discord-Anwendung einrichten:**
 
@@ -234,6 +236,29 @@ mehrseitiges PDF im selben Briefkopf-Stil wie Arbeitsvertrag/Abmahnung/Kündigun
 Handschrift-Unterschrift (`registerSignatureFont`/`applySignatureFont`, gleiche Technik wie bei Abmahnung/
 Kündigung) der Person, die die Anweisung zuletzt gespeichert hat (`ProcedureRecord.issuedBy`, automatisch aus der
 Sitzung befüllt - `CollectionManager`s neues `hiddenDefaults`-Prop, kein eigenes Formularfeld dafür nötig).
+
+Unterschreibt eine Person mit der Position **„Prokurist"** (`issuedByRole`), erscheint die Unterschrift als
+**„ppa. {Name}"** statt nur `{Name}` — ein Prokurist zeichnet rechtlich „per procura" statt als Organ der
+Gesellschaft. Dieselbe Regel gilt für Abmahnung/Kündigung (`hr-letter-pdf.ts`) und für die
+Geschäftsführer-Unterschriften auf dem Arbeitsvertrag (`contract-pdf.ts`, dort anhand der freien `role`-Angabe
+der jeweiligen Person unter Verwaltung → Geschäftsführung).
+
+### Krankmeldung und Urlaub einreichen
+
+Jede Rolle sieht im Sidebar-Modul **„Krankmeldung und Urlaub einreichen"** (`/mitarbeiter/krankmeldung-urlaub`)
+ein Formular, um sich für einen Zeitraum krankzumelden oder Urlaub zu beantragen
+(`POST /api/absence-requests`, `AbsenceRequestRecord` in `db-types.ts`). Eine **Krankmeldung** ist sofort gültig
+und rein informativ — es gibt dafür keinen Genehmigen/Ablehnen-Button. Ein **Urlaubsantrag** startet im Status
+„eingereicht" und muss von der Führung (`MANAGEMENT_ROLES`: Geschäftsführung/Prokurist/Betriebsleitung)
+genehmigt oder abgelehnt werden (`POST /api/absence-requests/[id]/decision`). Alle anderen Rollen sehen und
+verwalten ausschließlich ihre eigenen Anträge; die Führung sieht zusätzlich eine Übersicht aller Mitarbeiter mit
+Genehmigen/Ablehnen-Aktion.
+
+Bei jeder neuen Meldung postet der Discord-Bot automatisch in den unter `DISCORD_ABSENCE_CHANNEL_ID`
+konfigurierten Channel und pingt die unter `DISCORD_ABSENCE_ROLE_ID` konfigurierte Rolle
+(`sendAbsenceRequestChannelMessage`, `src/lib/server/discord-bot.ts`) mit der Bitte, den Antrag im Dashboard zu
+prüfen — setzt denselben `DISCORD_BOT_TOKEN` wie die Willkommens-DM voraus; ohne diese Variable schlägt nur der
+Discord-Post fehl, der Antrag wird trotzdem ganz normal gespeichert.
 
 ### Bewerbungen (nur Geschäftsführer/Prokurist)
 

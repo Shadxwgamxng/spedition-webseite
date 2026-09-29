@@ -80,6 +80,7 @@ const GESCHAEFTSFUEHRUNG_MODULES = [
   "bewerbungen",
   "verwaltung",
   "verfahrensanweisungen",
+  "krankmeldung-urlaub",
 ];
 
 /**
@@ -113,6 +114,7 @@ export const roleModuleAccess: Record<RoleKey, string[]> = {
     "anfragen",
     "stempeluhr",
     "verfahrensanweisungen",
+    "krankmeldung-urlaub",
   ],
   chefdisponent: [
     "disposition",
@@ -124,12 +126,22 @@ export const roleModuleAccess: Record<RoleKey, string[]> = {
     "anfragen",
     "stempeluhr",
     "verfahrensanweisungen",
+    "krankmeldung-urlaub",
   ],
-  disponent: ["disposition", "auftragspool", "live-karte", "kundenstammbaum", "anfragen", "stempeluhr", "verfahrensanweisungen"],
-  lager: ["lager", "stempeluhr", "verfahrensanweisungen"],
-  fuhrpark: ["fahrzeuge", "fahrtenbuch", "stempeluhr", "verfahrensanweisungen"],
-  buchhaltung: ["rechnungen", "finanzen", "stempeluhr", "verfahrensanweisungen"],
-  fahrer: ["fahrerkarte", "auftraege", "stempeluhr", "verfahrensanweisungen"],
+  disponent: [
+    "disposition",
+    "auftragspool",
+    "live-karte",
+    "kundenstammbaum",
+    "anfragen",
+    "stempeluhr",
+    "verfahrensanweisungen",
+    "krankmeldung-urlaub",
+  ],
+  lager: ["lager", "stempeluhr", "verfahrensanweisungen", "krankmeldung-urlaub"],
+  fuhrpark: ["fahrzeuge", "fahrtenbuch", "stempeluhr", "verfahrensanweisungen", "krankmeldung-urlaub"],
+  buchhaltung: ["rechnungen", "finanzen", "stempeluhr", "verfahrensanweisungen", "krankmeldung-urlaub"],
+  fahrer: ["fahrerkarte", "auftraege", "stempeluhr", "verfahrensanweisungen", "krankmeldung-urlaub"],
 };
 
 /** Roles that see the all-employees overview on Stempeluhr and manage Kundenstammbaum. */

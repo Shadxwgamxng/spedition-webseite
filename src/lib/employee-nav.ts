@@ -1,6 +1,7 @@
 import {
   BookIcon,
   BoxIcon,
+  CalendarIcon,
   ChartIcon,
   ClipboardIcon,
   ClockIcon,
@@ -130,6 +131,13 @@ export const employeeModules = [
     label: "Verfahrensanweisungen",
     description: "Interne Arbeitsanweisungen nachlesen (Erstellen/Bearbeiten unter Verwaltung).",
     icon: BookIcon,
+  },
+  {
+    key: "krankmeldung-urlaub",
+    href: "/mitarbeiter/krankmeldung-urlaub",
+    label: "Krankmeldung und Urlaub einreichen",
+    description: "Krankmeldungen und Urlaubsanträge einreichen — Urlaub muss von der Führung genehmigt werden.",
+    icon: CalendarIcon,
   },
   {
     key: "verwaltung",

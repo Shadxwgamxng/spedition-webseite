@@ -8,7 +8,7 @@ import { BellIcon } from "@/components/ui/icons";
 
 type NotificationRecord = {
   id: string;
-  kind: "pool_order" | "order_assigned" | "application" | "inquiry" | "customer_order";
+  kind: "pool_order" | "order_assigned" | "application" | "inquiry" | "customer_order" | "absence_request";
   message: string;
   href: string;
   createdAt: string;

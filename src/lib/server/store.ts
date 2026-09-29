@@ -9,6 +9,8 @@ import {
   type AboutMilestoneRecord,
   type AboutPageInfo,
   type AboutValueRecord,
+  type AbsenceRequestKind,
+  type AbsenceRequestRecord,
   type ApplicationStatus,
   type CollectionName,
   type CompanyInfo,
@@ -43,7 +45,7 @@ import {
 } from "@/lib/server/db-types";
 import type { OrderMessage, OrderRecord, OrderStatus, VehicleRecord } from "@/lib/fleet-data";
 import { sanitizeRichText } from "@/lib/server/sanitize-html";
-import { canAccessModule, isRoleKey, roleKeys, roleLabels, isDriverLicenseKey, type RoleKey } from "@/lib/roles";
+import { canAccessModule, isRoleKey, roleKeys, roleLabels, isDriverLicenseKey, MANAGEMENT_ROLES, type RoleKey } from "@/lib/roles";
 import type {
   DriverPositionRecord,
   LiveMapBoundsRecord,
@@ -955,6 +957,86 @@ export async function markNotificationsRead(ids: string[], employeeName: string)
     }
   }
   if (changed) await writeDb(db);
+}
+
+// ---------------------------------------------------------------------------
+// Krankmeldung/Urlaub — jeder Mitarbeiter darf einreichen, nur MANAGEMENT_ROLES
+// sehen die Anträge aller Mitarbeiter und dürfen Urlaub genehmigen/ablehnen
+// (siehe canApproveAbsenceRequests unten). Eine Krankmeldung braucht keine
+// Genehmigung — sie bleibt dauerhaft status "eingereicht" und dient nur der
+// Information/Dokumentation, s. AbsenceRequestStatus-Kommentar in db-types.ts.
+// ---------------------------------------------------------------------------
+
+const ABSENCE_NOTIFICATION_ROLES = MANAGEMENT_ROLES;
+
+export function canApproveAbsenceRequests(roleKey: RoleKey): boolean {
+  return MANAGEMENT_ROLES.includes(roleKey);
+}
+
+export async function getAbsenceRequestsForEmployee(employeeId: string): Promise<AbsenceRequestRecord[]> {
+  const db = await readDb();
+  return db.absenceRequests.filter((r) => r.employeeId === employeeId);
+}
+
+export async function getAllAbsenceRequests(): Promise<AbsenceRequestRecord[]> {
+  const db = await readDb();
+  return db.absenceRequests;
+}
+
+export async function createAbsenceRequest(input: {
+  employeeId: string;
+  employeeName: string;
+  kind: AbsenceRequestKind;
+  startDate: string;
+  endDate: string;
+  note: string;
+}): Promise<AbsenceRequestRecord> {
+  if (!input.startDate || !input.endDate) throw new Error("Zeitraum ist erforderlich.");
+  if (input.endDate < input.startDate) throw new Error("Das Enddatum darf nicht vor dem Startdatum liegen.");
+
+  const db = await readDb();
+  const record: AbsenceRequestRecord = {
+    id: makeId(`${input.kind}-${input.employeeId}-${input.startDate}`),
+    employeeId: input.employeeId,
+    employeeName: input.employeeName,
+    kind: input.kind,
+    startDate: input.startDate,
+    endDate: input.endDate,
+    note: input.note.trim(),
+    status: "eingereicht",
+    createdAt: new Date().toISOString(),
+    decidedBy: null,
+    decidedAt: null,
+  };
+  db.absenceRequests.unshift(record);
+  pushNotification(db, {
+    kind: "absence_request",
+    message:
+      input.kind === "krankmeldung"
+        ? `${input.employeeName} hat sich krankgemeldet (${input.startDate} – ${input.endDate})`
+        : `${input.employeeName} hat Urlaub beantragt (${input.startDate} – ${input.endDate})`,
+    href: "/mitarbeiter/krankmeldung-urlaub",
+    audienceRoles: ABSENCE_NOTIFICATION_ROLES,
+  });
+  await writeDb(db);
+  return record;
+}
+
+export async function decideAbsenceRequest(
+  id: string,
+  decision: "genehmigt" | "abgelehnt",
+  decidedBy: string,
+): Promise<AbsenceRequestRecord> {
+  const db = await readDb();
+  const record = db.absenceRequests.find((r) => r.id === id);
+  if (!record) throw new Error("Antrag nicht gefunden.");
+  if (record.kind !== "urlaub") throw new Error("Nur Urlaubsanträge können genehmigt/abgelehnt werden.");
+
+  record.status = decision;
+  record.decidedBy = decidedBy;
+  record.decidedAt = new Date().toISOString();
+  await writeDb(db);
+  return record;
 }
 
 export async function createOrder(input: {
