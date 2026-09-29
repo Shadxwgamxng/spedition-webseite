@@ -56,7 +56,7 @@ export default function KrankmeldungUrlaubPage() {
 
       <SubmitForm refetch={refetch} />
 
-      <OwnRequests requests={own} />
+      <OwnRequests requests={own} refetch={refetch} />
 
       {isManager ? <ManagerOverview requests={requests} refetch={refetch} /> : null}
     </div>
@@ -167,36 +167,190 @@ function SubmitForm({ refetch }: { refetch: () => Promise<void> }) {
   );
 }
 
-function OwnRequests({ requests }: { requests: AbsenceRequestRecord[] }) {
+function OwnRequests({ requests, refetch }: { requests: AbsenceRequestRecord[]; refetch: () => Promise<void> }) {
   const sorted = [...requests].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function remove(id: string) {
+    if (!window.confirm("Diesen Antrag wirklich löschen?")) return;
+    setBusyId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/absence-requests/${id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({ ok: false }));
+      if (!res.ok || !json.ok) {
+        setError(json.error ?? "Antrag konnte nicht gelöscht werden.");
+        return;
+      }
+      await refetch();
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div className="mt-10 max-w-2xl">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-600">Meine Anträge</h2>
+      {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
       <div className="mt-4 space-y-3">
         {sorted.length === 0 ? (
           <p className="text-sm text-navy-700/60">Noch keine Krankmeldungen oder Urlaubsanträge.</p>
         ) : (
-          sorted.map((r) => (
-            <div
-              key={r.id}
-              className="flex items-center justify-between rounded-2xl border border-navy-900/8 bg-white p-4 shadow-sm shadow-navy-950/5"
-            >
-              <div>
-                <div className="text-sm font-semibold text-navy-900">
-                  {KIND_LABEL[r.kind]} · {formatDate(r.startDate)} – {formatDate(r.endDate)}
-                </div>
-                {r.note ? <div className="mt-1 text-xs text-navy-700/60">{r.note}</div> : null}
-                {r.decidedBy ? (
-                  <div className="mt-1 text-xs text-navy-700/50">
-                    Entschieden von {r.decidedBy} am {formatDate(r.decidedAt ?? "")}
+          sorted.map((r) =>
+            editingId === r.id ? (
+              <EditRequestForm
+                key={r.id}
+                request={r}
+                onCancel={() => setEditingId(null)}
+                onSaved={async () => {
+                  setEditingId(null);
+                  await refetch();
+                }}
+              />
+            ) : (
+              <div
+                key={r.id}
+                className="flex items-center justify-between rounded-2xl border border-navy-900/8 bg-white p-4 shadow-sm shadow-navy-950/5"
+              >
+                <div>
+                  <div className="text-sm font-semibold text-navy-900">
+                    {KIND_LABEL[r.kind]} · {formatDate(r.startDate)} – {formatDate(r.endDate)}
                   </div>
-                ) : null}
+                  {r.note ? <div className="mt-1 text-xs text-navy-700/60">{r.note}</div> : null}
+                  {r.decidedBy ? (
+                    <div className="mt-1 text-xs text-navy-700/50">
+                      Entschieden von {r.decidedBy} am {formatDate(r.decidedAt ?? "")}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge tone={statusTone(r.status)}>{statusLabel(r)}</Badge>
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(r.id)}
+                    className="rounded-full border border-navy-900/15 px-3 py-1.5 text-xs font-semibold text-navy-700 hover:bg-mist-100"
+                  >
+                    Bearbeiten
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyId === r.id}
+                    onClick={() => remove(r.id)}
+                    className="rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
+                  >
+                    Löschen
+                  </button>
+                </div>
               </div>
-              <Badge tone={statusTone(r.status)}>{statusLabel(r)}</Badge>
-            </div>
-          ))
+            ),
+          )
         )}
+      </div>
+    </div>
+  );
+}
+
+function EditRequestForm({
+  request,
+  onCancel,
+  onSaved,
+}: {
+  request: AbsenceRequestRecord;
+  onCancel: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [startDate, setStartDate] = useState(request.startDate);
+  const [endDate, setEndDate] = useState(request.endDate);
+  const [note, setNote] = useState(request.note);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setError(null);
+    if (!startDate || !endDate) {
+      setError("Bitte Start- und Enddatum angeben.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/absence-requests/${request.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startDate, endDate, note }),
+      });
+      const json = await res.json().catch(() => ({ ok: false }));
+      if (!res.ok || !json.ok) {
+        setError(json.error ?? "Antrag konnte nicht bearbeitet werden.");
+        return;
+      }
+      await onSaved();
+    } catch {
+      setError("Verbindung zum Server fehlgeschlagen.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-amber-300 bg-amber-50/40 p-4 shadow-sm shadow-navy-950/5">
+      <div className="text-sm font-semibold text-navy-900">{KIND_LABEL[request.kind]} bearbeiten</div>
+      {request.kind === "urlaub" ? (
+        <p className="mt-1 text-xs text-navy-700/60">
+          Eine Änderung setzt den Status zurück auf „Ausstehend“ — der Antrag muss erneut genehmigt werden.
+        </p>
+      ) : null}
+
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="text-xs font-medium uppercase tracking-wide text-navy-700/50">Von</span>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-navy-900/15 px-3 py-2 text-sm text-navy-900"
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium uppercase tracking-wide text-navy-700/50">Bis</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-navy-900/15 px-3 py-2 text-sm text-navy-900"
+          />
+        </label>
+      </div>
+
+      <label className="mt-3 block">
+        <span className="text-xs font-medium uppercase tracking-wide text-navy-700/50">Anmerkung (optional)</span>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={2}
+          className="mt-1 w-full rounded-lg border border-navy-900/15 px-3 py-2 text-sm text-navy-900"
+        />
+      </label>
+
+      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={save}
+          className="rounded-full bg-navy-900 px-4 py-2 text-xs font-semibold text-white hover:bg-navy-800 disabled:opacity-60"
+        >
+          {saving ? "Wird gespeichert…" : "Speichern"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-full border border-navy-900/15 px-4 py-2 text-xs font-semibold text-navy-700 hover:bg-mist-100"
+        >
+          Abbrechen
+        </button>
       </div>
     </div>
   );

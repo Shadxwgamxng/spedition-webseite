@@ -1039,6 +1039,54 @@ export async function decideAbsenceRequest(
   return record;
 }
 
+/** Bearbeitet den eigenen Antrag (Zeitraum/Anmerkung) — nur der Ersteller selbst, nicht die Führung. */
+export async function updateAbsenceRequest(
+  id: string,
+  employeeId: string,
+  input: { startDate: string; endDate: string; note: string },
+): Promise<AbsenceRequestRecord> {
+  if (!input.startDate || !input.endDate) throw new Error("Zeitraum ist erforderlich.");
+  if (input.endDate < input.startDate) throw new Error("Das Enddatum darf nicht vor dem Startdatum liegen.");
+
+  const db = await readDb();
+  const record = db.absenceRequests.find((r) => r.id === id);
+  if (!record) throw new Error("Antrag nicht gefunden.");
+  if (record.employeeId !== employeeId) throw new Error("Keine Berechtigung.");
+
+  record.startDate = input.startDate;
+  record.endDate = input.endDate;
+  record.note = input.note.trim();
+  // Eine bereits entschiedene oder laufende Urlaubsmeldung braucht nach einer
+  // inhaltlichen Änderung eine neue Prüfung durch die Führung — eine
+  // Krankmeldung bleibt ohnehin immer "eingereicht" (siehe Kommentar oben).
+  if (record.kind === "urlaub") {
+    record.status = "eingereicht";
+    record.decidedBy = null;
+    record.decidedAt = null;
+  }
+  pushNotification(db, {
+    kind: "absence_request",
+    message:
+      record.kind === "krankmeldung"
+        ? `${record.employeeName} hat die Krankmeldung angepasst (${record.startDate} – ${record.endDate})`
+        : `${record.employeeName} hat den Urlaubsantrag angepasst — erneute Prüfung nötig (${record.startDate} – ${record.endDate})`,
+    href: "/mitarbeiter/krankmeldung-urlaub",
+    audienceRoles: ABSENCE_NOTIFICATION_ROLES,
+  });
+  await writeDb(db);
+  return record;
+}
+
+/** Löscht den eigenen Antrag — nur der Ersteller selbst, nicht die Führung. */
+export async function deleteAbsenceRequest(id: string, employeeId: string): Promise<void> {
+  const db = await readDb();
+  const index = db.absenceRequests.findIndex((r) => r.id === id);
+  if (index === -1) throw new Error("Antrag nicht gefunden.");
+  if (db.absenceRequests[index].employeeId !== employeeId) throw new Error("Keine Berechtigung.");
+  db.absenceRequests.splice(index, 1);
+  await writeDb(db);
+}
+
 export async function createOrder(input: {
   customer: string;
   pickup: string;
